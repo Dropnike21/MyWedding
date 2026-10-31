@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261031-2330";
+  const BUILD = "20261101-camera2";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -145,6 +145,22 @@
     preview: document.getElementById("camera-preview"),
     session: document.getElementById("camera-session"),
     video: document.getElementById("camera-video"),
+    frameGuide: document.getElementById("camera-framing-guide"),
+    aspectButtons: [...document.querySelectorAll("[data-camera-aspect]")],
+    temperature: document.getElementById("camera-temperature"),
+    temperatureValue: document.getElementById("camera-temperature-value"),
+    focusControls: document.getElementById("camera-manual-focus-controls"),
+    focusDistance: document.getElementById("camera-focus-distance"),
+    focusDistanceValue: document.getElementById("camera-focus-distance-value"),
+    focusAuto: document.getElementById("camera-focus-auto"),
+    settingsHelp: document.getElementById("camera-setting-help"),
+    depthOverlay: document.getElementById("camera-depth-overlay"),
+    rotate: document.getElementById("camera-rotate"),
+    rotateLabel: document.getElementById("camera-rotate-label"),
+    beauty: document.getElementById("camera-beauty"),
+    beautyValue: document.getElementById("camera-beauty-value"),
+    aperture: document.getElementById("camera-aperture"),
+    apertureValue: document.getElementById("camera-aperture-value"),
     canvas: document.getElementById("camera-capture-canvas"),
     flight: document.getElementById("camera-capture-flight"),
     flash: document.getElementById("camera-flash"),
@@ -197,6 +213,16 @@
     exposureMax: 1,
     exposureValue: 0,
     hardwareExposure: false,
+    beautyStrength: 0,
+    apertureStrength: 0,
+    manualLandscape: false,
+    autoTiltLandscape: null,
+    aspectRatio: "4:3",
+    temperatureOffset: 0,
+    hardwareWhiteBalance: false,
+    whiteBalanceModes: [],
+    manualFocusAvailable: false,
+    focusRange: null,
     pointers: new Map(),
     pinchStartDistance: 0,
     pinchStartZoom: 1,
@@ -268,22 +294,139 @@
   function combinedPreviewFilter() {
     const base = CAMERA_FILTERS[camera.filter]?.css || "none";
     const exposure = camera.hardwareExposure ? 0 : camera.exposureValue;
-    const brightness = 1 + exposure * .14;
-    return (base === "none" ? "" : base + " ") + "brightness(" + brightness.toFixed(3) + ")";
+    const beauty = camera.beautyStrength / 100;
+    const brightness = 1 + exposure * .14 + beauty * .025;
+    // This is whole-frame softening, not facial recognition or skin reconstruction.
+    const softening = beauty ? " contrast(" + (1 - beauty * .055).toFixed(3) +
+      ") saturate(" + (1 + beauty * .035).toFixed(3) + ") blur(" +
+      (beauty * .65).toFixed(2) + "px)" : "";
+    const white = camera.hardwareWhiteBalance ? "" :
+      camera.temperatureOffset < 0
+        ? " sepia(" + (-camera.temperatureOffset * .002).toFixed(3) + ") saturate(" +
+          (1 + -camera.temperatureOffset * .001).toFixed(3) + ")"
+        : camera.temperatureOffset > 0
+          ? " hue-rotate(" + (camera.temperatureOffset * .12).toFixed(1) +
+            "deg) saturate(" + (1 - camera.temperatureOffset * .0005).toFixed(3) + ")"
+          : "";
+    return (base === "none" ? "" : base + " ") +
+      "brightness(" + brightness.toFixed(3) + ")" + softening + white;
   }
 
   function updateVideoPresentation() {
     if (!camera.video) return;
+    if (camera.frameGuide) camera.frameGuide.hidden = !camera.stream;
     camera.video.style.filter = combinedPreviewFilter();
     const zoom = camera.hardwareZoom ? 1 : camera.digitalZoom;
     const mirror = camera.facingMode === "user" ? " scaleX(-1)" : "";
     camera.video.style.transform = "scale(" + zoom.toFixed(3) + ")" + mirror;
+    if (camera.depthOverlay) {
+      const depth = camera.apertureStrength / 100;
+      camera.depthOverlay.hidden = !camera.stream || depth === 0;
+      camera.depthOverlay.style.setProperty("--depth-blur", (depth * 12).toFixed(1) + "px");
+    }
+  }
+
+  function isCameraLandscape() {
+    return Boolean(window.matchMedia("(orientation: landscape)").matches ||
+      camera.manualLandscape || camera.autoTiltLandscape === true);
+  }
+
+  function updateCameraFrameGuide() {
+    const frame = camera.frameGuide;
+    const stage = camera.preview;
+    if (!frame || !stage || camera.session?.hidden) return;
+    // clientWidth/clientHeight stay in local camera coordinates even when the
+    // full interface has been CSS-rotated for a rotation-locked phone.
+    const width=stage.clientWidth, height=stage.clientHeight;
+    if (!width || !height) return;
+    const base = {"4:3":4/3,"1:1":1,"16:9":16/9}[camera.aspectRatio] || 4/3;
+    const ratio = isCameraLandscape() ? base : 1/base;
+    const w = Math.min(width*.94,height*.94*ratio);
+    frame.style.width = Math.round(w) + "px";
+    const h = w/ratio;
+    frame.style.height = Math.round(h) + "px";
+    frame.dataset.aspect = camera.aspectRatio;
+    // The actual video viewport matches the JPEG crop, avoiding a misleading
+    // full-screen preview with a different field of view from the saved image.
+    if (camera.video) {
+      camera.video.style.position = "absolute";
+      camera.video.style.left = Math.round((width-w)/2) + "px";
+      camera.video.style.top = Math.round((height-h)/2) + "px";
+      camera.video.style.width = Math.round(w) + "px";
+      camera.video.style.height = Math.round(h) + "px";
+    }
+    if (camera.depthOverlay) {
+      camera.depthOverlay.style.left = Math.round((width-w)/2) + "px";
+      camera.depthOverlay.style.top = Math.round((height-h)/2) + "px";
+      camera.depthOverlay.style.width = Math.round(w) + "px";
+      camera.depthOverlay.style.height = Math.round(h) + "px";
+      camera.depthOverlay.style.right = "auto";
+      camera.depthOverlay.style.bottom = "auto";
+    }
   }
 
   function updateCameraOrientation() {
-    const landscape = window.matchMedia("(orientation: landscape)").matches;
+    const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
+    const manual = !viewportLandscape &&
+      (camera.manualLandscape || camera.autoTiltLandscape === true);
+    const landscape = viewportLandscape || manual;
     camera.session?.classList.toggle("is-landscape",landscape);
-    document.body.classList.toggle("camera-landscape",landscape && document.body.classList.contains("camera-session-active"));
+    camera.session?.classList.toggle("is-manual-landscape",manual);
+    document.body.classList.toggle("camera-landscape",
+      landscape && document.body.classList.contains("camera-session-active"));
+    camera.rotate?.setAttribute("aria-pressed",String(camera.manualLandscape));
+    if (camera.rotateLabel) camera.rotateLabel.textContent = camera.manualLandscape ? "Auto" : "Rotate";
+    camera.rotate?.setAttribute("aria-label",camera.manualLandscape
+      ? "Return camera interface to automatic orientation"
+      : "Rotate camera interface into landscape mode");
+    requestAnimationFrame(updateCameraFrameGuide);
+  }
+
+  function selectCameraAspect(aspect) {
+    if (!["4:3","1:1","16:9"].includes(aspect)) return;
+    camera.aspectRatio = aspect;
+    camera.aspectButtons.forEach(button=>{
+      const selected = button.dataset.cameraAspect === aspect;
+      button.classList.toggle("active",selected);
+      button.setAttribute("aria-pressed",String(selected));
+    });
+    updateCameraFrameGuide();
+    if (camera.message) camera.message.textContent = aspect + " photo framing selected.";
+  }
+
+  function handleCameraDeviceTilt(event) {
+    if (!camera.stream || camera.manualLandscape || !Number.isFinite(event?.gamma) ||
+        !Number.isFinite(event?.beta)) return;
+    // Only infer a rotation for a reasonably upright phone; flat-on-table poses
+    // do not have a stable sensor-based orientation.
+    const side = Math.abs(event.gamma);
+    const forward = Math.abs(event.beta);
+    // Portrait-upright phones can report beta near 90°. Always allow a
+    // transition back to portrait so auto-tilt cannot get stuck landscape.
+    const landscape = side < 27 ? false : (side > 57 && forward < 70 ? true : null);
+    if (landscape === null || landscape === camera.autoTiltLandscape) return;
+    camera.autoTiltLandscape = landscape;
+    updateCameraOrientation();
+  }
+
+  function toggleCameraOrientation() {
+    camera.manualLandscape = !camera.manualLandscape;
+    updateCameraOrientation();
+    if (camera.message) camera.message.textContent = camera.manualLandscape
+      ? "Landscape interface selected. Tap Auto to return to the phone's orientation."
+      : "Camera interface follows the phone's screen orientation.";
+  }
+
+  function setPortraitEffect(kind, strength) {
+    const value = clamp(Number(strength) || 0, 0, 100);
+    if (kind === "beauty") {
+      camera.beautyStrength = value;
+      if (camera.beautyValue) camera.beautyValue.textContent = value ? value + "%" : "Off";
+    } else if (kind === "aperture") {
+      camera.apertureStrength = value;
+      if (camera.apertureValue) camera.apertureValue.textContent = value ? value + "%" : "Off";
+    }
+    updateVideoPresentation();
   }
 
   function closeCameraSheet() {
@@ -311,6 +454,10 @@
     camera.torchOn = false;
     camera.hardwareZoom = false;
     camera.hardwareExposure = false;
+    camera.hardwareWhiteBalance = false;
+    camera.manualFocusAvailable = false;
+    camera.focusRange = null;
+    if (camera.focusControls) camera.focusControls.hidden = true;
     camera.zoomValue = 1;
     camera.digitalZoom = 1;
     camera.exposureValue = 0;
@@ -321,7 +468,15 @@
       camera.video.hidden = true;
       camera.video.style.transform = "";
       camera.video.style.filter = "";
+      camera.video.style.position = "";
+      camera.video.style.left = "";
+      camera.video.style.top = "";
+      camera.video.style.width = "";
+      camera.video.style.height = "";
     }
+    if (camera.frameGuide) camera.frameGuide.hidden = true;
+    if (camera.depthOverlay) camera.depthOverlay.hidden = true;
+    camera.autoTiltLandscape = null;
     if (camera.torch) {
       camera.torch.classList.remove("active");
       camera.torch.hidden = true;
@@ -340,6 +495,19 @@
     camera.localTaken = 0;
     camera.filter = "natural";
     camera.timer = 0;
+    camera.manualLandscape = false;
+    camera.autoTiltLandscape = null;
+    camera.aspectRatio = "4:3";
+    selectCameraAspect("4:3");
+    camera.temperatureOffset = 0;
+    if (camera.temperature) camera.temperature.value = "0";
+    if (camera.temperatureValue) camera.temperatureValue.textContent = "Auto";
+    if (camera.focusControls) camera.focusControls.hidden = true;
+    updateCameraOrientation();
+    if (camera.beauty) camera.beauty.value = "0";
+    if (camera.aperture) camera.aperture.value = "0";
+    setPortraitEffect("beauty",0);
+    setPortraitEffect("aperture",0);
     camera.gridOn = true;
     camera.capturing = false;
     camera.effectPreviewData = "";
@@ -418,11 +586,56 @@
       camera.exposureValue = 0;
     }
 
-    if (Array.isArray(camera.capabilities.focusMode) &&
-        camera.capabilities.focusMode.includes("continuous")) {
+    const modes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
+    const focus = camera.capabilities.focusDistance;
+    camera.focusRange = focus && Number.isFinite(focus.min) && Number.isFinite(focus.max) &&
+      focus.max > focus.min && modes.includes("manual") ? focus : null;
+    camera.manualFocusAvailable = Boolean(camera.focusRange);
+    if (camera.focusControls) camera.focusControls.hidden = !camera.manualFocusAvailable;
+    if (camera.settingsHelp) camera.settingsHelp.textContent = camera.manualFocusAvailable
+      ? "Manual lens focus is available. Tap the image to focus on supported phones."
+      : "Tap to focus where supported. White balance uses a software color adjustment.";
+    if (modes.includes("continuous")) {
       try { await track.applyConstraints({ advanced:[{ focusMode:"continuous" }] }); } catch {}
     }
     updateVideoPresentation();
+  }
+
+  function setCameraTemperature(value) {
+    camera.temperatureOffset = clamp(Number(value)||0,-100,100);
+    const offset = camera.temperatureOffset;
+    if (camera.temperatureValue) camera.temperatureValue.textContent =
+      offset === 0 ? "Neutral" : Math.abs(offset) + (offset < 0 ? "% warm" : "% cool");
+    // Software color-temperature simulation, independent of camera hardware support.
+    updateVideoPresentation();
+  }
+
+  async function setManualFocus(value) {
+    const track = camera.track, range = camera.focusRange;
+    if (!track || !range || !camera.manualFocusAvailable) return;
+    const pct = clamp(Number(value)||0,0,100);
+    try {
+      await track.applyConstraints({ advanced:[{
+        focusMode:"manual", focusDistance:range.min+(range.max-range.min)*pct/100
+      }] });
+      if (camera.focusDistanceValue) camera.focusDistanceValue.textContent = pct+"%";
+    } catch(error) {
+      console.warn("Manual lens focus rejected:",error);
+      camera.manualFocusAvailable = false;
+      if (camera.focusControls) camera.focusControls.hidden = true;
+      if (camera.message) camera.message.textContent = "Use tap to focus on this camera.";
+    }
+  }
+
+  async function resetAutoFocus() {
+    const modes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
+    const mode = modes.includes("continuous") ? "continuous" :
+      modes.includes("single-shot") ? "single-shot" : null;
+    if (!mode || !camera.track) return;
+    try {
+      await camera.track.applyConstraints({ advanced:[{focusMode:mode}] });
+      if (camera.focusDistanceValue) camera.focusDistanceValue.textContent = "Auto";
+    } catch {}
   }
 
   async function setCameraZoom(value) {
@@ -462,11 +675,26 @@
     if (camera.exposureIndicator) camera.exposureIndicator.style.top = (100-pct*100).toFixed(1)+"%";
   }
 
+  function localCameraPoint(clientX,clientY,element) {
+    const rect=element.getBoundingClientRect();
+    if (camera.session?.classList.contains("is-manual-landscape")) {
+      // The entire camera UI is rotated 90° clockwise when Android rotation
+      // lock is active. Convert screen touches back into local camera space.
+      return {
+        x:clamp(clientY-rect.top,0,element.clientWidth),
+        y:clamp(rect.right-clientX,0,element.clientHeight)
+      };
+    }
+    return {x:clamp(clientX-rect.left,0,element.clientWidth),
+      y:clamp(clientY-rect.top,0,element.clientHeight)};
+  }
+
   function showFocusUi(clientX,clientY) {
     if (!camera.preview || !camera.focusPoint || !camera.exposureHud) return;
-    const rect = camera.preview.getBoundingClientRect();
-    const x = clamp(clientX-rect.left,18,rect.width-18);
-    const y = clamp(clientY-rect.top,18,rect.height-18);
+    const {x:rawX,y:rawY}=localCameraPoint(clientX,clientY,camera.preview);
+    const width=camera.preview.clientWidth,height=camera.preview.clientHeight;
+    const x=clamp(rawX,18,Math.max(18,width-18));
+    const y=clamp(rawY,18,Math.max(18,height-18));
     camera.focusPoint.hidden = false;
     camera.focusPoint.style.left = x+"px";
     camera.focusPoint.style.top = y+"px";
@@ -474,20 +702,22 @@
     void camera.focusPoint.offsetWidth;
     camera.focusPoint.classList.add("pulse");
     camera.exposureHud.hidden = false;
-    camera.exposureHud.style.left = clamp(x+34,24,rect.width-34)+"px";
-    camera.exposureHud.style.top = clamp(y-46,40,rect.height-120)+"px";
+    camera.exposureHud.style.left = clamp(x+34,24,Math.max(24,width-34))+"px";
+    camera.exposureHud.style.top = clamp(y-46,40,Math.max(40,height-120))+"px";
   }
 
   async function focusAt(clientX,clientY) {
     if (!camera.preview || !camera.track || !camera.video) return;
     showFocusUi(clientX,clientY);
-    const rect = camera.preview.getBoundingClientRect();
-    let nx = clamp((clientX-rect.left)/rect.width,0,1);
-    const ny = clamp((clientY-rect.top)/rect.height,0,1);
-    if (camera.facingMode === "user") nx = 1-nx;
+    const video=camera.video;
+    const p=localCameraPoint(clientX,clientY,video);
+    let nx=clamp(p.x/Math.max(1,video.clientWidth),0,1);
+    const ny=clamp(p.y/Math.max(1,video.clientHeight),0,1);
+    if (camera.facingMode === "user") nx=1-nx;
+    const geo=captureGeometry(video);
     const point = {
-      x:Math.round(nx*Math.max(1,camera.video.videoWidth)),
-      y:Math.round(ny*Math.max(1,camera.video.videoHeight)),
+      x:Math.round(geo.sx + nx*geo.sw),
+      y:Math.round(geo.sy + ny*geo.sh),
     };
     const focusModes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
     if (camera.supportedConstraints.pointsOfInterest && focusModes.includes("single-shot")) {
@@ -596,6 +826,7 @@
       camera.railToggle.hidden=false;
       setRail(false);
       updateCameraOrientation();
+      requestAnimationFrame(updateCameraFrameGuide);
       updateCameraQuota();
     } catch(error) {
       stopStream();
@@ -746,8 +977,9 @@
   }
 
   function captureGeometry(video) {
-    const landscape=window.matchMedia("(orientation: landscape)").matches;
-    const ratio=landscape?4/3:3/4;
+    const landscape=isCameraLandscape();
+    const base = {"4:3":4/3,"1:1":1,"16:9":16/9}[camera.aspectRatio] || 4/3;
+    const ratio=landscape?base:1/base;
     const vw=video.videoWidth,vh=video.videoHeight;
     let sx=0,sy=0,sw=vw,sh=vh;
     const sourceRatio=vw/vh;
@@ -760,14 +992,9 @@
       sx+=(sw-zoomW)/2; sy+=(sh-zoomH)/2; sw=zoomW;sh=zoomH;
     }
 
-    let width,height;
-    if (landscape) {
-      width=Math.min(2400,Math.max(1200,Math.round(sw)));
-      height=Math.round(width/ratio);
-    } else {
-      height=Math.min(2400,Math.max(1600,Math.round(sh)));
-      width=Math.round(height*ratio);
-    }
+    const scale=Math.min(1,2400/Math.max(sw,sh));
+    const width=Math.max(1,Math.round(sw*scale));
+    const height=Math.max(1,Math.round(sh*scale));
     return {sx,sy,sw,sh,width,height,orientation:landscape?"landscape":"portrait"};
   }
 
@@ -792,14 +1019,53 @@
     const context=canvas.getContext("2d");
     if (!context) return {canvas:null,orientation:geometry.orientation};
 
-    context.save();
-    if (look) context.filter=combinedPreviewFilter();
-    if (camera.facingMode==="user") {
-      context.translate(canvas.width,0);
-      context.scale(-1,1);
+    const drawFrame = target => {
+      target.save();
+      if (camera.facingMode === "user") {
+        target.translate(canvas.width,0);
+        target.scale(-1,1);
+      }
+      target.drawImage(video,geometry.sx,geometry.sy,geometry.sw,geometry.sh,0,0,canvas.width,canvas.height);
+      target.restore();
+    };
+    const depth = look ? camera.apertureStrength / 100 : 0;
+    if (depth && "filter" in context) {
+      // A center-focus approximation, not optical depth-of-field or subject segmentation.
+      context.save();
+      context.filter = combinedPreviewFilter() + " blur(" + (depth * 12).toFixed(1) + "px)";
+      drawFrame(context);
+      context.restore();
+      // Feather the sharp central area instead of clipping at a hard ellipse.
+      const sharp=document.createElement("canvas");
+      sharp.width=canvas.width; sharp.height=canvas.height;
+      const mask=document.createElement("canvas");
+      mask.width=canvas.width; mask.height=canvas.height;
+      const foreground=sharp.getContext("2d"), matte=mask.getContext("2d");
+      if (foreground && matte) {
+        foreground.filter=combinedPreviewFilter();
+        drawFrame(foreground);
+        matte.save();
+        matte.translate(canvas.width/2,canvas.height/2);
+        matte.scale(canvas.width*.43,canvas.height*.48);
+        const fade=matte.createRadialGradient(0,0,0,0,0,1);
+        fade.addColorStop(0,"rgba(0,0,0,1)");
+        fade.addColorStop(.48,"rgba(0,0,0,1)");
+        fade.addColorStop(1,"rgba(0,0,0,0)");
+        matte.fillStyle=fade;
+        matte.fillRect(-3,-3,6,6);
+        matte.restore();
+        foreground.filter="none";
+        foreground.globalCompositeOperation="destination-in";
+        foreground.drawImage(mask,0,0);
+        foreground.globalCompositeOperation="source-over";
+        context.drawImage(sharp,0,0);
+      }
+    } else {
+      context.save();
+      if (look) context.filter = combinedPreviewFilter();
+      drawFrame(context);
+      context.restore();
     }
-    context.drawImage(video,geometry.sx,geometry.sy,geometry.sw,geometry.sh,0,0,canvas.width,canvas.height);
-    context.restore();
     if (watermark) drawWatermark(context,canvas);
     return {canvas,orientation:geometry.orientation};
   }
@@ -956,6 +1222,14 @@
   camera.start?.addEventListener("click",()=>startCamera());
   camera.take?.addEventListener("click",capturePhoto);
   camera.flip?.addEventListener("click",switchCamera);
+  camera.aspectButtons.forEach(button =>
+    button.addEventListener("click",()=>selectCameraAspect(button.dataset.cameraAspect)));
+  camera.temperature?.addEventListener("input",event=>setCameraTemperature(event.target.value));
+  camera.focusDistance?.addEventListener("input",event=>setManualFocus(event.target.value));
+  camera.focusAuto?.addEventListener("click",resetAutoFocus);
+  camera.rotate?.addEventListener("click",toggleCameraOrientation);
+  camera.beauty?.addEventListener("input",event=>setPortraitEffect("beauty",event.target.value));
+  camera.aperture?.addEventListener("input",event=>setPortraitEffect("aperture",event.target.value));
   camera.torch?.addEventListener("click",toggleTorch);
   camera.timerButton?.addEventListener("click",cycleTimer);
   camera.railToggle?.addEventListener("click",()=>setRail(!camera.railOpen));
@@ -974,6 +1248,9 @@
     screen.orientation.addEventListener("change",updateCameraOrientation);
   }
   window.addEventListener("resize",updateCameraOrientation,{passive:true});
+  window.addEventListener("orientationchange",updateCameraOrientation,{passive:true});
+  window.visualViewport?.addEventListener("resize",updateCameraOrientation,{passive:true});
+  window.addEventListener("deviceorientation",handleCameraDeviceTilt,{passive:true});
 
   const revealObserver = motionOK && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
