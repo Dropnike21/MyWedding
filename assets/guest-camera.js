@@ -30,6 +30,7 @@ let authApi = null;
 let pendingLinkCode = null;
 let sessionRestoring = false;
 let cameraAccess = null;
+const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
 const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
 const PREVIEW_USAGE_KEY = "mywedding_camera_preview_usage_v1";
 const previewTestCode = normalize(guestAccessConfig.previewTestCode || "AJ27-TEST");
@@ -217,6 +218,11 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
   const switchSubmit = switching ? switchForm?.querySelector('button[type="submit"]') : submit;
   if (switchSubmit) switchSubmit.disabled = true;
   if (!switching) cameraButton.disabled = true;
+  const verifyLoader = window.WeddingUI?.begin(
+    switching ? "Switching camera pass…" : "Verifying invitation…",
+    "Checking secure guest access.",
+    { blocking: true, delay: 160 }
+  );
   report(
     fromLink ? "Opening your private wedding camera…" :
     switching ? "Switching camera pass…" :
@@ -255,12 +261,13 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
     }
     return false;
   } finally {
+    if (verifyLoader) window.WeddingUI?.end(verifyLoader);
     if (switchSubmit) switchSubmit.disabled = false;
   }
 }
 
 async function restoreOnThisDevice() {
-  if (sessionRestoring || pendingLinkCode) return;
+  if (!cameraRequested() || sessionRestoring || pendingLinkCode) return;
   sessionRestoring = true;
 
   if (!guestAccessConfig.enabled) {
@@ -286,6 +293,11 @@ async function restoreOnThisDevice() {
   }
 
   show("Checking whether this phone already has wedding camera access…");
+  const restoreLoader = window.WeddingUI?.begin(
+    "Restoring camera pass…",
+    "Checking the saved invitation session on this device.",
+    { blocking: true, delay: 180 }
+  );
   try {
     const session = await checkRememberedSession();
     if (!session?.valid) {
@@ -312,6 +324,7 @@ async function restoreOnThisDevice() {
       show("We couldn't restore the saved camera session. You can enter the invitation code again.", "error");
     }
   } finally {
+    if (restoreLoader) window.WeddingUI?.end(restoreLoader);
     sessionRestoring = false;
   }
 }
@@ -363,10 +376,19 @@ document.addEventListener("wedding:photo-captured", event => {
 
 window.addEventListener("hashchange", () => {
   const code = absorbInvitationUrl();
-  if (code) verifyCode(code, { fromLink: true });
+  if (code) {
+    verifyCode(code, { fromLink: true });
+    return;
+  }
+  if (cameraRequested() && cameraSession.hidden) restoreOnThisDevice();
+});
+
+document.addEventListener("wedding:view-change", event => {
+  if (event.detail?.view === "camera" && cameraSession.hidden) restoreOnThisDevice();
 });
 
 async function initializeGuestCameraAccess() {
+  if (!cameraRequested()) return;
   pendingLinkCode = absorbInvitationUrl();
 
   if (previewTestActive) {
