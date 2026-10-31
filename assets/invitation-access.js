@@ -5,6 +5,14 @@ const form = document.getElementById("invitation-form");
 const input = document.getElementById("invitation-code");
 const feedback = document.getElementById("invitation-status");
 const submit = document.getElementById("check-invitation");
+const rsvpCard = document.getElementById("guest-rsvp-card");
+const rsvpForm = document.getElementById("guest-rsvp-form");
+const rsvpChoice = document.getElementById("guest-rsvp-choice");
+const rsvpSeats = document.getElementById("guest-rsvp-seats");
+const rsvpSeatsWrap = document.getElementById("guest-rsvp-seats-wrap");
+const rsvpFeedback = document.getElementById("guest-rsvp-feedback");
+const rsvpSave = document.getElementById("guest-rsvp-save");
+
 
 const CODE_ALPHABET = /^[A-HJ-NP-Z2-9]{8}$/; // Excludes 0, 1, I and O
 const normalize = (text) =>
@@ -67,6 +75,51 @@ async function redeem(code) {
   return response.data;
 }
 
+function showRSVP(guest) {
+  if (!guest || !guest.verified || !guest.invitation) return;
+  const invitation = guest.invitation;
+  const max = Math.min(30, Math.max(1, Number(invitation.invitedSeats) || 1));
+  document.getElementById("guest-rsvp-greeting").textContent =
+    "Invitation for " + (invitation.partyLabel || "our guests") + ".";
+  rsvpSeats.max = String(max);
+  rsvpSeats.value = String(Math.max(1, Math.min(max, Number(invitation.confirmedSeats) || 1)));
+  rsvpChoice.value = ["Yes", "No", "Maybe"].includes(invitation.rsvp)
+    ? invitation.rsvp : "Yes";
+  if (rsvpChoice.value === "Pending") rsvpChoice.value = "Yes";
+  rsvpCard.hidden = false;
+  updateSeatField();
+  rsvpFeedback.textContent = "";
+  rsvpCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+function updateSeatField() {
+  const yes = rsvpChoice.value === "Yes";
+  rsvpSeatsWrap.hidden = !yes;
+  rsvpSeats.required = yes;
+}
+rsvpChoice.addEventListener("change", updateSeatField);
+rsvpForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  if (!rsvpForm.reportValidity() || !guestAccessConfig.enabled) return;
+  rsvpSave.disabled = true;
+  rsvpFeedback.textContent = "Saving your response…";
+  try {
+    const fn = callWeddingFunction("respondToInvitation");
+    await fn({
+      rsvp: rsvpChoice.value,
+      attendingSeats: rsvpChoice.value === "Yes" ? Number(rsvpSeats.value) : 0,
+    });
+    rsvpFeedback.textContent = "Thank you! Your RSVP has been saved.";
+  } catch (error) {
+    const denied = String(error?.code || "").includes("permission-denied");
+    rsvpFeedback.textContent = denied
+      ? "This invitation was replaced or expired. Please open the latest invitation link."
+      : "We couldn't save your response. Please try again.";
+    if (denied) rsvpCard.hidden = true;
+  } finally {
+    rsvpSave.disabled = false;
+  }
+});
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   const code = normalize(input.value);
@@ -83,9 +136,11 @@ form.addEventListener("submit", async (event) => {
   }
 
   submit.disabled = true;
+  rsvpCard.hidden = true;
   show("Checking your invitation securely…");
   try {
     const verified = await redeem(code);
+    showRSVP(verified);
     if (verified.cameraOpen) {
       show(
         "Invitation verified. The camera upload window is open. Photo uploads will activate after the Drive connection is ready.",
