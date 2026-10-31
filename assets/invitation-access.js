@@ -29,7 +29,7 @@ function show(message, state = "") {
 }
 
 function quotaText(data) {
-  const limit = Math.max(1, Number(data.photoLimit || 40));
+  const limit = Math.max(1, Number(data.photoLimit || 50));
   const used = Math.max(0, Number(data.photosUsed || 0));
   const remaining = Math.max(0, Number(
     data.photosRemaining !== undefined ? data.photosRemaining : limit - used
@@ -45,10 +45,22 @@ function enterCameraMode(data = {}) {
   document.body.classList.add("camera-session-active");
   partyLabel.textContent = data.partyLabel || data.invitation?.partyLabel || "Invitation verified";
   quotaLabel.textContent = quotaText(data);
+  cameraSession.dataset.photoLimit = String(Math.max(1, Number(data.photoLimit || 50)));
+  cameraSession.dataset.photosUsed = String(Math.max(0, Number(data.photosUsed || 0)));
   cameraButton.disabled = !data.cameraOpen;
   cameraButton.setAttribute("aria-disabled", String(!data.cameraOpen));
   document.dispatchEvent(new CustomEvent("wedding:camera-mode", {
-    detail: { active: true }
+    detail: {
+      active: true,
+      partyLabel: data.partyLabel || data.invitation?.partyLabel || "",
+      photoLimit: Math.max(1, Number(data.photoLimit || 50)),
+      photosUsed: Math.max(0, Number(data.photosUsed || 0)),
+      photosRemaining: Math.max(0, Number(
+        data.photosRemaining !== undefined
+          ? data.photosRemaining
+          : Math.max(1, Number(data.photoLimit || 50)) - Math.max(0, Number(data.photosUsed || 0))
+      ))
+    }
   }));
 }
 
