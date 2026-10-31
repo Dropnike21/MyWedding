@@ -40,7 +40,7 @@ function quotaText(data) {
   const remaining = Math.max(0, Number(
     data.photosRemaining !== undefined ? data.photosRemaining : limit - used
   ));
-  return remaining + " of " + limit + " memories available";
+  return remaining + " left";
 }
 
 function enterCameraMode(data = {}) {
