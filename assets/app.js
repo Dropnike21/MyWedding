@@ -1163,6 +1163,12 @@
       if (!scene) return;
       scene.style.setProperty("--venue-x", x.toFixed(3));
       scene.style.setProperty("--venue-y", y.toFixed(3));
+      scene.style.setProperty("--venue-shift-x", (x * -34).toFixed(1) + "px");
+      scene.style.setProperty("--venue-shift-y", (y * -22).toFixed(1) + "px");
+      scene.style.setProperty("--venue-near-x", (x * 24).toFixed(1) + "px");
+      scene.style.setProperty("--venue-near-y", (y * 15).toFixed(1) + "px");
+      scene.style.setProperty("--venue-far-x", (x * -13).toFixed(1) + "px");
+      scene.style.setProperty("--venue-far-y", (y * -8).toFixed(1) + "px");
       scene.classList.toggle("is-looking", Math.abs(x) + Math.abs(y) > .05);
     }
 
