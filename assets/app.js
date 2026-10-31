@@ -179,15 +179,29 @@
     addEventListener("scroll", updateProgress, { passive: true });
 
     if (motionOK) {
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 24; i++) {
         const petal = document.createElement("span");
         petal.className = "ambient-petal";
-        petal.style.setProperty("--x", (6 + Math.random() * 88).toFixed(1) + "%");
-        petal.style.setProperty("--delay", (-Math.random() * 18).toFixed(2) + "s");
-        petal.style.setProperty("--duration", (15 + Math.random() * 12).toFixed(2) + "s");
-        petal.style.setProperty("--drift", ((Math.random() - .5) * 150).toFixed(0) + "px");
-        petal.style.setProperty("--scale", (.45 + Math.random() * .8).toFixed(2));
+        petal.style.setProperty("--x", (2 + Math.random() * 96).toFixed(1) + "%");
+        petal.style.setProperty("--delay", (-Math.random() * 22).toFixed(2) + "s");
+        petal.style.setProperty("--duration", (14 + Math.random() * 16).toFixed(2) + "s");
+        petal.style.setProperty("--drift", ((Math.random() - .5) * 220).toFixed(0) + "px");
+        petal.style.setProperty("--scale", (.35 + Math.random() * 1.0).toFixed(2));
+        petal.style.setProperty("--blur", (Math.random() * 1.8).toFixed(1) + "px");
         ambient.appendChild(petal);
+      }
+
+      for (let i = 0; i < 9; i++) {
+        const heart = document.createElement("span");
+        heart.className = "ambient-heart";
+        heart.textContent = "♥";
+        heart.style.setProperty("--hx", (4 + Math.random() * 92).toFixed(1) + "%");
+        heart.style.setProperty("--hy", (7 + Math.random() * 82).toFixed(1) + "%");
+        heart.style.setProperty("--hsize", (28 + Math.random() * 88).toFixed(0) + "px");
+        heart.style.setProperty("--hblur", (5 + Math.random() * 12).toFixed(0) + "px");
+        heart.style.setProperty("--hopacity", (.025 + Math.random() * .055).toFixed(3));
+        heart.style.setProperty("--hdelay", (-Math.random() * 14).toFixed(2) + "s");
+        ambient.appendChild(heart);
       }
     }
     document.body.appendChild(ambient);
@@ -198,6 +212,46 @@
         glow.style.setProperty("--gy", event.clientY + "px");
       }, { passive: true });
     }
+  }
+
+  function setupHomeMusic() {
+    const button = document.getElementById("home-music-toggle");
+    const player = document.getElementById("home-music-player");
+    if (!button || !player) return;
+
+    const closePlayer = () => {
+      player.replaceChildren();
+      player.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      button.classList.remove("is-playing");
+      const label = button.querySelector(".music-orb-label");
+      if (label) label.textContent = "Play our song";
+    };
+
+    const openPlayer = () => {
+      const iframe = document.createElement("iframe");
+      iframe.title = "I Like You So Much, You'll Know It — Ysabelle Cuevas on Spotify";
+      iframe.src = "https://open.spotify.com/embed/album/5eXyaK1VO670evooLOqgK7?utm_source=generator&theme=0";
+      iframe.width = "100%";
+      iframe.height = "152";
+      iframe.loading = "lazy";
+      iframe.setAttribute("frameborder", "0");
+      iframe.setAttribute("allow", "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture");
+      player.replaceChildren(iframe);
+      player.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      button.classList.add("is-playing");
+      const label = button.querySelector(".music-orb-label");
+      if (label) label.textContent = "Hide player";
+      player.scrollIntoView({ behavior: motionOK ? "smooth" : "auto", block: "nearest" });
+    };
+
+    button.addEventListener("click", () => {
+      if (button.getAttribute("aria-expanded") === "true") closePlayer();
+      else openPlayer();
+    });
+
+    return closePlayer;
   }
 
   function setupHeroParallax() {
@@ -321,6 +375,9 @@
   }
 
   function applyView(view) {
+    document.body.dataset.activeView = view;
+    if (view !== "home" && typeof closeHomeMusic === "function") closeHomeMusic();
+
     viewElements.forEach(section => {
       const active = section.id === "view-" + view;
       section.hidden = !active;
@@ -398,6 +455,7 @@
   }
 
   createAmbience();
+  const closeHomeMusic = setupHomeMusic();
   setupHeroParallax();
   setupSealSurprise();
   setupHeaderScroll();
