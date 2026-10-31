@@ -1,9 +1,131 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Browser access to private records is denied by default.
-    // Trusted Cloud Functions use Admin SDK and server-side IAM.
-    // Add narrow admin-user rules only after authentication and roles are implemented.
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isHumanOrganizer() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider != "anonymous"
+        && exists(/databases/$(database)/documents/organizers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/organizers/$(request.auth.uid)).data.active == true;
+    }
+
+    function role() {
+      return get(/databases/$(database)/documents/organizers/$(request.auth.uid)).data.role;
+    }
+
+    function isOwner() {
+      return isHumanOrganizer() && role() == "owner";
+    }
+
+    function isCoordinator() {
+      return isHumanOrganizer() && role() == "coordinator";
+    }
+
+    function isFinance() {
+      return isHumanOrganizer() && role() == "finance";
+    }
+
+    function canReadPlanning() {
+      return isOwner() || isCoordinator() || isFinance();
+    }
+
+    function canOperate() {
+      return isOwner() || isCoordinator();
+    }
+
+    function canFinance() {
+      return isOwner() || isFinance();
+    }
+
+    match /organizers/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    match /weddings/{weddingId} {
+      allow read: if canReadPlanning();
+      allow create, update: if isOwner();
+      allow delete: if false;
+
+      match /guests/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if canOperate();
+        allow delete: if false;
+      }
+
+      match /vendors/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if isOwner() || isCoordinator() || isFinance();
+        allow delete: if false;
+      }
+
+      match /payments/{recordId} {
+        allow read: if isOwner() || isFinance();
+        allow create, update: if canFinance();
+        allow delete: if false;
+      }
+
+      match /budgetCategories/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if canFinance();
+        allow delete: if false;
+      }
+
+      match /tasks/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if canOperate();
+        allow delete: if false;
+      }
+
+      match /timeline/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if canOperate();
+        allow delete: if false;
+      }
+
+      match /decisions/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if canOperate();
+        allow delete: if false;
+      }
+
+      match /team/{recordId} {
+        allow read: if canReadPlanning();
+        allow create, update: if canOperate();
+        allow delete: if false;
+      }
+
+      match /audit/{recordId} {
+        allow read: if isOwner();
+        allow create: if isHumanOrganizer()
+          && request.resource.data.actorUid == request.auth.uid
+          && request.resource.data.role == role();
+        allow update, delete: if false;
+      }
+    }
+
+    // Invitation security, guest sessions, and wedding-day camera access remain
+    // server-only and will be handled by trusted Cloud Functions later.
+    match /invitationRegistry/{document=**} {
+      allow read, write: if false;
+    }
+    match /invitationCodes/{document=**} {
+      allow read, write: if false;
+    }
+    match /guestSessions/{document=**} {
+      allow read, write: if false;
+    }
+    match /invitationAttemptLimits/{document=**} {
+      allow read, write: if false;
+    }
+    match /weddingSettings/{document=**} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
