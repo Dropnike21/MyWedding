@@ -180,7 +180,7 @@
           <div class="camera-session-brand"><strong>A<span>&</span>J</strong><small>WEDDING CAM</small></div>
           <div class="camera-session-meta">
             <span id="camera-session-party">Invitation verified</span>
-            <strong id="camera-session-quota">40 memories available</strong>
+            <strong id="camera-session-quota">50 memories available</strong>
           </div>
           <button type="button" class="camera-change-code" id="camera-change-code">Change code</button>
         </div>
@@ -191,20 +191,60 @@
             <div class="camera-idle-title">Ready when<br /><em>you are.</em></div>
             <p id="camera-idle-copy">Tap below to let the wedding camera use this phone's camera.</p>
           </div>
+
           <video id="camera-video" autoplay playsinline muted hidden aria-label="Camera preview"></video>
-          <img id="camera-capture" alt="Your captured wedding photo" hidden />
+          <canvas id="camera-capture-canvas" hidden aria-hidden="true"></canvas>
+          <div class="camera-capture-flight" id="camera-capture-flight" hidden aria-hidden="true"></div>
+          <div class="camera-flash" id="camera-flash" hidden aria-hidden="true"></div>
           <div class="camera-focus-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+          <div class="camera-quick-tools" id="camera-quick-tools" hidden>
+            <button type="button" id="camera-flip" class="camera-tool" aria-label="Switch front or back camera"><span aria-hidden="true">↻</span><small>Flip</small></button>
+            <button type="button" id="camera-torch" class="camera-tool" aria-label="Toggle camera light" hidden><span aria-hidden="true">✦</span><small>Light</small></button>
+            <button type="button" id="camera-controls-toggle" class="camera-tool" aria-expanded="false" aria-controls="camera-advanced-controls"><span aria-hidden="true">☷</span><small>Controls</small></button>
+          </div>
+
+          <div class="camera-advanced-controls" id="camera-advanced-controls" hidden>
+            <div class="camera-control-row" id="camera-zoom-row" hidden>
+              <label for="camera-zoom">Zoom <output id="camera-zoom-value">1×</output></label>
+              <input type="range" id="camera-zoom" min="1" max="1" value="1" step="0.1" />
+            </div>
+            <div class="camera-control-row" id="camera-exposure-row" hidden>
+              <label for="camera-exposure">Exposure <output id="camera-exposure-value">0</output></label>
+              <input type="range" id="camera-exposure" min="0" max="0" value="0" step="0.1" />
+            </div>
+            <div class="camera-quality-row">
+              <span>Photo quality</span>
+              <button type="button" class="camera-quality active" data-quality="balanced">Balanced</button>
+              <button type="button" class="camera-quality" data-quality="high">High</button>
+            </div>
+          </div>
+
+          <div class="camera-filter-bar" id="camera-filter-bar" hidden aria-label="Camera filters">
+            <button type="button" class="camera-filter active" data-filter="natural">Natural</button>
+            <button type="button" class="camera-filter" data-filter="warm">Warm</button>
+            <button type="button" class="camera-filter" data-filter="golden">Golden</button>
+            <button type="button" class="camera-filter" data-filter="film">Film</button>
+            <button type="button" class="camera-filter" data-filter="soft">Soft</button>
+            <button type="button" class="camera-filter" data-filter="bw">B&W</button>
+          </div>
         </div>
 
         <div class="camera-session-bottom">
+          <div class="camera-film" id="camera-film" aria-label="Captured film strip">
+            <div class="camera-film-track" id="camera-film-track">
+              <div class="camera-film-empty" id="camera-film-empty">
+                <span></span><small>Next</small>
+              </div>
+            </div>
+          </div>
+
           <p class="camera-message" id="camera-message" role="status">Your invitation has been verified. Open the camera when you're ready.</p>
           <div class="camera-actions camera-full-actions">
             <button type="button" class="camera-shutter-open" id="start-camera"><span>Open camera</span></button>
             <button type="button" class="camera-shutter" id="take-photo" hidden aria-label="Take photo"><span></span></button>
-            <button type="button" class="camera-secondary" id="retake-photo" hidden>Retake</button>
-            <a class="camera-secondary" id="save-photo" download="wedding-camera-test.jpg" hidden>Save test photo</a>
           </div>
-          <p class="camera-fineprint">Photo upload to the private wedding Drive will activate after the secure upload service is deployed. This build still captures test photos locally only.</p>
+          <p class="camera-fineprint">Captured test frames cannot be reopened. The secure Drive upload and final 50-photo server counter activate when the upload service is deployed.</p>
         </div>
       </section>
     </section>
