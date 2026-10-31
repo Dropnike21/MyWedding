@@ -170,6 +170,7 @@ function expenseBalance(item) {
 }
 function ensureBudgetCategory(name) {
   if (!name || db.budgetCategories.some(item=>item.name===name)) return;
+  if (remoteActive && organizerRole === "coordinator") return;
   db.budgetCategories.push({id:uid("b"),name,allocated:0});
 }
 function guestSeats() { return active(db.guests).reduce((s,g)=>s+num(g.seats),0); }
