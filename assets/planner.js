@@ -1,4 +1,5 @@
 import { plannerFirestore } from "./planner-firestore.js?v=20261031-2245";
+import { callWeddingFunction } from "./firebase-services.js?v=20261031-2245";
 (() => {
 "use strict";
 
@@ -504,15 +505,81 @@ function renderBudget() {
   bindJumps();
 }
 
+async function renderPhotoArchive() {
+  root.innerHTML = header(
+    "Guest Photo Archive",
+    "Owner-only view of guest-camera uploads. The protected Google Sheet is an audit mirror; manage the archive here."
+  ) + '<div class="planner-card"><div class="planner-loading-state">Loading private photo archive…</div></div>';
+
+  const token = window.WeddingUI?.begin(
+    "Loading photo archive…",
+    "Reading secure upload metadata from Firebase.",
+    { blocking: false, delay: 160 }
+  );
+
+  try {
+    const statusFn = callWeddingFunction("driveStorageStatus");
+    const listFn = callWeddingFunction("listPhotoUploads");
+    const [statusResult, listResult] = await Promise.all([
+      statusFn({}),
+      listFn({ limit: 300 }),
+    ]);
+    const storage = statusResult.data || {};
+    const items = listResult.data?.items || [];
+    const rawBytes = items.reduce((sum,item)=>sum+num(item.rawBytes),0);
+    const wmBytes = items.reduce((sum,item)=>sum+num(item.watermarkedBytes),0);
+    const uniquePasses = new Set(items.map(item=>item.invitationId).filter(Boolean)).size;
+    const mb = value => (value/1024/1024).toFixed(1)+" MB";
+
+    root.innerHTML = header(
+      "Guest Photo Archive",
+      "Owner-only guest-camera archive. Google Drive stores the files; Firebase and the website remain the management layer.",
+      '<button class="button outlined planner-compact" id="photo-refresh">Refresh</button>'
+    ) +
+    '<div class="planner-metrics compact">'+
+      metric("Captured frames",items.length,"Finalized uploads")+
+      metric("Invitation passes",uniquePasses,"Unique guest/family codes")+
+      metric("RAW storage",mb(rawBytes),"Clean archival originals")+
+      metric("Wedding copies",mb(wmBytes),"Filtered + watermarked")+
+    '</div>'+
+    '<div class="planner-budget-layout">'+
+      '<section class="planner-card"><div class="planner-card-head"><h3>Private storage</h3><span>'+(storage.connected?"Connected":"Needs setup")+'</span></div>'+
+      '<div class="planner-definition">'+
+        '<div><dt>Parent folder</dt><dd>'+esc(storage.parent?.name||"Guest Photos")+'</dd></div>'+
+        '<div><dt>RAW folder</dt><dd>'+esc(storage.raw?.name||"RAW")+'</dd></div>'+
+        '<div><dt>Wedding copies</dt><dd>'+esc(storage.watermarked?.name||"WATERMARKED")+'</dd></div>'+
+        '<div><dt>Audit sheet</dt><dd>'+esc(storage.sheet?.properties?.title||"Photo Index")+'</dd></div>'+
+      '</div></section>'+
+      '<section class="planner-card"><div class="planner-card-head"><h3>Archive policy</h3><span>Website managed</span></div>'+
+      '<p class="planner-muted">The Google Sheet is protected against accidental manual edits during the wedding. After the wedding, its protection can be removed and it can become a normal editable archive.</p>'+
+      '</section>'+
+    '</div>'+
+    '<section class="planner-list-card"><div class="planner-list-tools"><strong>Latest frames</strong><span>'+items.length+' loaded</span></div>'+
+      (items.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Frame</th><th>Guest / party</th><th>Captured</th><th>Format</th><th>Effect</th><th>Archive</th></tr></thead><tbody>'+
+        items.map(item=>'<tr><td>#'+String(item.frameNumber||0).padStart(2,"0")+'</td><td>'+esc(item.partyLabel||"Invitation")+'</td><td>'+esc(item.capturedAt?new Date(item.capturedAt).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"—")+'</td><td>'+esc((item.orientation||"")+" · "+(item.camera||""))+'</td><td>'+esc(item.effect||"Natural")+'</td><td>'+statusBadge(item.sheetLogged?"Logged":"Sheet pending")+'</td></tr>').join("")+
+      '</tbody></table></div>':empty("No guest-camera frames have been finalized yet."))+
+    '</section>';
+
+    root.querySelector("#photo-refresh")?.addEventListener("click",renderPhotoArchive);
+  } catch(error) {
+    console.error("Photo archive load failed",error);
+    root.innerHTML = header("Guest Photo Archive","Private Drive archive status.")+
+      '<div class="planner-card planner-error-card"><h3>Archive connection needs attention</h3><p>'+esc(error?.message||"Could not load Google Drive archive status.")+'</p></div>';
+  } finally {
+    if(token) window.WeddingUI?.end(token);
+  }
+}
+
 function renderCurrent() {
   selectedId = selectedId && currentView!=="overview" ? selectedId : selectedId;
   if(currentView==="overview")renderOverview();
   else if(currentView==="settings")renderSettings();
   else if(currentView==="budget")renderBudget();
+  else if(currentView==="photos")renderPhotoArchive();
   else renderEntity(currentView);
 }
 function switchPlanner(view,clear=true){
-  if(!["overview","settings","budget",...Object.keys(schemas)].includes(view))view="overview";
+  if(!["overview","settings","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
   currentView=view;if(clear){selectedId=null;search="";showArchived=false}
   document.querySelectorAll("[data-planner-view]").forEach(b=>b.classList.toggle("active",b.dataset.plannerView===view));
   renderCurrent();
@@ -598,8 +665,8 @@ function unlockPlanner() {
 function applyRoleUI(role){
   organizerRole=role;
   const hidden=new Set();
-  if(role==="coordinator"){hidden.add("settings");hidden.add("budget");}
-  if(role==="finance"){["settings","guests","tasks","timeline","decisions","team"].forEach(x=>hidden.add(x));}
+  if(role==="coordinator"){hidden.add("settings");hidden.add("budget");hidden.add("photos");}
+  if(role==="finance"){["settings","guests","tasks","timeline","decisions","team","photos"].forEach(x=>hidden.add(x));}
   document.querySelectorAll("[data-planner-view]").forEach(btn=>{
     btn.hidden=hidden.has(btn.dataset.plannerView);
   });
