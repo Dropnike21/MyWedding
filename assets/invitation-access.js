@@ -55,6 +55,8 @@ input.addEventListener("input", () => {
   if (feedback.classList.contains("is-error")) show("");
 });
 
+let appCheckStarted = false;
+
 async function redeem(code) {
   const { getApp } = await import(
     "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"
@@ -73,10 +75,13 @@ async function redeem(code) {
     throw new Error("The secure invitation service has not been configured.");
 
   const app = getApp();
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(guestAccessConfig.appCheckSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
+  if (!appCheckStarted) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(guestAccessConfig.appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    appCheckStarted = true;
+  }
 
   const auth = getAuth(app);
   if (!auth.currentUser) await signInAnonymously(auth);
