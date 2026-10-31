@@ -2625,3 +2625,373 @@ body.camera-session-active #view-camera{
   }
   .venue-tilt-button{display:none!important}
 }
+
+
+/* =========================================================
+   CAMERA V3 — gesture-first controls
+   ========================================================= */
+.camera-live-stage{
+  touch-action:none;
+  user-select:none;
+  -webkit-user-select:none
+}
+.camera-live-stage video{
+  transform-origin:center center;
+  will-change:transform,filter
+}
+
+/* Grid is part of the default camera experience. */
+.camera-grid-overlay{
+  opacity:.72
+}
+
+/* Tap-to-focus + vertical exposure gesture. */
+.camera-focus-point{
+  position:absolute;
+  z-index:13;
+  width:54px;
+  height:54px;
+  margin:-27px 0 0 -27px;
+  border:1.5px solid rgba(255,242,210,.92);
+  border-radius:9px;
+  pointer-events:none;
+  box-shadow:0 0 0 1px rgba(0,0,0,.16),0 3px 16px rgba(0,0,0,.13)
+}
+.camera-focus-point:before,
+.camera-focus-point:after{
+  content:"";
+  position:absolute;
+  background:rgba(255,242,210,.9)
+}
+.camera-focus-point:before{
+  left:50%;top:-5px;width:1px;height:9px
+}
+.camera-focus-point:after{
+  left:-5px;top:50%;width:9px;height:1px
+}
+.camera-focus-point.pulse{
+  animation:cameraFocusPulse .48s cubic-bezier(.16,1,.3,1)
+}
+@keyframes cameraFocusPulse{
+  from{transform:scale(1.3);opacity:.3}
+  to{transform:scale(1);opacity:1}
+}
+.camera-exposure-hud{
+  position:absolute;
+  z-index:13;
+  width:24px;
+  height:96px;
+  pointer-events:none;
+  transform:translate(-50%,-50%);
+  filter:drop-shadow(0 2px 5px rgba(0,0,0,.28))
+}
+.camera-exposure-sun{
+  position:absolute;
+  left:50%;
+  top:-19px;
+  transform:translateX(-50%);
+  color:#ffe6aa;
+  font:17px/1 Georgia,serif
+}
+.camera-exposure-track{
+  position:absolute;
+  left:50%;
+  top:0;
+  bottom:0;
+  width:1px;
+  transform:translateX(-50%);
+  background:rgba(255,255,255,.58)
+}
+.camera-exposure-track i{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:9px;height:9px;
+  transform:translate(-50%,-50%);
+  border-radius:50%;
+  background:#ffe5aa;
+  box-shadow:0 0 0 2px rgba(0,0,0,.16)
+}
+
+/* Only an edge arrow is visible until camera tools are requested. */
+.camera-rail-toggle{
+  position:absolute;
+  z-index:12;
+  right:0;
+  top:44%;
+  width:30px;
+  height:60px;
+  border:1px solid rgba(255,255,255,.13);
+  border-right:0;
+  border-radius:16px 0 0 16px;
+  background:rgba(16,25,21,.48);
+  color:#fff7e9;
+  backdrop-filter:blur(14px);
+  -webkit-backdrop-filter:blur(14px);
+  box-shadow:-6px 7px 18px rgba(0,0,0,.12);
+  display:grid;
+  place-items:center
+}
+.camera-rail-toggle span{
+  font:30px/1 Georgia,serif;
+  transform:translateX(1px);
+  transition:transform .25s ease
+}
+.camera-rail-toggle.is-open span{transform:translateX(-1px)}
+.camera-action-rail{
+  top:44%!important;
+  right:36px!important;
+  transform:translateY(-50%) translateX(22px)!important;
+  display:flex!important;
+  flex-direction:row!important;
+  gap:7px!important;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transition:
+    opacity .24s ease,
+    transform .32s cubic-bezier(.16,1,.3,1),
+    visibility .24s linear
+}
+.camera-action-rail.is-open{
+  opacity:1;
+  visibility:visible;
+  pointer-events:auto;
+  transform:translateY(-50%) translateX(0)!important
+}
+.camera-rail-button small b{
+  display:inline;
+  margin-left:2px;
+  color:#e8b2a5;
+  font-size:5px
+}
+.camera-rail-button.active small b{color:#5e564c}
+
+/* Obsolete explicit settings are hidden; quality is High and grid is on. */
+.camera-advanced-controls,
+.camera-quality-row,
+.camera-option-row,
+.camera-control-row{
+  display:none!important
+}
+
+/* Watermark shown in preview mirrors the mark burned into the guest-facing JPEG. */
+.camera-watermark{
+  opacity:.74
+}
+
+/* Film frames preserve the orientation of each capture. */
+.camera-film-frame.portrait{
+  flex-basis:32px!important;
+  width:32px!important;
+  height:42px!important
+}
+.camera-film-frame.landscape{
+  flex-basis:52px!important;
+  width:52px!important;
+  height:34px!important;
+  align-self:center
+}
+.camera-film-frame.is-history{
+  background:
+    linear-gradient(145deg,rgba(214,170,163,.12),rgba(126,136,111,.12)),
+    #222a24;
+  filter:none!important
+}
+.camera-film-frame.is-history:before{
+  content:"SEALED";
+  position:absolute;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:rgba(226,215,205,.38);
+  font-size:4.5px;
+  letter-spacing:.7px
+}
+
+/* Bottom identity: destructive-ish action first, then current pass identity. */
+.camera-bottom-identity{
+  justify-content:flex-start!important
+}
+.camera-current-guest{
+  min-width:0;
+  flex:1
+}
+.camera-change-code{
+  order:-1;
+  background:rgba(214,170,163,.11)!important
+}
+
+/* In-camera code switch modal. */
+.camera-code-modal{
+  position:absolute;
+  z-index:80;
+  inset:0;
+  display:grid;
+  place-items:end center;
+  padding:16px;
+  background:rgba(8,13,10,.50);
+  backdrop-filter:blur(7px);
+  -webkit-backdrop-filter:blur(7px)
+}
+.camera-code-dialog{
+  position:relative;
+  width:min(460px,100%);
+  padding:25px 20px 20px;
+  border:1px solid rgba(232,204,198,.22);
+  border-radius:22px;
+  background:#f7eee6;
+  color:#453a35;
+  box-shadow:0 26px 70px rgba(0,0,0,.34);
+  animation:cameraCodeUp .3s cubic-bezier(.16,1,.3,1) both
+}
+@keyframes cameraCodeUp{
+  from{opacity:0;transform:translateY(24px) scale(.985)}
+  to{opacity:1;transform:none}
+}
+.camera-code-dialog .eyebrow{color:#8d645a}
+.camera-code-dialog h3{
+  margin:8px 0 7px;
+  font:normal 25px/1.1 Georgia,serif;
+  letter-spacing:-.7px;
+  color:#475044
+}
+.camera-code-dialog>p{
+  margin:0 0 17px;
+  color:#766b64;
+  font-size:9px;
+  line-height:1.65
+}
+.camera-code-close{
+  position:absolute;
+  right:13px;
+  top:12px;
+  width:31px;height:31px;
+  border:1px solid #d6c4b8;
+  border-radius:50%;
+  background:#fff9f3;
+  color:#6c605a;
+  font-size:19px
+}
+.camera-code-dialog label{
+  display:block;
+  margin-bottom:6px;
+  font-size:7px;
+  font-weight:850;
+  letter-spacing:1px;
+  text-transform:uppercase
+}
+.camera-code-switch-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:7px
+}
+.camera-code-switch-row input{
+  min-width:0;
+  height:47px;
+  border:1px solid #cfbdb2;
+  border-radius:10px;
+  padding:0 12px;
+  background:#fffaf5;
+  color:#453a35;
+  font:700 13px ui-monospace,SFMono-Regular,Menlo,monospace;
+  letter-spacing:1px;
+  text-transform:uppercase
+}
+.camera-code-switch-row input:focus{
+  outline:0;
+  border-color:#b96854;
+  box-shadow:0 0 0 3px rgba(185,104,84,.11)
+}
+.camera-code-switch-status{
+  min-height:15px;
+  margin:7px 0 0;
+  color:#756b64;
+  font-size:8px
+}
+.camera-code-switch-status.is-error{color:#a45d50}
+.camera-code-switch-status.is-ok{color:#68755f}
+
+/* Orientation-aware camera UI. Location/venue sections are unaffected. */
+@media(orientation:landscape) and (max-height:600px){
+  body.camera-session-active .camera-session{
+    grid-template-columns:minmax(0,1fr) minmax(280px,36vw)!important;
+    grid-template-rows:1fr!important
+  }
+  body.camera-session-active .camera-live-stage{
+    grid-column:1;
+    height:100dvh!important
+  }
+  body.camera-session-active .camera-session-bottom{
+    grid-column:2;
+    height:100dvh;
+    overflow:auto;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    padding:
+      calc(10px + env(safe-area-inset-top,0px))
+      calc(12px + env(safe-area-inset-right,0px))
+      calc(10px + env(safe-area-inset-bottom,0px))
+      12px!important
+  }
+  body.camera-session-active .camera-session-bottom:before{display:none}
+  body.camera-session-active .camera-capture-deck{
+    grid-template-columns:1fr!important;
+    gap:10px!important
+  }
+  body.camera-session-active .camera-full-actions{
+    order:-1;
+    min-height:68px!important
+  }
+  body.camera-session-active .camera-film{
+    height:50px!important
+  }
+  body.camera-session-active .camera-action-rail{
+    right:34px!important;
+    top:50%!important;
+    flex-direction:column!important
+  }
+  body.camera-session-active .camera-rail-toggle{
+    top:50%
+  }
+  body.camera-session-active .camera-sheet{
+    left:8px!important;
+    right:8px!important;
+    bottom:8px!important;
+    max-height:78%!important
+  }
+  body.camera-session-active .camera-code-modal{
+    position:fixed;
+    inset:0;
+    place-items:center;
+    padding:12px
+  }
+}
+
+/* Keep the film compact on narrow portrait phones. */
+@media(max-width:430px) and (orientation:portrait){
+  body.camera-session-active .camera-film-frame.portrait{
+    flex-basis:29px!important;
+    width:29px!important;
+    height:39px!important
+  }
+  body.camera-session-active .camera-film-frame.landscape{
+    flex-basis:46px!important;
+    width:46px!important;
+    height:31px!important
+  }
+  body.camera-session-active .camera-rail-button{
+    width:40px;height:40px
+  }
+  body.camera-session-active .camera-action-rail{
+    right:33px!important
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .camera-focus-point.pulse,
+  .camera-code-dialog{
+    animation:none!important
+  }
+}
