@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f7f4ec" />
+  <meta name="description" content="Angela & Joseph's wedding website and photo time capsule." />
+  <title>Angela & Joseph | Wedding</title>
+  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg" />
+  <link rel="stylesheet" href="./assets/styles.css" />
+  <script src="./assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <div class="topline"><span>A LITTLE MORE THAN A DAY. A MEMORY FOR A LIFETIME.</span><span>FEBRUARY 23, 2027 · TENTATIVE</span></div>
+
+  <header class="site-header">
+    <a class="brand" href="#home" aria-label="Angela and Joseph, home"><span class="brand-mark">A<span>&</span>J</span><span class="brand-word">THE WEDDING JOURNAL</span></a>
+    <nav aria-label="Main navigation" class="main-nav">
+      <button type="button" data-view="home" aria-current="page">Home</button>
+      <button type="button" data-view="planner">Planning Studio</button>
+      <button type="button" data-view="camera">Guest Camera</button>
+      <button type="button" data-view="system">How It Works</button>
+    </nav>
+    <span class="build-state"><span class="live-dot"></span> EARLY PREVIEW</span>
+  </header>
+
+  <main id="main">
+    <section class="view is-active" id="view-home" aria-labelledby="home-heading">
+      <div class="home-hero">
+        <div class="hero-copy">
+          <div class="overline"><span class="divider-line"></span> OUR WEDDING · OUR STORY</div>
+          <h1 id="home-heading">Angela <span class="amp">&</span><br /><em>Joseph</em></h1>
+          <p class="hero-subline">One beautiful day.<br />A thousand little moments.</p>
+          <p class="hero-intro">A special place to plan the celebration, welcome our guests, and preserve the memories we'll make together.</p>
+          <div class="button-row">
+            <button class="button primary" type="button" data-go="camera">Explore the photo experience <span aria-hidden="true">↗</span></button>
+            <button class="button subtle" type="button" data-go="planner">See the planning studio <span aria-hidden="true">→</span></button>
+          </div>
+          <p class="hero-note">The guest portal and live RSVPs will open closer to the wedding. This is a working preview, not a live invitation.</p>
+        </div>
+        <div class="hero-art" aria-label="Illustration of an instant photograph and wedding flower">
+          <div class="art-ring ring-a"></div><div class="art-ring ring-b"></div>
+          <div class="flower flower-one">✳</div><div class="flower flower-two">✻</div>
+          <div class="photo-card">
+            <div class="photo-sky"><span class="moon"></span><span class="hill hill-a"></span><span class="hill hill-b"></span><span class="art-heart">♥</span></div>
+            <div class="photo-caption">THE BEGINNING OF ALWAYS <span>✦</span></div>
+          </div>
+          <div class="art-seal"><span>TOGETHER</span><strong>02 · 23</strong><span>FOREVER</span></div>
+          <span class="script-mark">a day to remember</span>
+        </div>
+      </div>
+
+      <div class="facts">
+        <div class="fact"><div class="fact-eyebrow">THE BIG DAY</div><div class="fact-value">23 February 2027</div><div class="fact-note">Tuesday · Tentative</div></div>
+        <div class="fact"><div class="fact-eyebrow">COUNTING DOWN</div><div class="fact-value" id="countdown">— days to go</div><div class="fact-note">Philippine Standard Time</div></div>
+        <div class="fact"><div class="fact-eyebrow">THE CELEBRATION</div><div class="fact-value">Details to follow</div><div class="fact-note">Venue & ceremony are not yet confirmed</div></div>
+      </div>
+
+      <div class="intro-strip">
+        <div class="intro-number">01 / 03</div>
+        <div><h2>Made for the moments that matter.</h2><p>Behind the celebration is a thoughtful planning space. On the day itself, guests will have a simple camera experience and an exciting photo reveal.</p></div>
+        <button class="text-link" type="button" data-go="system">Explore the experience <span>↗</span></button>
+      </div>
+    </section>
+
+    <section class="view" id="view-planner" aria-labelledby="planner-heading" hidden>
+      <div class="section-heading"><span class="eyebrow">PRIVATE WORKSPACE / IN DEVELOPMENT</span><h1 id="planner-heading">The Planning <em>Studio</em></h1><p>One connected place for the details behind our wedding. Planning data will be accessible only after admin sign-in is configured.</p></div>
+      <div class="studio-preview">
+        <aside class="studio-rail"><div class="rail-logo">AJ<span> / ADMIN</span></div><span class="rail-item active">◈ &nbsp; Overview</span><span class="rail-item">♧ &nbsp; Guest list & RSVPs</span><span class="rail-item">◫ &nbsp; Budget & spending</span><span class="rail-item">▤ &nbsp; Suppliers & contracts</span><span class="rail-item">☷ &nbsp; Wedding checklist</span><span class="rail-item">▦ &nbsp; Seating & timeline</span><div class="rail-bottom">PREVIEW ONLY · NO LIVE DATA</div></aside>
+        <div class="studio-content">
+          <div class="studio-top"><span>YOUR WORKSPACE</span><span class="pill lock">◈ PRIVATE BY DESIGN</span></div>
+          <h2>Everything, in its place.</h2>
+          <p>These are the planned administrative modules. Actual guest names, payment amounts, and private records are never published to this public website.</p>
+          <div class="module-grid">
+            <article class="module"><span class="module-symbol">♧</span><h3>Guest Management</h3><p>Guest groups, invitations, RSVP responses, and seating assignments.</p><span class="module-status">Firebase integration pending</span></article>
+            <article class="module"><span class="module-symbol">₱</span><h3>Budget & Payments</h3><p>Planned spending, vendor quotes, deposits, and balances.</p><span class="module-status">Firebase integration pending</span></article>
+            <article class="module"><span class="module-symbol">▤</span><h3>Vendors & Tasks</h3><p>Book suppliers, store reference links, and track deadlines.</p><span class="module-status">Firebase integration pending</span></article>
+            <article class="module"><span class="module-symbol">↻</span><h3>Google Sheets Mirror</h3><p>Read-only reports written automatically by a secure backend.</p><span class="module-status">Service integration pending</span></article>
+          </div>
+          <div class="notice"><strong>Not active yet.</strong> No private logins or database operations are enabled in this preview. Firebase security rules must be deployed before real planning records are used.</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-camera" aria-labelledby="camera-heading" hidden>
+      <div class="section-heading"><span class="eyebrow">GUEST EXPERIENCE / CAMERA PROTOTYPE</span><h1 id="camera-heading">The Photo <em>Time Capsule</em></h1><p>Capture the celebration through everyone's eyes. During the wedding, photographs will be uploaded privately and revealed together later.</p></div>
+      <div class="camera-layout">
+        <div class="camera-shell">
+          <div class="camera-head"><span>AJ <span class="muted">/ WEDDING CAM</span></span><span class="camera-badge">LOCAL TEST ONLY</span></div>
+          <div class="camera-preview" id="camera-preview">
+            <div class="camera-idle" id="camera-idle"><div class="camera-star">✳</div><div class="camera-idle-title">Your moment<br /><em>starts here.</em></div><p>Try the camera on your device. Test photos are kept locally and never uploaded.</p></div>
+            <video id="camera-video" autoplay playsinline muted hidden aria-label="Camera preview"></video>
+            <img id="camera-capture" alt="Your captured test photo" hidden />
+          </div>
+          <p class="camera-message" id="camera-message" role="status">Camera access requires your permission and a secure connection (HTTPS).</p>
+          <div class="camera-actions">
+            <button type="button" class="button primary" id="start-camera">Turn on camera <span aria-hidden="true">↗</span></button>
+            <button type="button" class="button primary" id="take-photo" hidden>Take test photo <span aria-hidden="true">●</span></button>
+            <button type="button" class="button outlined" id="retake-photo" hidden>Retake photo</button>
+            <a class="button outlined" id="save-photo" download="wedding-camera-test.jpg" hidden>Save to device</a>
+          </div>
+          <p class="camera-fineprint">This is only a browser camera demonstration. It does not submit photos, generate guest access tokens, or enforce the wedding-day window yet.</p>
+        </div>
+        <div class="capsule-info">
+          <span class="eyebrow">HOW THE FINAL EXPERIENCE WILL WORK</span>
+          <h2>A surprise worth<br /><em>waiting for.</em></h2>
+          <div class="step"><span class="step-number">01</span><div><h3>Scan the QR code</h3><p>Guests open the wedding camera without downloading an app.</p></div></div>
+          <div class="step"><span class="step-number">02</span><div><h3>Capture every little moment</h3><p>Photos upload directly to protected Firebase storage during the approved event window.</p></div></div>
+          <div class="step"><span class="step-number">03</span><div><h3>Seal the time capsule</h3><p>Uploads are kept private. There is no public gallery to browse before release.</p></div></div>
+          <div class="step"><span class="step-number">04</span><div><h3>Reveal after 48 hours</h3><p>Once approved and unlocked by the server, the shared gallery becomes viewable.</p></div></div>
+          <div class="capsule-note"><span class="note-icon">✦</span><div><strong>Privacy first</strong><p>The 48-hour restriction must be enforced on the server, not simply hidden by a visual countdown.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="view" id="view-system" aria-labelledby="system-heading" hidden>
+      <div class="section-heading"><span class="eyebrow">PROJECT BLUEPRINT</span><h1 id="system-heading">Simple to use.<br /><em>Built with care.</em></h1><p>GitHub Pages handles the public site; Firebase will securely handle live information. Google Sheets will provide a read-only, automatically synchronized view.</p></div>
+      <div class="system-card">
+        <div class="system-line"><div class="system-node"><span>01</span><strong>GitHub Pages</strong><small>Static website & guest interface</small></div><span class="system-arrow">→</span><div class="system-node"><span>02</span><strong>Firebase</strong><small>Authentication, database & photos</small></div><span class="system-arrow">→</span><div class="system-node"><span>03</span><strong>Google Sheets</strong><small>Read-only reporting mirror</small></div></div>
+        <div class="system-details"><div><strong>One source of truth</strong><p>All changes begin in the website and are written to Firestore first.</p></div><div><strong>Private by default</strong><p>Admin records and pre-release photos are protected by server-side rules.</p></div><div><strong>Reliable synchronization</strong><p>Backend jobs will retry failed Sheet updates and maintain an audit trail.</p></div></div>
+      </div>
+      <div class="project-state"><div><span class="eyebrow">PROJECT STATUS</span><h2>We're building the foundation.</h2><p>This GitHub Pages version is a frontend prototype. Firebase, private administration, Google Sheets synchronization, live RSVP links, and QR uploads are future implementation phases.</p></div><a class="button outlined dark" href="https://github.com/Dropnike21/MyWedding" target="_blank" rel="noopener noreferrer">View repository <span>↗</span></a></div>
+    </section>
+  </main>
+
+  <footer><span class="footer-brand">A <em>&</em> J</span><div>Built for a day we'll never forget.</div><small>© 2026 Angela & Joseph · Preview experience · No guest data collected</small></footer>
+</body>
+</html>
