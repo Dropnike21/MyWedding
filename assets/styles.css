@@ -3102,3 +3102,7 @@ body:not([data-active-view="home"]) .ambient-heart{
 @media(prefers-reduced-motion:reduce){
   .global-loader-spinner i{animation:none!important}
 }
+
+
+/* Explicit hidden-state guard */
+[hidden]{display:none!important}
