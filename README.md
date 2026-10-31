@@ -3,17 +3,18 @@
 A public-facing wedding website and future wedding-management system for Angela & Joseph.
 
 **Wedding date:** February 23, 2027 (tentative)  
-**Project stage:** Static frontend prototype. The registered Firebase web app is initialized client-side; no Firestore/Auth backend operations are enabled yet.
+**Project stage:** Frontend and secure callable-function source committed. Firestore exists, but guest access, admin roles and Cloud Functions have **not** been deployed or activated.
 
 ## What's here now
 
 - Responsive public wedding landing page and countdown
-- Planning Studio design preview (**no live private data**)
+- Responsive private invitation-management UI (sign-in, create/edit/list, rotate/revoke) behind a currently disabled backend
 - Browser camera **local demo**: take a photo and save it to your own device
 - Architecture overview for Firebase, private Google Drive photos, and Google Sheets
-- Public Firebase client configuration + initialization (no data access or photo upload)
+- Firebase client configuration, App Check helper, code redemption and guest RSVP client interface
+- Cloud Functions source for code issuance, atomic rotation/revocation, RSVP and session validation (**not deployed**)
 
-**Important:** The camera currently does not upload, store, or publish photographs. RSVP, admin login, private planning records, QR admission, photo moderation, and the 48-hour gallery lock are not live.
+**Important:** The camera currently does not upload, store, or publish photographs. Invitation-code verification, live RSVP, admin database access, QR issuance, photo moderation, and the 48-hour gallery lock are **not live**. The current page may show a local-only device-camera demo; it never uploads.
 
 ## Deploy with GitHub Pages
 
@@ -60,20 +61,36 @@ GitHub Pages can host this public static frontend on a free public repository. G
 
 ## Suggested development phases
 
-1. Firebase project initialization (configured), admin login, production security rules, and Firestore data model.
+1. Firestore project created; secure admin Auth setup, custom claims, App Check, and Cloud Functions deployment remain.
 2. Connected planning dashboard: guests/RSVP, budget, suppliers, payments, checklist.
 3. Secure one-way Firestore → Google Sheets reporting sync with retries.
-4. Guest invitation and RSVP portal.
+4. Guest invitation/RSVP frontend implemented; complete staging tests before enabling.
 5. Confirm Workspace OAuth access, connect a private Drive folder via backend credentials, then implement QR uploads, moderation, event access rules, and delayed gallery release.
 6. Load testing, Android/iOS camera testing, and a full rehearsal before the event.
 
 The existing Google Sheet can remain untouched as a reference until validated migration and backups are complete.
 
 
-## Invitation-code camera access (work in progress)
+## Invitation access and regeneration (work in progress)
 
-The guest portal now includes a large **Enter invitation code** form and reads a code embedded in a QR invitation link. The manually typed eight-character code is automatically normalized. **No code is verified yet**, because secure Cloud Functions and App Check have not been deployed.
+The guest portal supports an eight-character invitation code that can be filled automatically from a private link. A verified guest can RSVP for an individual or family invitation. The **Wedding Studio** has a searchable organizer invitation list, forms to edit RSVP/details, and **Regenerate link** / **Revoke access** controls.
 
-A protected `redeemInvitation` callable function and an admin-only `createInvitation` function have been scaffolded in `functions/index.js`. They are not deployed, and photo uploads remain disabled. The `firestore.rules` file defaults to denying direct client database access until narrow production rules are designed.
+The backend implements `createInvitation`, `listInvitations`, `updateInvitation`, `rotateInvitation`, `revokeInvitation`, `redeemInvitation`, `respondToInvitation`, and `checkGuestSession`.
 
-See [Guest invitation access — setup and safeguards](docs/guest-access.md) before enabling anything on the live website. The full invitation flow requires Anonymous Authentication, App Check, a backend HMAC secret, a billing plan that supports Cloud Functions, and an event-time configuration.
+**Link regeneration is atomic:** Firestore deletes the old code lookup, issues a new code and increments the invitation's version together. Previously redeemed sessions no longer match that version. Saved guest and RSVP records remain intact. Future photo endpoints must re-check the current version on every upload.
+
+Raw codes are returned once to an authorized organizer and are **never stored in plaintext** in Firestore. Do not paste actual invitation URLs into public GitHub issues.
+
+All live Firebase calls are currently disabled in `assets/guest-config.js` until you configure Authentication, Enterprise App Check, Cloud Functions and admin roles. Please do **not** enable the switch until these services have been deployed and tested.
+
+For architecture, Firebase configuration, organizer claims, rate limiting, and a staged testing checklist, see **[Secure guest access setup](docs/guest-access.md)**.
+
+### Pending features
+
+- Secure Google Drive photo upload and 24/48-hour locked gallery
+- QR image generation/print layouts for unique invitations
+- Supplier, payment, budget and task management forms
+- Automatic Firestore → private Google Sheets reporting mirror
+- Production deployment, Android/iPhone testing and accessibility rehearsal
+
+The current production/database state has not been verified by a live Firebase connection from ChatGPT. Deploying or modifying Google Cloud IAM permissions requires explicit action in your Firebase/Google accounts.
