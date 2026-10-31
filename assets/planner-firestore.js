@@ -102,12 +102,6 @@ export class PlannerFirestoreStore {
     };
 
     for (const name of COLLECTIONS) {
-      // Finance roles are intentionally blocked from payment reads only if rules deny;
-      // load them conditionally to avoid triggering a permission error.
-      if (name === "payments" && this.role === "coordinator") {
-        data.payments = [];
-        continue;
-      }
       const snap = await getDocs(collection(this.db,"weddings",WEDDING_ID,name));
       data[name] = snap.docs.map(x => ({ id:x.id, ...x.data() }))
         .map(({createdAt,updatedAt,...rest})=>rest);
