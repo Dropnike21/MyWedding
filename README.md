@@ -68,3 +68,12 @@ GitHub Pages can host this public static frontend on a free public repository. G
 6. Load testing, Android/iOS camera testing, and a full rehearsal before the event.
 
 The existing Google Sheet can remain untouched as a reference until validated migration and backups are complete.
+
+
+## Invitation-code camera access (work in progress)
+
+The guest portal now includes a large **Enter invitation code** form and reads a code embedded in a QR invitation link. The manually typed eight-character code is automatically normalized. **No code is verified yet**, because secure Cloud Functions and App Check have not been deployed.
+
+A protected `redeemInvitation` callable function and an admin-only `createInvitation` function have been scaffolded in `functions/index.js`. They are not deployed, and photo uploads remain disabled. The `firestore.rules` file defaults to denying direct client database access until narrow production rules are designed.
+
+See [Guest invitation access — setup and safeguards](docs/guest-access.md) before enabling anything on the live website. The full invitation flow requires Anonymous Authentication, App Check, a backend HMAC secret, a billing plan that supports Cloud Functions, and an event-time configuration.
