@@ -2,7 +2,7 @@
   "use strict";
 
   const BUILD = "20261031-2230";
-  const assetBase = new URL(".", document.currentScript?.src || location.href);
+  const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
   const loaderDetail = document.getElementById("global-loader-detail");
@@ -1335,7 +1335,7 @@
       if (venueAssetsLoaded) return;
       venueAssetsLoaded = true;
       if (photo && config.heroImage) photo.style.backgroundImage = 'url("' + config.heroImage + '")';
-      if (mapFrame && !mapFrame.src) mapFrame.src = destinationEmbed();
+      if (mapFrame && !mapFrame.getAttribute("src")) mapFrame.src = destinationEmbed();
     }
 
     if ("IntersectionObserver" in window) {
