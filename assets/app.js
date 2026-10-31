@@ -1008,6 +1008,246 @@
     });
   }
 
+  function setupVenueJourney() {
+    const config = window.WEDDING_VENUE;
+    const section = document.getElementById("venue-journey");
+    if (!config || !section) return;
+
+    const venueName = document.getElementById("venue-name");
+    const address = document.getElementById("venue-address");
+    const note = document.getElementById("venue-note");
+    const mapTitle = document.getElementById("venue-map-title");
+    const immersiveName = document.getElementById("venue-immersive-name");
+    const mapFrame = document.getElementById("venue-map-frame");
+    const form = document.getElementById("venue-route-form");
+    const originInput = document.getElementById("venue-origin");
+    const useLocation = document.getElementById("venue-use-location");
+    const openMaps = document.getElementById("venue-open-maps");
+    const status = document.getElementById("venue-route-status");
+    const modeWrap = document.getElementById("venue-travel-modes");
+    const scene = document.getElementById("venue-immersive-scene");
+    const photo = document.getElementById("venue-immersive-photo");
+    const tiltButton = document.getElementById("venue-tilt-button");
+
+    let travelMode = "driving";
+    let geoOrigin = "";
+    let routePreviewed = false;
+    let tiltEnabled = false;
+    let baseBeta = null;
+    let baseGamma = null;
+    let smoothX = 0;
+    let smoothY = 0;
+    let tiltFrame = 0;
+
+    const destination = config.mapsQuery || config.address || config.name;
+    const encodedDestination = encodeURIComponent(destination);
+
+    if (venueName) venueName.textContent = config.shortName || config.name;
+    if (address) address.textContent = config.address;
+    if (note) note.textContent = config.note || "";
+    if (mapTitle) mapTitle.textContent = config.name;
+    if (immersiveName) immersiveName.textContent = String(config.shortName || config.name).toUpperCase();
+    if (photo && config.heroImage) photo.style.backgroundImage = 'url("' + config.heroImage + '")';
+
+    function modeFlag(mode) {
+      return mode === "walking" ? "w" : mode === "transit" ? "r" : "d";
+    }
+
+    function currentOrigin() {
+      return geoOrigin || originInput?.value.trim() || "";
+    }
+
+    function mapsDirectionsUrl(origin = currentOrigin()) {
+      const params = new URLSearchParams({
+        api: "1",
+        destination,
+        travelmode: travelMode,
+      });
+      if (origin) params.set("origin", origin);
+      return "https://www.google.com/maps/dir/?" + params.toString();
+    }
+
+    function destinationEmbed() {
+      return "https://www.google.com/maps?q=" + encodedDestination + "&output=embed";
+    }
+
+    function routeEmbed(origin) {
+      return "https://www.google.com/maps?output=embed&saddr=" +
+        encodeURIComponent(origin) + "&daddr=" + encodedDestination +
+        "&dirflg=" + modeFlag(travelMode);
+    }
+
+    function updateMapsLink() {
+      if (openMaps) openMaps.href = mapsDirectionsUrl();
+    }
+
+    if (mapFrame) mapFrame.src = destinationEmbed();
+    updateMapsLink();
+
+    originInput?.addEventListener("input", () => {
+      geoOrigin = "";
+      routePreviewed = false;
+      updateMapsLink();
+      if (status) status.textContent = "Ready to preview your route.";
+    });
+
+    modeWrap?.querySelectorAll("[data-travel-mode]").forEach(button => {
+      button.addEventListener("click", () => {
+        travelMode = button.dataset.travelMode || "driving";
+        modeWrap.querySelectorAll("[data-travel-mode]").forEach(node =>
+          node.classList.toggle("active", node === button)
+        );
+        updateMapsLink();
+        const origin = currentOrigin();
+        if (routePreviewed && origin && mapFrame) {
+          mapFrame.src = routeEmbed(origin);
+          if (status) status.textContent =
+            "Updated " + travelMode + " route preview to " + config.shortName + ".";
+        }
+      });
+    });
+
+    form?.addEventListener("submit", event => {
+      event.preventDefault();
+      const origin = currentOrigin();
+      if (!origin) {
+        if (status) status.textContent = "Enter where you're coming from first.";
+        originInput?.focus();
+        return;
+      }
+      routePreviewed = true;
+      if (mapFrame) mapFrame.src = routeEmbed(origin);
+      updateMapsLink();
+      if (status) {
+        status.textContent =
+          "Showing a " + travelMode + " route preview. Open Maps for live traffic and turn-by-turn navigation.";
+      }
+      mapFrame?.scrollIntoView({ behavior: motionOK ? "smooth" : "auto", block: "nearest" });
+    });
+
+    useLocation?.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        if (status) status.textContent = "Location access isn't available in this browser. Type your starting point instead.";
+        return;
+      }
+      useLocation.disabled = true;
+      if (status) status.textContent = "Requesting your current location…";
+
+      navigator.geolocation.getCurrentPosition(position => {
+        geoOrigin = position.coords.latitude.toFixed(6) + "," + position.coords.longitude.toFixed(6);
+        if (originInput) originInput.value = "Current location";
+        routePreviewed = true;
+        if (mapFrame) mapFrame.src = routeEmbed(geoOrigin);
+        updateMapsLink();
+        if (status) {
+          status.textContent =
+            "Current location added. Open Maps for live traffic and turn-by-turn navigation.";
+        }
+        useLocation.disabled = false;
+      }, error => {
+        geoOrigin = "";
+        if (status) {
+          status.textContent = error.code === 1
+            ? "Location permission was not granted. You can type your starting point instead."
+            : "We couldn't get your location. Type your starting point instead.";
+        }
+        useLocation.disabled = false;
+      }, {
+        enableHighAccuracy: false,
+        timeout: 9000,
+        maximumAge: 120000,
+      });
+    });
+
+    function paintVenueMotion(x, y) {
+      if (!scene) return;
+      scene.style.setProperty("--venue-x", x.toFixed(3));
+      scene.style.setProperty("--venue-y", y.toFixed(3));
+      scene.classList.toggle("is-looking", Math.abs(x) + Math.abs(y) > .05);
+    }
+
+    if (scene && finePointer && motionOK) {
+      scene.addEventListener("pointermove", event => {
+        const rect = scene.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width - .5) * 2;
+        const y = ((event.clientY - rect.top) / rect.height - .5) * 2;
+        paintVenueMotion(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
+      });
+      scene.addEventListener("pointerleave", () => paintVenueMotion(0, 0));
+    }
+
+    const orientationSupported = motionOK && window.isSecureContext &&
+      typeof window.DeviceOrientationEvent !== "undefined";
+    const mobileLike = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
+
+    function resetVenueTilt() {
+      baseBeta = null;
+      baseGamma = null;
+      smoothX = 0;
+      smoothY = 0;
+      paintVenueMotion(0, 0);
+    }
+
+    function onVenueOrientation(event) {
+      if (!tiltEnabled || document.body.dataset.activeView !== "home") return;
+      if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
+      if (baseBeta === null || baseGamma === null) {
+        baseBeta = event.beta;
+        baseGamma = event.gamma;
+        return;
+      }
+
+      const targetX = Math.max(-1, Math.min(1, (event.gamma - baseGamma) / 24));
+      const targetY = Math.max(-1, Math.min(1, (event.beta - baseBeta) / 30));
+      smoothX += (targetX - smoothX) * .14;
+      smoothY += (targetY - smoothY) * .14;
+
+      if (!tiltFrame) {
+        tiltFrame = requestAnimationFrame(() => {
+          tiltFrame = 0;
+          paintVenueMotion(smoothX, smoothY);
+        });
+      }
+    }
+
+    if (tiltButton && orientationSupported && mobileLike) {
+      tiltButton.hidden = false;
+      tiltButton.addEventListener("click", async () => {
+        if (tiltEnabled) {
+          tiltEnabled = false;
+          window.removeEventListener("deviceorientation", onVenueOrientation);
+          resetVenueTilt();
+          tiltButton.classList.remove("is-on");
+          tiltButton.setAttribute("aria-pressed", "false");
+          tiltButton.querySelector("strong").textContent = "Enable venue tilt";
+          return;
+        }
+
+        tiltButton.disabled = true;
+        try {
+          if (typeof DeviceOrientationEvent.requestPermission === "function") {
+            const permission = await DeviceOrientationEvent.requestPermission();
+            if (permission !== "granted") throw new Error("Motion permission not granted");
+          }
+          tiltEnabled = true;
+          resetVenueTilt();
+          window.addEventListener("deviceorientation", onVenueOrientation, { passive: true });
+          tiltButton.classList.add("is-on");
+          tiltButton.setAttribute("aria-pressed", "true");
+          tiltButton.querySelector("strong").textContent = "Venue tilt is on";
+        } catch {
+          tiltButton.querySelector("strong").textContent = "Motion not enabled";
+        } finally {
+          tiltButton.disabled = false;
+        }
+      });
+    }
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && tiltEnabled) resetVenueTilt();
+    });
+  }
+
   function setupHeroParallax() {
     const art = document.querySelector(".hero-art");
     if (!art || !finePointer || !motionOK) return;
@@ -1216,6 +1456,7 @@
   }
 
   createAmbience();
+  setupVenueJourney();
   const closeHomeMusic = setupHomeMusic();
   setupHeroParallax();
   setupDeviceTilt();
