@@ -6,7 +6,7 @@ import {
   initializeApp, getApp, getApps
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
 import {
-  initializeAppCheck, ReCaptchaV3Provider
+  initializeAppCheck, ReCaptchaEnterpriseProvider
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app-check.js";
 import {
   getFunctions, httpsCallable
@@ -31,7 +31,7 @@ export function enableAppCheck() {
   const { app } = getWeddingClient();
   if (!appCheckInitialized) {
     initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(guestAccessConfig.appCheckSiteKey),
+      provider: new ReCaptchaEnterpriseProvider(guestAccessConfig.appCheckSiteKey),
       isTokenAutoRefreshEnabled: true,
     });
     appCheckInitialized = true;
