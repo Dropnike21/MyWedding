@@ -3106,3 +3106,10 @@ body:not([data-active-view="home"]) .ambient-heart{
 
 /* Explicit hidden-state guard */
 [hidden]{display:none!important}
+
+/* Guest Photo Archive management */
+.planner-loading-state{padding:36px 12px;text-align:center;color:#7d7069;font-size:10px}
+.planner-muted{margin:0;color:#786e66;font-size:10px;line-height:1.7}
+.planner-error-card{border-color:#d6aaa3!important;background:#fff5f1!important}
+.planner-error-card h3{color:#8f564a}
+.planner-error-card p{color:#735f58;line-height:1.7}
