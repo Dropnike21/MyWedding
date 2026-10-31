@@ -53,6 +53,7 @@ function setBusy(busy) {
   ]) {
     el(id).disabled = busy;
   }
+  if (!busy && currentRecord()?.status === "revoked") el("admin-revoke").disabled = true;
 }
 async function invoke(name, payload = {}) {
   if (!connected || !state.adminUser) throw new Error("Organizer service is not ready.");
