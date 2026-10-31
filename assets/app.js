@@ -108,6 +108,7 @@
   const viewElements = [...document.querySelectorAll(".view")];
   const motionOK = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const finePointer = window.matchMedia("(pointer: fine)").matches;
+  const viewTransitionsOK = motionOK && finePointer;
   let activeView = null;
 
   document.documentElement.classList.add("motion-ready");
@@ -1723,7 +1724,7 @@
     const requested = next.startsWith("camera/") ? "camera" : next;
     const view = views.has(requested) ? requested : "home";
 
-    if (activeView !== null && view !== activeView && motionOK && document.startViewTransition) {
+    if (activeView !== null && view !== activeView && viewTransitionsOK && document.startViewTransition) {
       document.startViewTransition(() => applyView(view));
     } else {
       applyView(view);
