@@ -29,6 +29,10 @@ const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_UID_ATTEMPTS = 8;
 const MAX_IP_ATTEMPTS = 400; // Shared venue Wi-Fi: many guests may use one public IP.
+const DEFAULT_OWNER_EMAILS = new Set([
+  "babaynike2013@gmail.com",
+  "josephsixson@mcstayuman.edu.ph",
+]);
 
 function hash(value) {
   return createHmac("sha256", CODE_SECRET.value()).update(String(value)).digest("hex");
@@ -56,9 +60,17 @@ function requireGuest(request) {
 }
 function requireAdmin(request) {
   requireUser(request);
-  if (request.auth.token.admin !== true ||
-      request.auth.token.firebase?.sign_in_provider === "anonymous")
+  const provider = request.auth.token.firebase?.sign_in_provider;
+  const email = String(request.auth.token.email || "").toLowerCase();
+  const verifiedOwner =
+    request.auth.token.email_verified === true &&
+    DEFAULT_OWNER_EMAILS.has(email);
+  if (
+    provider === "anonymous" ||
+    (request.auth.token.admin !== true && !verifiedOwner)
+  ) {
     throw new HttpsError("permission-denied", "Organizer access is required.");
+  }
 }
 function textField(value, field, max = 120) {
   const result = String(value || "").trim();
