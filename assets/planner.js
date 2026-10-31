@@ -13,9 +13,10 @@ const uid = prefix => prefix + "-" + (crypto.randomUUID ? crypto.randomUUID() : 
 const todayISO = () => new Date().toISOString().slice(0,10);
 
 const categories = [
-  "Venue + catering","Photo / video","Attire","Hair + makeup",
-  "Civil ceremony + documents","Flowers + decor","Cake",
-  "Invites + stationery","Transport","Contingency"
+  "Venue + catering","Photo / video","Attire","Bride attire","Groom attire","Rings",
+  "Hair + makeup","Civil ceremony + documents","Flowers + decor","Cake / dessert",
+  "Invites + stationery","Souvenirs / favors","Gifts","Transport","Accommodation",
+  "Food / drinks","Technology / website","Miscellaneous","Contingency"
 ];
 
 function seed() {
@@ -40,13 +41,23 @@ function seed() {
       {id:"b7",name:"Cake",allocated:2000},
       {id:"b8",name:"Invites + stationery",allocated:1000},
       {id:"b9",name:"Transport",allocated:1000},
-      {id:"b10",name:"Contingency",allocated:5000}
+      {id:"b10",name:"Contingency",allocated:5000},
+      {id:"b11",name:"Bride attire",allocated:0},
+      {id:"b12",name:"Groom attire",allocated:0},
+      {id:"b13",name:"Rings",allocated:0},
+      {id:"b14",name:"Souvenirs / favors",allocated:0},
+      {id:"b15",name:"Gifts",allocated:0},
+      {id:"b16",name:"Accommodation",allocated:0},
+      {id:"b17",name:"Food / drinks",allocated:0},
+      {id:"b18",name:"Technology / website",allocated:0},
+      {id:"b19",name:"Miscellaneous",allocated:0}
     ],
     guests: [],
     vendors: [
       {id:"v-estoria",name:"Estoria (tentative)",category:"Venue + catering",contact:"",package:"",quote:0,agreed:0,status:"To inquire",reserveBy:"",notes:"Confirm February 23, 2027 availability, capacity, inclusions, taxes, overtime and rain backup.",archived:false}
     ],
     payments: [],
+    expenses: [],
     tasks: [
       {id:"t1",title:"Confirm wedding date and ceremony city / municipality",workstream:"Core decisions",owner:"Both",dueDate:"2026-11-15",priority:"Critical",status:"Not started",notes:"Date is tentative until venue and ceremony arrangements are accepted.",archived:false},
       {id:"t2",title:"Confirm Estoria availability, pricing and inclusions",workstream:"Venue",owner:"Both",dueDate:"2026-11-15",priority:"Critical",status:"Not started",notes:"Ask about capacity, catering, taxes, corkage, overtime and weather backup.",archived:false},
@@ -77,6 +88,13 @@ function load() {
     if (!raw) return seed();
     const data = JSON.parse(raw);
     if (!data || data.version !== VERSION) return seed();
+    if (!Array.isArray(data.expenses)) data.expenses = [];
+    if (!Array.isArray(data.budgetCategories)) data.budgetCategories = structuredClone(seed().budgetCategories);
+    for (const category of seed().budgetCategories) {
+      if (!data.budgetCategories.some(item => item.name === category.name)) {
+        data.budgetCategories.push(structuredClone(category));
+      }
+    }
     return data;
   } catch {
     return seed();
@@ -135,6 +153,25 @@ function paymentTotal(status) {
 function vendorCommitted() {
   return active(db.vendors).reduce((s,v)=>s+num(v.agreed),0);
 }
+function expenseCommitted() {
+  return active(db.expenses).reduce((sum,item)=>sum+num(item.actualCost || item.expectedCost),0);
+}
+function expensePaidTotal() {
+  return active(db.expenses).reduce((sum,item)=>sum+num(item.paid),0);
+}
+function totalCommitted() {
+  return vendorCommitted()+expenseCommitted();
+}
+function totalPaid() {
+  return paymentTotal("Paid")+expensePaidTotal();
+}
+function expenseBalance(item) {
+  return Math.max(0,num(item.actualCost || item.expectedCost)-num(item.paid));
+}
+function ensureBudgetCategory(name) {
+  if (!name || db.budgetCategories.some(item=>item.name===name)) return;
+  db.budgetCategories.push({id:uid("b"),name,allocated:0});
+}
 function guestSeats() { return active(db.guests).reduce((s,g)=>s+num(g.seats),0); }
 function confirmedSeats() { return active(db.guests).filter(g=>g.rsvp==="Yes").reduce((s,g)=>s+num(g.confirmed || g.seats),0); }
 function openTasks() { return active(db.tasks).filter(t=>t.status!=="Done").length; }
@@ -186,6 +223,28 @@ const schemas = {
       ["notes","Notes","textarea",false]
     ],
     columns:[["name","Supplier"],["category","Category"],["quote","Quote"],["agreed","Agreed"],["status","Status"]]
+  },
+  expenses:{
+    title:"Wedding Expenses",singular:"expense",collection:"expenses",
+    subtitle:"Track personal purchases, wedding essentials, favors, attire, rings, legal fees and other non-supplier spending.",
+    fields:[
+      ["name","Item / expense","text",true],
+      ["category","Budget category","select",true,categories],
+      ["forWho","For","select",false,["","Angela","Joseph","Both","Guests","Wedding day","Other"]],
+      ["purchaseType","Purchase type","select",false,["","Buy","Rent","Borrow","DIY","Service","Other"]],
+      ["quantity","Quantity","number",false],
+      ["unitCost","Unit cost (PHP)","number",false],
+      ["expectedCost","Expected total (PHP)","number",false],
+      ["actualCost","Actual total (PHP)","number",false],
+      ["paid","Paid so far (PHP)","number",false],
+      ["status","Status","select",true,["Researching","Chosen","Ordered","Partially paid","Paid","Received","Cancelled"]],
+      ["dueDate","Payment / order due","date",false],
+      ["pickupDate","Pickup / delivery","date",false],
+      ["supplier","Store / seller","text",false],
+      ["link","Product / reference link","url",false],
+      ["notes","Notes","textarea",false]
+    ],
+    columns:[["name","Item"],["category","Category"],["forWho","For"],["expectedCost","Expected"],["actualCost","Actual"],["paid","Paid"],["status","Status"]]
   },
   tasks:{
     title:"Wedding Checklist",singular:"task",collection:"tasks",
@@ -304,6 +363,7 @@ function formField(name,label,type,value,required=false,options=null) {
 function defaultRecord(view){
   if(view==="guests") return {name:"",side:"Shared",seats:1,rsvp:"Pending",confirmed:0,relationship:"",priority:"",table:"",contact:"",notes:"",archived:false};
   if(view==="vendors") return {name:"",category:categories[0],contact:"",package:"",quote:0,agreed:0,status:"To inquire",reserveBy:"",notes:"",archived:false};
+  if(view==="expenses") return {name:"",category:"Rings",forWho:"Both",purchaseType:"Buy",quantity:1,unitCost:0,expectedCost:0,actualCost:0,paid:0,status:"Researching",dueDate:"",pickupDate:"",supplier:"",link:"",notes:"",archived:false};
   if(view==="tasks") return {title:"",workstream:"",owner:"Both",dueDate:"",priority:"Medium",status:"Not started",notes:"",archived:false};
   if(view==="timeline") return {time:"",title:"",location:"",owner:"",status:"Draft",notes:"",archived:false};
   if(view==="decisions") return {title:"",owner:"Both",dueDate:"",status:"Open",decision:"",notes:"",archived:false};
@@ -311,12 +371,12 @@ function defaultRecord(view){
   return {};
 }
 function recordValue(view,field,val){
-  if(["seats","confirmed","quote","agreed"].includes(field)) return num(val);
+  if(["seats","confirmed","quote","agreed","quantity","unitCost","expectedCost","actualCost","paid"].includes(field)) return num(val);
   return String(val??"").trim();
 }
 function cellValue(field,val){
-  if(["quote","agreed","amount"].includes(field)) return money.format(num(val));
-  if(["dueDate","reserveBy"].includes(field)) return dateLabel(val);
+  if(["quote","agreed","amount","unitCost","expectedCost","actualCost","paid"].includes(field)) return money.format(num(val));
+  if(["dueDate","reserveBy","pickupDate"].includes(field)) return dateLabel(val);
   if(["status","rsvp","priority"].includes(field)) return statusBadge(val);
   return esc(val||"—");
 }
@@ -355,6 +415,15 @@ function renderEntity(view) {
     if(view==="guests"){
       record.seats=Math.max(1,num(record.seats));
       record.confirmed=record.rsvp==="Yes"?Math.min(record.seats,Math.max(1,num(record.confirmed||record.seats))):0;
+    }
+    if(view==="expenses"){
+      record.quantity=Math.max(1,num(record.quantity)||1);
+      record.unitCost=Math.max(0,num(record.unitCost));
+      record.expectedCost=Math.max(0,num(record.expectedCost));
+      if(!record.expectedCost && record.unitCost) record.expectedCost=record.quantity*record.unitCost;
+      record.actualCost=Math.max(0,num(record.actualCost));
+      record.paid=Math.max(0,num(record.paid));
+      ensureBudgetCategory(record.category);
     }
     if(selected){if(selected.archived)return;Object.assign(selected,record)}else{record.id=uid(view.slice(0,2));db[schema.collection].push(record);selectedId=record.id}
     save();renderEntity(view);updateToolbar();
