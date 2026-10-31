@@ -254,7 +254,15 @@
           <div class="camera-focus-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
           <div class="camera-grid-overlay" id="camera-grid-overlay" hidden aria-hidden="true"><i></i><i></i><i></i><i></i></div>
           <div class="camera-countdown" id="camera-countdown" hidden aria-live="assertive"></div>
+          <div class="camera-focus-point" id="camera-focus-point" hidden aria-hidden="true"></div>
+          <div class="camera-exposure-hud" id="camera-exposure-hud" hidden aria-hidden="true">
+            <span class="camera-exposure-sun">☼</span>
+            <div class="camera-exposure-track"><i id="camera-exposure-indicator"></i></div>
+          </div>
 
+          <button type="button" class="camera-rail-toggle" id="camera-rail-toggle" hidden aria-expanded="false" aria-controls="camera-quick-tools" aria-label="Show camera tools">
+            <span aria-hidden="true">‹</span>
+          </button>
           <div class="camera-action-rail" id="camera-quick-tools" hidden>
             <button type="button" id="camera-flip" class="camera-rail-button" aria-label="Switch front or back camera">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h7l2 2h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1Zm5 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/><path d="M8 3 5 6l3 3M5 6h7"/></svg>
@@ -264,13 +272,13 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 6 0-1 6 3 4-5 10-5-10 3-4-1-6Z"/></svg>
               <small>Flash</small>
             </button>
+            <button type="button" id="camera-timer" class="camera-rail-button" aria-label="Change self timer">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6M12 6a8 8 0 1 1-8 8 8 8 0 0 1 8-8Zm0 4v4l3 2"/></svg>
+              <small>Timer <b id="camera-timer-badge">Off</b></small>
+            </button>
             <button type="button" id="camera-effects-toggle" class="camera-rail-button" aria-expanded="false" aria-controls="camera-effects-panel">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2Zm6 12 1 2.8 3 1-3 1L18 22l-1-3.2-3-1 3-1L18 14Z"/></svg>
               <small>Effects</small>
-            </button>
-            <button type="button" id="camera-controls-toggle" class="camera-rail-button" aria-expanded="false" aria-controls="camera-advanced-controls">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
-              <small>Controls</small>
             </button>
           </div>
 
@@ -283,44 +291,16 @@
             <div class="camera-effects-grid" id="camera-effects-grid"></div>
           </section>
 
-          <section class="camera-sheet camera-advanced-controls" id="camera-advanced-controls" hidden aria-label="Camera controls">
-            <div class="camera-sheet-head">
-              <div><span class="camera-sheet-kicker">CAMERA</span><strong>Capture controls</strong></div>
-              <button type="button" class="camera-sheet-close" data-close-camera-sheet="controls" aria-label="Close controls">×</button>
-            </div>
-            <div class="camera-control-row" id="camera-zoom-row" hidden>
-              <label for="camera-zoom">Zoom <output id="camera-zoom-value">1×</output></label>
-              <input type="range" id="camera-zoom" min="1" max="1" value="1" step="0.1" />
-            </div>
-            <div class="camera-control-row" id="camera-exposure-row" hidden>
-              <label for="camera-exposure">Exposure <output id="camera-exposure-value">0</output></label>
-              <input type="range" id="camera-exposure" min="0" max="0" value="0" step="0.1" />
-            </div>
-            <div class="camera-quality-row">
-              <span>Photo quality</span>
-              <button type="button" class="camera-quality active" data-quality="balanced">Balanced</button>
-              <button type="button" class="camera-quality" data-quality="high">High</button>
-            </div>
-            <div class="camera-option-row">
-              <span>Composition</span>
-              <button type="button" class="camera-option" id="camera-grid-toggle" aria-pressed="false">Grid</button>
-            </div>
-            <div class="camera-option-row camera-timer-options">
-              <span>Timer</span>
-              <button type="button" class="camera-option active" data-timer="0">Off</button>
-              <button type="button" class="camera-option" data-timer="3">3s</button>
-              <button type="button" class="camera-option" data-timer="10">10s</button>
-            </div>
-          </section>
+
         </div>
 
         <div class="camera-session-bottom">
           <div class="camera-bottom-identity">
+            <button type="button" class="camera-change-code" id="camera-change-code">Change code</button>
             <div class="camera-current-guest">
               <small>CAMERA PASS</small>
               <strong id="camera-session-party">Invitation verified</strong>
             </div>
-            <button type="button" class="camera-change-code" id="camera-change-code">Change code</button>
           </div>
 
           <div class="camera-capture-deck">
@@ -346,6 +326,23 @@
 
           <p class="camera-message" id="camera-message" role="status">Your invitation has been verified. Open the camera when you're ready.</p>
           <p class="camera-fineprint">Captured test frames cannot be reopened. The secure Drive upload and final 50-photo server counter activate when the upload service is deployed.</p>
+        </div>
+
+        <div class="camera-code-modal" id="camera-code-modal" hidden role="dialog" aria-modal="true" aria-labelledby="camera-code-modal-title">
+          <div class="camera-code-dialog">
+            <button type="button" class="camera-code-close" id="camera-code-close" aria-label="Close">×</button>
+            <span class="eyebrow">SWITCH CAMERA PASS</span>
+            <h3 id="camera-code-modal-title">Use another invitation code</h3>
+            <p>The current camera stays open. Once the new code is verified, its film count and guest name will replace the current pass.</p>
+            <form id="camera-code-switch-form">
+              <label for="camera-code-switch-input">Invitation code</label>
+              <div class="camera-code-switch-row">
+                <input id="camera-code-switch-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="9" placeholder="XXXX-XXXX" required />
+                <button type="submit" class="button primary">Switch</button>
+              </div>
+              <p class="camera-code-switch-status" id="camera-code-switch-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
         </div>
       </section>
     </section>
