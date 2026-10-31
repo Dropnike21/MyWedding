@@ -858,6 +858,38 @@ exports.driveStorageStatus = onCall(driveConfiguration({ maxInstances: 3 }), asy
   };
 });
 
+exports.listPhotoUploads = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const requested = Number(request.data?.limit || 200);
+  const limit = Math.max(1, Math.min(500, Number.isFinite(requested) ? requested : 200));
+  const snapshot = await db.collection("photoUploads")
+    .orderBy("createdAt", "desc")
+    .limit(limit)
+    .get();
+
+  return {
+    items: snapshot.docs.map(docSnap => {
+      const value = docSnap.data();
+      return {
+        uploadId: docSnap.id,
+        invitationId: value.invitationId || "",
+        partyLabel: value.partyLabel || "",
+        frameNumber: Number(value.frameNumber || 0),
+        orientation: value.orientation || "",
+        effect: value.effect || "",
+        camera: value.camera || "",
+        capturedAt: value.capturedAtIso || value.createdAt?.toDate?.().toISOString() || null,
+        rawFileUrl: value.rawFileUrl || "",
+        watermarkedFileUrl: value.watermarkedFileUrl || "",
+        rawBytes: Number(value.rawBytes || 0),
+        watermarkedBytes: Number(value.watermarkedBytes || 0),
+        sheetLogged: value.sheetLogged === true,
+      };
+    }),
+  };
+});
+
+
 
 /**
  * RSVP by invitation holder, without registration.
