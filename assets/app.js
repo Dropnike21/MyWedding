@@ -335,7 +335,9 @@
     const frame = camera.frameGuide;
     const stage = camera.preview;
     if (!frame || !stage || camera.session?.hidden) return;
-    const { width, height } = stage.getBoundingClientRect();
+    // clientWidth/clientHeight stay in local camera coordinates even when the
+    // full interface has been CSS-rotated for a rotation-locked phone.
+    const width=stage.clientWidth, height=stage.clientHeight;
     if (!width || !height) return;
     const base = {"4:3":4/3,"1:1":1,"16:9":16/9}[camera.aspectRatio] || 4/3;
     const ratio = isCameraLandscape() ? base : 1/base;
