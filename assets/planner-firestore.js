@@ -40,6 +40,7 @@ export class PlannerFirestoreStore {
     this.user = null;
     this.shadow = null;
     this.db = null;
+    this.pending = Promise.resolve();
   }
 
   prepare() {
@@ -145,6 +146,12 @@ export class PlannerFirestoreStore {
     if (this.role === "coordinator") return ["guests","vendors","tasks","timeline","decisions","team"].includes(name);
     if (this.role === "finance") return ["vendors","payments","budgetCategories"].includes(name);
     return false;
+  }
+
+  queue(data) {
+    const snapshot = structuredClone(data);
+    this.pending = this.pending.then(() => this.sync(snapshot));
+    return this.pending;
   }
 
   async sync(data) {
