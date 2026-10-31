@@ -401,8 +401,9 @@
     // do not have a stable sensor-based orientation.
     const side = Math.abs(event.gamma);
     const forward = Math.abs(event.beta);
-    if (forward > 70) return;
-    const landscape = side > 57 ? true : side < 27 ? false : null;
+    // Portrait-upright phones can report beta near 90°. Always allow a
+    // transition back to portrait so auto-tilt cannot get stuck landscape.
+    const landscape = side < 27 ? false : (side > 57 && forward < 70 ? true : null);
     if (landscape === null || landscape === camera.autoTiltLandscape) return;
     camera.autoTiltLandscape = landscape;
     updateCameraOrientation();
