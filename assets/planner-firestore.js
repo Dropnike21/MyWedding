@@ -9,6 +9,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
 const WEDDING_ID = "main";
+const DEFAULT_OWNER_EMAILS = new Set([
+  "babaynike2013@gmail.com",
+  "josephsixson@mcstayuman.edu.ph",
+]);
 const COLLECTIONS = ["guests","vendors","payments","tasks","timeline","decisions","team","budgetCategories"];
 
 function sanitize(value) {
@@ -71,6 +75,21 @@ export class PlannerFirestoreStore {
 
   async organizerProfile(user) {
     if (!this.db) this.prepare();
+
+    const email = String(user.email || "").toLowerCase();
+    if (user.emailVerified && DEFAULT_OWNER_EMAILS.has(email)) {
+      this.user = user;
+      this.role = "owner";
+      return {
+        uid: user.uid,
+        email: user.email || "",
+        displayName: user.displayName || "Groom / Owner",
+        active: true,
+        role: "owner",
+        defaultOwner: true,
+      };
+    }
+
     const snap = await getDoc(doc(this.db,"organizers",user.uid));
     if (!snap.exists()) throw new Error("This Google account is not registered as a wedding organizer.");
     const profile = snap.data();
