@@ -68,18 +68,28 @@
     </section>
 
     <section class="view" id="view-planner" aria-labelledby="planner-heading" hidden>
-      <div class="section-heading planner-heading">
+      <div class="section-heading planner-heading reveal">
         <span class="eyebrow">PRIVATE WEDDING MANAGEMENT</span>
         <h1 id="planner-heading">Wedding <em>Studio</em></h1>
-        <p>Plan the celebration, coordinate people and suppliers, and keep every decision in one place. The current workspace is a safe local demo so you can test the workflow before we connect live Firestore data.</p>
+        <p>A secure private workspace for Angela, Joseph, and authorized coordinators. Planning records remain hidden until Firebase verifies your organizer access.</p>
       </div>
 
-      <div class="planner-app">
+      <section class="planner-access-gate reveal" id="planner-access-gate" aria-labelledby="planner-access-title">
+        <div class="planner-access-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="planner-access-lock" aria-hidden="true">AJ</div>
+        <span class="eyebrow">ORGANIZER ACCESS</span>
+        <h2 id="planner-access-title">Your plans are <em>private.</em></h2>
+        <p id="planner-access-message">Connecting securely to Firebase. Only authorized wedding organizers can open the studio.</p>
+        <button type="button" class="button primary magnetic" id="planner-firebase-login" disabled>Continue with Google <span aria-hidden="true">↗</span></button>
+        <small>Guest visitors cannot see the planner navigation, records, budget, or management screens.</small>
+      </section>
+
+      <div class="planner-app" id="planner-secure-shell" hidden aria-hidden="true">
         <header class="planner-toolbar">
           <div>
-            <span class="planner-mode"><span class="live-dot"></span> LOCAL DEMO</span>
+            <span class="planner-mode"><span class="live-dot"></span> FIREBASE CONNECTING</span>
             <strong>Angela & Joseph · February 23, 2027</strong>
-            <small>Data is saved only in this browser on this device.</small>
+            <small>Waiting for organizer authorization…</small>
           </div>
           <div class="planner-toolbar-actions">
             <button type="button" class="button outlined planner-compact" id="planner-export">Export backup</button>
