@@ -26,7 +26,7 @@ let pendingLinkCode = null;
 let sessionRestoring = false;
 let cameraAccess = null;
 const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
-const previewTestCode = normalize(guestAccessConfig.previewTestCode || "");
+const previewTestCode = normalize(guestAccessConfig.previewTestCode || "AJ27-TEST");
 const previewTestActive = Boolean(!guestAccessConfig.enabled && guestAccessConfig.previewTestEnabled !== false && CODE_PATTERN.test(previewTestCode));
 
 function show(message, state = "") {
