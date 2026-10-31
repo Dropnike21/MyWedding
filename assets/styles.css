@@ -920,3 +920,293 @@ body:not([data-active-view="home"]) .ambient-heart{opacity:0!important}
   body.camera-session-active .camera-session-brand small{display:none}
   body.camera-session-active .camera-change-code{padding:7px 8px}
 }
+
+
+/* =========================================================
+   ADVANCED WEDDING CAMERA + MINI FILM ROLL
+   ========================================================= */
+.camera-live-stage video{
+  transition:filter .28s ease,transform .25s ease
+}
+.camera-live-stage video.is-selfie{transform:scaleX(-1)}
+.camera-quick-tools{
+  position:absolute;
+  z-index:7;
+  top:12px;
+  right:12px;
+  display:flex;
+  gap:7px;
+}
+.camera-tool{
+  width:45px;
+  min-height:45px;
+  border:1px solid rgba(255,255,255,.20);
+  border-radius:14px;
+  background:rgba(11,18,14,.48);
+  color:#fff9ed;
+  backdrop-filter:blur(13px);
+  -webkit-backdrop-filter:blur(13px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  box-shadow:0 6px 18px rgba(0,0,0,.13);
+}
+.camera-tool>span{font-size:17px;line-height:1}
+.camera-tool>small{font-size:6px;letter-spacing:.45px;text-transform:uppercase}
+.camera-tool.active{background:rgba(225,194,130,.82);color:#21392f;border-color:#f8e8c5}
+.camera-tool:active{transform:scale(.93)}
+.camera-advanced-controls{
+  position:absolute;
+  z-index:8;
+  right:12px;
+  top:67px;
+  width:min(285px,calc(100% - 24px));
+  padding:13px;
+  border:1px solid rgba(255,255,255,.19);
+  border-radius:14px;
+  color:#f8f4e9;
+  background:rgba(16,25,21,.78);
+  backdrop-filter:blur(18px) saturate(1.15);
+  -webkit-backdrop-filter:blur(18px) saturate(1.15);
+  box-shadow:0 18px 38px rgba(0,0,0,.20);
+  animation:cameraPanelIn .22s cubic-bezier(.16,1,.3,1) both
+}
+@keyframes cameraPanelIn{from{opacity:0;transform:translateY(-7px) scale(.97)}to{opacity:1;transform:none}}
+.camera-control-row{padding:6px 3px 10px}
+.camera-control-row+ .camera-control-row{border-top:1px solid rgba(255,255,255,.08);padding-top:11px}
+.camera-control-row label{display:flex;justify-content:space-between;align-items:center;font-size:9px;font-weight:750;margin-bottom:7px}
+.camera-control-row output{color:#e3c38d;font:11px Georgia,serif}
+.camera-control-row input[type="range"]{width:100%;accent-color:#d8b77e}
+.camera-quality-row{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;border-top:1px solid rgba(255,255,255,.08);padding-top:11px}
+.camera-quality-row>span{font-size:9px}
+.camera-quality{
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.06);
+  color:#eaf0eb;
+  border-radius:999px;
+  font-size:7px;
+  font-weight:800;
+  padding:7px 9px;
+  text-transform:uppercase;
+  letter-spacing:.4px
+}
+.camera-quality.active{background:#efe6d3;color:#29483c;border-color:#efe6d3}
+
+.camera-filter-bar{
+  position:absolute;
+  z-index:7;
+  left:10px;
+  right:10px;
+  bottom:10px;
+  display:flex;
+  gap:6px;
+  overflow-x:auto;
+  scrollbar-width:none;
+  padding:4px 2px;
+  mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12px,#000 calc(100% - 12px),transparent)
+}
+.camera-filter-bar::-webkit-scrollbar{display:none}
+.camera-filter{
+  flex:0 0 auto;
+  min-width:58px;
+  min-height:29px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;
+  padding:6px 10px;
+  color:#f8f4eb;
+  background:rgba(12,20,16,.44);
+  backdrop-filter:blur(9px);
+  -webkit-backdrop-filter:blur(9px);
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:.35px
+}
+.camera-filter.active{
+  color:#263f35;
+  background:#f5ead4;
+  border-color:#fff2d8;
+  box-shadow:0 4px 13px rgba(0,0,0,.16)
+}
+
+.camera-flash{
+  position:absolute;
+  z-index:15;
+  inset:0;
+  background:#fff;
+  pointer-events:none;
+  opacity:0
+}
+.camera-flash.fire{animation:cameraFlash .26s ease-out}
+@keyframes cameraFlash{0%{opacity:0}18%{opacity:.94}100%{opacity:0}}
+.camera-capture-flight{
+  position:fixed;
+  z-index:5000;
+  border:3px solid #f9f2df;
+  border-radius:5px;
+  background-position:center;
+  background-size:cover;
+  box-shadow:0 15px 35px rgba(0,0,0,.28);
+  pointer-events:none
+}
+
+/* Film is intentionally tiny and non-interactive: it communicates progress,
+   not a browseable gallery. */
+.camera-film{
+  width:min(310px,86vw);
+  height:58px;
+  margin:0 auto 8px;
+  border-radius:8px;
+  overflow:hidden;
+  position:relative;
+  background:#161a17;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+  pointer-events:none
+}
+.camera-film:before,.camera-film:after{
+  content:"";
+  position:absolute;
+  z-index:4;
+  left:0;right:0;
+  height:5px;
+  background:repeating-linear-gradient(90deg,transparent 0 8px,#c8bda5 8px 13px,transparent 13px 20px);
+  opacity:.38;
+  pointer-events:none
+}
+.camera-film:before{top:2px}.camera-film:after{bottom:2px}
+.camera-film-track{
+  position:absolute;
+  inset:6px 7px;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:4px;
+  overflow:hidden
+}
+.camera-film-frame,.camera-film-empty{
+  flex:0 0 38px;
+  width:38px;
+  height:44px;
+  border-radius:3px;
+  position:relative;
+}
+.camera-film-frame{
+  background-position:center;
+  background-size:cover;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.10);
+  filter:saturate(.82) contrast(.98);
+  overflow:hidden
+}
+.camera-film-frame:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background:linear-gradient(145deg,rgba(255,255,255,.10),transparent 45%,rgba(0,0,0,.12))
+}
+.camera-film-frame>span{
+  position:absolute;
+  z-index:2;
+  right:2px;
+  bottom:2px;
+  min-width:15px;
+  padding:1px 3px;
+  border-radius:4px;
+  background:rgba(0,0,0,.56);
+  color:#eee8dc;
+  font:6px monospace;
+  text-align:center
+}
+.camera-film-frame.is-new{animation:filmDevelop .48s cubic-bezier(.16,1,.3,1)}
+@keyframes filmDevelop{
+  0%{opacity:.25;filter:brightness(2.2) saturate(.2);transform:scale(.90)}
+  50%{opacity:1;filter:brightness(1.25) saturate(.6);transform:scale(1.04)}
+  100%{filter:saturate(.82) contrast(.98);transform:none}
+}
+.camera-film-frame.is-leaving{animation:filmLeave .28s ease forwards}
+@keyframes filmLeave{to{opacity:0;transform:translateX(-45px) scale(.84)}}
+.camera-film-empty{
+  border:1px dashed rgba(245,235,213,.40);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  color:#aaaeaa;
+  background:rgba(255,255,255,.025)
+}
+.camera-film-empty>span{
+  width:9px;height:9px;border-radius:50%;
+  border:1px solid rgba(245,235,213,.45);
+  position:relative
+}
+.camera-film-empty>span:before,.camera-film-empty>span:after{
+  content:"";position:absolute;left:50%;top:50%;
+  background:rgba(245,235,213,.40);transform:translate(-50%,-50%)
+}
+.camera-film-empty>span:before{width:5px;height:1px}.camera-film-empty>span:after{width:1px;height:5px}
+.camera-film-empty>small{font-size:5px;letter-spacing:.7px;text-transform:uppercase;margin-top:3px}
+.camera-film-empty.pulse{animation:emptyFramePulse .48s cubic-bezier(.16,1,.3,1)}
+@keyframes emptyFramePulse{50%{border-color:#e8c990;background:rgba(232,201,144,.12);transform:scale(1.06)}}
+
+.camera-shutter:disabled{opacity:.35}
+.camera-shutter:disabled>span{background:#8a918c}
+.camera-message{transition:color .2s ease}
+
+/* Mobile keeps the film row and creative controls compact. */
+@media(max-width:820px){
+  body.camera-session-active .camera-session-bottom{
+    min-height:calc(158px + env(safe-area-inset-bottom,0px));
+    padding-top:7px
+  }
+  body.camera-session-active .camera-film{
+    width:min(260px,72vw);
+    height:52px;
+    margin-bottom:5px
+  }
+  body.camera-session-active .camera-film-track{inset:5px 6px}
+  body.camera-session-active .camera-film-frame,
+  body.camera-session-active .camera-film-empty{
+    flex-basis:34px;width:34px;height:40px
+  }
+  body.camera-session-active .camera-quick-tools{
+    top:10px;
+    right:10px
+  }
+  body.camera-session-active .camera-tool{
+    width:41px;min-height:41px;border-radius:12px
+  }
+  body.camera-session-active .camera-tool>span{font-size:15px}
+  body.camera-session-active .camera-advanced-controls{
+    top:59px;right:10px;width:min(265px,calc(100% - 20px))
+  }
+  body.camera-session-active .camera-filter-bar{
+    bottom:8px
+  }
+  body.camera-session-active .camera-filter{
+    min-width:53px;min-height:27px;padding:5px 9px
+  }
+  body.camera-session-active .camera-focus-frame{bottom:50px}
+}
+@media(max-height:700px) and (max-width:820px){
+  body.camera-session-active .camera-session-bottom{
+    min-height:calc(137px + env(safe-area-inset-bottom,0px))
+  }
+  body.camera-session-active .camera-film{
+    height:46px;margin-bottom:3px
+  }
+  body.camera-session-active .camera-film-track{inset:4px 5px}
+  body.camera-session-active .camera-film-frame,
+  body.camera-session-active .camera-film-empty{
+    flex-basis:30px;width:30px;height:36px
+  }
+  body.camera-session-active .camera-message{margin-bottom:5px}
+  body.camera-session-active .camera-full-actions{min-height:58px}
+  body.camera-session-active .camera-shutter{width:60px;height:60px}
+  body.camera-session-active .camera-shutter>span{width:44px;height:44px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .camera-flash.fire,.camera-film-frame.is-new,.camera-film-frame.is-leaving,
+  .camera-film-empty.pulse,.camera-advanced-controls{animation:none!important}
+}
