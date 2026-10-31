@@ -1,5 +1,5 @@
-import { guestAccessConfig } from "./guest-config.js?v=20261031-2115";
-import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261031-2115";
+import { guestAccessConfig } from "./guest-config.js?v=20261031-2230";
+import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261031-2230";
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
