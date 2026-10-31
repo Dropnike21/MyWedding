@@ -11,7 +11,7 @@
   <script src="./assets/app.js" defer></script>
   <script type="module" src="./assets/firebase-init.js"></script>
   <script type="module" src="./assets/invitation-access.js"></script>
-  <script type="module" src="./assets/admin.js"></script>
+  <script type="module" src="./assets/planner.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -68,92 +68,45 @@
     </section>
 
     <section class="view" id="view-planner" aria-labelledby="planner-heading" hidden>
-      <div class="section-heading">
+      <div class="section-heading planner-heading">
         <span class="eyebrow">PRIVATE WEDDING MANAGEMENT</span>
         <h1 id="planner-heading">Wedding <em>Studio</em></h1>
-        <p>A peaceful place to manage your guests, invitations, suppliers, and plans—without exposing private details to visitors.</p>
+        <p>Plan the celebration, coordinate people and suppliers, and keep every decision in one place. The current workspace is a safe local demo so you can test the workflow before we connect live Firestore data.</p>
       </div>
 
-      <div class="admin-shell">
-        <div class="admin-shell-head">
-          <div><span class="eyebrow">ANGELA + JOSEPH / ADMIN</span><h2>Invitation management</h2>
-          <p>Create individual or family invitations. Each link can be regenerated or revoked at any time.</p></div>
-          <span class="admin-status-pill" id="admin-status-pill">SETUP REQUIRED</span>
-        </div>
-
-        <div id="admin-login" class="admin-login">
-          <div class="admin-login-icon" aria-hidden="true">✦</div>
-          <h3>Private access only</h3>
-          <p id="admin-login-info">This workspace requires a verified organizer account, protected Firebase functions, and App Check. Invitation links cannot be issued until those services are deployed.</p>
-          <button type="button" class="button primary" id="admin-login-button" disabled>Sign in as organizer</button>
-          <p class="admin-login-hint">Google sign-in will appear here after the private backend is enabled. No guest list is embedded in this public page.</p>
-        </div>
-
-        <div id="admin-console" class="admin-console" hidden>
-          <div class="admin-userline"><span>Signed in as <strong id="admin-user-name"></strong></span><button type="button" class="admin-text-button" id="admin-signout">Sign out</button></div>
-          <div class="admin-kpis" aria-label="Invitation summary">
-            <div><span>Invitations</span><strong id="admin-total">0</strong></div>
-            <div><span>Active links</span><strong id="admin-active">0</strong></div>
-            <div><span>Confirmed</span><strong id="admin-confirmed">0</strong></div>
-            <div><span>Expected seats</span><strong id="admin-seats">0</strong></div>
+      <div class="planner-app">
+        <header class="planner-toolbar">
+          <div>
+            <span class="planner-mode"><span class="live-dot"></span> LOCAL DEMO</span>
+            <strong>Angela & Joseph · February 23, 2027</strong>
+            <small>Data is saved only in this browser on this device.</small>
           </div>
-
-          <div class="admin-columns">
-            <div class="admin-list-panel">
-              <div class="admin-panel-head"><div><h3>Guest invitations</h3><p>Choose a guest to edit or rotate their link.</p></div><button type="button" class="button outlined admin-small-button" id="admin-new">+ New</button></div>
-              <label for="admin-search" class="sr-label">Search invitations</label>
-              <input type="search" id="admin-search" placeholder="Search guests or families" autocomplete="off" />
-              <div id="admin-invitation-list" class="admin-invitation-list" role="list">
-                <p>Loading invitations…</p>
-              </div>
-              <button type="button" class="admin-text-button admin-refresh" id="admin-refresh">Refresh invitations ↻</button>
-            </div>
-
-            <div class="admin-edit-panel">
-              <div class="admin-panel-head"><div><span class="eyebrow">INVITATION DETAILS</span><h3 id="admin-editor-title">New invitation</h3></div><span class="admin-id-hint" id="admin-id-hint">Automatic code</span></div>
-              <form id="admin-invitation-form">
-                <label for="admin-party">Guest or family name <span aria-hidden="true">*</span></label>
-                <input id="admin-party" name="partyLabel" type="text" maxlength="120" placeholder="e.g. Maria Cruz or The Cruz Family" required />
-                <div class="admin-field-pair">
-                  <div><label for="admin-side">Invited by</label><select id="admin-side" name="side"><option>Angela</option><option>Joseph</option><option selected>Shared</option></select></div>
-                  <div><label for="admin-seats-input">Estimated seats</label><input id="admin-seats-input" name="invitedSeats" type="number" min="1" max="30" step="1" value="1" required /></div>
-                </div>
-                <div class="admin-field-pair">
-                  <div><label for="admin-rsvp">RSVP status</label><select id="admin-rsvp" name="rsvp"><option>Pending</option><option>Yes</option><option>No</option><option>Maybe</option></select></div>
-                  <div><label for="admin-record-status">Invitation status</label><input id="admin-record-status" type="text" value="New invitation" readonly /></div>
-                </div>
-                <label for="admin-notes">Private planning notes</label>
-                <textarea id="admin-notes" name="notes" rows="3" maxlength="500" placeholder="Optional notes for organizers only"></textarea>
-                <div class="admin-primary-actions">
-                  <button type="submit" class="button primary" id="admin-save">Create invitation</button>
-                  <button type="button" class="button subtle" id="admin-clear">Clear</button>
-                </div>
-              </form>
-              <div id="admin-link-result" class="admin-link-result" hidden aria-live="polite">
-                <strong>New private link—copy it now</strong>
-                <p>For safety, the plain access code is shown only when issued. It cannot be retrieved later; regenerate it if lost.</p>
-                <div class="admin-code-line"><code id="admin-new-code"></code><button type="button" class="button outlined admin-small-button" id="admin-copy-code">Copy code</button></div>
-                <label for="admin-new-link">Personal invitation link</label>
-                <input id="admin-new-link" type="text" readonly />
-                <button type="button" class="button primary" id="admin-copy-link">Copy invitation link</button>
-              </div>
-              <div id="admin-rotation-actions" class="admin-rotation-actions" hidden>
-                <h4>Security & access</h4>
-                <p>Regenerating makes the previous link invalid immediately, including previously redeemed guest sessions. The replacement link is shown only once.</p>
-                <button type="button" class="button outlined" id="admin-rotate">↻ Regenerate link</button>
-                <button type="button" class="button admin-danger" id="admin-revoke">Revoke access</button>
-              </div>
-              <p id="admin-feedback" class="admin-feedback" role="status" aria-live="polite"></p>
-            </div>
+          <div class="planner-toolbar-actions">
+            <button type="button" class="button outlined planner-compact" id="planner-export">Export backup</button>
+            <button type="button" class="button outlined planner-compact" id="planner-import">Import backup</button>
+            <button type="button" class="button admin-danger planner-compact" id="planner-reset">Reset demo</button>
           </div>
-          <p class="admin-footnote">Only organizers with a Firebase admin custom claim can issue or change invitations. All writes happen through server-side callable functions; guests cannot read this register.</p>
-        </div>
+          <input type="file" id="planner-import-file" accept="application/json,.json" hidden />
+        </header>
 
-        <div class="admin-roadmap">
-          <article><span>01</span><h3>Guests & Invitations</h3><p>Issue codes, regenerate access, track RSVPs and family groups.</p><small>INTERFACE BUILT · BACKEND DEPLOYMENT PENDING</small></article>
-          <article><span>02</span><h3>Budget & Payments</h3><p>Monitor your ₱70,000 spending plan, vendor quotes, and balances.</p><small>PLANNED</small></article>
-          <article><span>03</span><h3>Wedding Checklist</h3><p>Organize the ceremony timeline, documents and assignments.</p><small>PLANNED</small></article>
-          <article><span>04</span><h3>Photo Time Capsule</h3><p>Control upload windows, review photo submissions and gallery release.</p><small>PLANNED</small></article>
+        <div class="planner-layout">
+          <aside class="planner-sidebar" aria-label="Wedding planning sections">
+            <div class="planner-sidebar-title">WEDDING STUDIO</div>
+            <button type="button" class="planner-nav active" data-planner-view="overview"><span>◈</span><b>Overview</b><small>At a glance</small></button>
+            <button type="button" class="planner-nav" data-planner-view="settings"><span>◇</span><b>Event setup</b><small>Date, venue, limits</small></button>
+            <button type="button" class="planner-nav" data-planner-view="guests"><span>♧</span><b>Guests</b><small>Invites & RSVPs</small></button>
+            <button type="button" class="planner-nav" data-planner-view="vendors"><span>▤</span><b>Suppliers</b><small>Quotes & bookings</small></button>
+            <button type="button" class="planner-nav" data-planner-view="budget"><span>₱</span><b>Budget & payments</b><small>₱70k plan</small></button>
+            <button type="button" class="planner-nav" data-planner-view="tasks"><span>☑</span><b>Checklist</b><small>Tasks & deadlines</small></button>
+            <button type="button" class="planner-nav" data-planner-view="timeline"><span>◷</span><b>Wedding day</b><small>Run of show</small></button>
+            <button type="button" class="planner-nav" data-planner-view="decisions"><span>?</span><b>Decisions</b><small>Open choices</small></button>
+            <button type="button" class="planner-nav" data-planner-view="team"><span>◎</span><b>Coordinator team</b><small>Roles & contacts</small></button>
+            <div class="planner-sidebar-note">Invitation-code issuance remains disabled until the secure Firebase backend is deployed.</div>
+          </aside>
+
+          <main class="planner-workspace" id="planner-workspace" aria-live="polite">
+            <p class="planner-loading">Loading your wedding workspace…</p>
+          </main>
         </div>
       </div>
     </section>
