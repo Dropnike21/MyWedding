@@ -462,16 +462,49 @@ document.getElementById("planner-reset").addEventListener("click",()=>{
   db=seed();save();selectedId=null;search="";switchPlanner("overview");updateToolbar();
 });
 
-function plannerLogin(message="Sign in with your organizer Google account to open the wedding workspace.") {
+function lockPlanner(message="Sign in with your organizer Google account to open the wedding workspace.", canSignIn=true) {
   remoteActive=false;
-  root.innerHTML='<section class="planner-login-card"><span class="eyebrow">PRIVATE WEDDING WORKSPACE</span><h2>Organizer sign-in</h2><p id="planner-login-message">'+esc(message)+'</p><button type="button" class="button primary" id="planner-firebase-login">Continue with Google</button><small>Only Google accounts listed in Firestore under <code>organizers/{uid}</code> can open this planner.</small></section>';
-  const button=root.querySelector("#planner-firebase-login");
-  button.addEventListener("click",async()=>{
-    button.disabled=true;
-    root.querySelector("#planner-login-message").textContent="Opening secure Google sign-in…";
-    try{await plannerFirestore.signIn();}
-    catch(error){root.querySelector("#planner-login-message").textContent=error?.message||"Sign-in failed.";button.disabled=false;}
-  });
+  const gate=document.getElementById("planner-access-gate");
+  const shell=document.getElementById("planner-secure-shell");
+  const button=document.getElementById("planner-firebase-login");
+  const copy=document.getElementById("planner-access-message");
+  if(shell){
+    shell.hidden=true;
+    shell.setAttribute("aria-hidden","true");
+  }
+  if(gate){
+    gate.hidden=false;
+    gate.removeAttribute("aria-hidden");
+  }
+  if(copy) copy.textContent=message;
+  if(button){
+    button.disabled=!canSignIn;
+    button.onclick=async()=>{
+      button.disabled=true;
+      if(copy)copy.textContent="Opening secure Google sign-in…";
+      try{await plannerFirestore.signIn();}
+      catch(error){
+        if(copy)copy.textContent=error?.message||"Sign-in failed.";
+        button.disabled=false;
+      }
+    };
+  }
+}
+
+function unlockPlanner() {
+  const gate=document.getElementById("planner-access-gate");
+  const shell=document.getElementById("planner-secure-shell");
+  if(gate){
+    gate.hidden=true;
+    gate.setAttribute("aria-hidden","true");
+  }
+  if(shell){
+    shell.hidden=false;
+    shell.removeAttribute("aria-hidden");
+    shell.classList.remove("planner-shell-enter");
+    void shell.offsetWidth;
+    shell.classList.add("planner-shell-enter");
+  }
 }
 
 function applyRoleUI(role){
@@ -499,8 +532,10 @@ function applyRoleUI(role){
 }
 
 async function initializePlanner(){
+  lockPlanner("Connecting securely to Firebase…",false);
+
   if(!plannerFirestore.enabled){
-    save();updateToolbar();switchPlanner("overview");
+    lockPlanner("Firebase planner access is not configured yet. Ask the site owner to finish App Check setup.",false);
     return;
   }
 
@@ -514,7 +549,7 @@ async function initializePlanner(){
       organizerProfile=null;organizerRole="local";
       document.getElementById("planner-signout")?.remove();
       setSyncState("SIGN-IN REQUIRED");
-      plannerLogin();
+      lockPlanner("Sign in with an authorized organizer Google account to open the wedding workspace.",true);
       return;
     }
     try{
@@ -524,11 +559,13 @@ async function initializePlanner(){
       remoteActive=true;
       applyRoleUI(organizerProfile.role);
       selectedId=null;search="";showArchived=false;
-      updateToolbar();switchPlanner("overview");
+      updateToolbar();
+      unlockPlanner();
+      switchPlanner("overview");
     }catch(error){
       console.error(error);
       await plannerFirestore.signOut().catch(()=>{});
-      plannerLogin(error?.message||"This account cannot access the wedding planner.");
+      lockPlanner(error?.message||"This account cannot access the wedding planner.",true);
     }
   });
 }
