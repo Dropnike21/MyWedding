@@ -10,80 +10,250 @@
 
   document.documentElement.classList.add("motion-ready");
 
+  const CAMERA_FILTERS = {
+    natural: { label: "Natural", css: "none" },
+    warm: { label: "Warm", css: "sepia(.12) saturate(1.12) contrast(1.02) brightness(1.02)" },
+    golden: { label: "Golden", css: "sepia(.2) saturate(1.22) hue-rotate(-7deg) brightness(1.04)" },
+    film: { label: "Film", css: "contrast(1.09) saturate(.86) sepia(.08)" },
+    soft: { label: "Soft", css: "brightness(1.05) contrast(.94) saturate(.94)" },
+    bw: { label: "B&W", css: "grayscale(1) contrast(1.1) brightness(1.02)" },
+  };
+
   const camera = {
+    preview: document.getElementById("camera-preview"),
     video: document.getElementById("camera-video"),
-    image: document.getElementById("camera-capture"),
+    canvas: document.getElementById("camera-capture-canvas"),
+    flight: document.getElementById("camera-capture-flight"),
+    flash: document.getElementById("camera-flash"),
     idle: document.getElementById("camera-idle"),
     start: document.getElementById("start-camera"),
     take: document.getElementById("take-photo"),
-    retake: document.getElementById("retake-photo"),
-    save: document.getElementById("save-photo"),
     message: document.getElementById("camera-message"),
+    quickTools: document.getElementById("camera-quick-tools"),
+    flip: document.getElementById("camera-flip"),
+    torch: document.getElementById("camera-torch"),
+    controlsToggle: document.getElementById("camera-controls-toggle"),
+    advancedControls: document.getElementById("camera-advanced-controls"),
+    zoomRow: document.getElementById("camera-zoom-row"),
+    zoom: document.getElementById("camera-zoom"),
+    zoomValue: document.getElementById("camera-zoom-value"),
+    exposureRow: document.getElementById("camera-exposure-row"),
+    exposure: document.getElementById("camera-exposure"),
+    exposureValue: document.getElementById("camera-exposure-value"),
+    filterBar: document.getElementById("camera-filter-bar"),
+    filterButtons: [...document.querySelectorAll(".camera-filter")],
+    qualityButtons: [...document.querySelectorAll(".camera-quality")],
+    filmTrack: document.getElementById("camera-film-track"),
+    filmEmpty: document.getElementById("camera-film-empty"),
+    quotaLabel: document.getElementById("camera-session-quota"),
     stream: null,
-    url: null,
+    track: null,
+    facingMode: "environment",
+    torchOn: false,
+    filter: "natural",
+    quality: "balanced",
+    photoLimit: 50,
+    photosUsed: 0,
+    localTaken: 0,
+    frames: [],
+    capturing: false,
   };
 
-  function stopStream() {
+  function cameraRemaining() {
+    return Math.max(0, camera.photoLimit - camera.photosUsed - camera.localTaken);
+  }
+
+  function updateCameraQuota() {
+    if (!camera.quotaLabel) return;
+    camera.quotaLabel.textContent =
+      cameraRemaining() + " of " + camera.photoLimit + " memories available";
+    if (camera.take) camera.take.disabled = cameraRemaining() <= 0;
+  }
+
+  function configureCameraSession(detail = {}) {
+    camera.photoLimit = Math.max(1, Number(detail.photoLimit || 50));
+    camera.photosUsed = Math.max(0, Number(detail.photosUsed || 0));
+    camera.localTaken = 0;
+    clearFilm();
+    updateCameraQuota();
+  }
+
+  function stopStream({ hideControls = true } = {}) {
     if (camera.stream) {
-      camera.stream.getTracks().forEach((track) => track.stop());
+      camera.stream.getTracks().forEach(track => track.stop());
       camera.stream = null;
     }
-    camera.video.pause();
-    camera.video.srcObject = null;
-    camera.video.hidden = true;
+    camera.track = null;
+    camera.torchOn = false;
+    if (camera.video) {
+      camera.video.pause();
+      camera.video.srcObject = null;
+      camera.video.hidden = true;
+      camera.video.classList.remove("is-selfie");
+    }
+    if (camera.torch) {
+      camera.torch.classList.remove("active");
+      camera.torch.hidden = true;
+    }
+    if (camera.zoomRow) camera.zoomRow.hidden = true;
+    if (camera.exposureRow) camera.exposureRow.hidden = true;
+    if (hideControls) {
+      if (camera.quickTools) camera.quickTools.hidden = true;
+      if (camera.filterBar) camera.filterBar.hidden = true;
+      if (camera.advancedControls) camera.advancedControls.hidden = true;
+      if (camera.controlsToggle) camera.controlsToggle.setAttribute("aria-expanded", "false");
+    }
+  }
+
+  function clearFilm() {
+    for (const frame of camera.frames) {
+      if (frame.url) URL.revokeObjectURL(frame.url);
+      frame.node?.remove();
+    }
+    camera.frames = [];
+    camera.filmTrack?.querySelectorAll(".camera-film-frame").forEach(node => node.remove());
   }
 
   function resetCamera() {
     stopStream();
-    if (camera.url) {
-      URL.revokeObjectURL(camera.url);
-      camera.url = null;
+    clearFilm();
+    camera.localTaken = 0;
+    camera.filter = "natural";
+    camera.quality = "balanced";
+    camera.capturing = false;
+    camera.filterButtons.forEach(button =>
+      button.classList.toggle("active", button.dataset.filter === "natural")
+    );
+    camera.qualityButtons.forEach(button =>
+      button.classList.toggle("active", button.dataset.quality === "balanced")
+    );
+    if (camera.video) camera.video.style.filter = "none";
+    if (camera.idle) camera.idle.hidden = false;
+    if (camera.start) {
+      camera.start.hidden = false;
+      camera.start.disabled = false;
     }
-    camera.image.removeAttribute("src");
-    camera.image.hidden = true;
-    camera.idle.hidden = false;
-    camera.start.hidden = false;
-    camera.take.hidden = true;
-    camera.retake.hidden = true;
-    camera.save.hidden = true;
-    camera.save.removeAttribute("href");
-    camera.message.textContent =
-      "Camera access requires your permission and a secure connection (HTTPS).";
+    if (camera.take) {
+      camera.take.hidden = true;
+      camera.take.disabled = false;
+    }
+    if (camera.flight) {
+      camera.flight.hidden = true;
+      camera.flight.style.backgroundImage = "";
+    }
+    if (camera.flash) camera.flash.hidden = true;
+    updateCameraQuota();
+    if (camera.message) {
+      camera.message.textContent =
+        "Your invitation has been verified. Open the camera when you're ready.";
+    }
   }
 
-  async function startCamera() {
-    stopStream();
-    camera.message.textContent = "Requesting permission to use your camera…";
+  function cameraConstraints() {
+    const high = camera.quality === "high";
+    return {
+      video: {
+        facingMode: { ideal: camera.facingMode },
+        width: { ideal: high ? 2560 : 1920 },
+        height: { ideal: high ? 1440 : 1080 },
+        frameRate: { ideal: 30, max: 60 },
+      },
+      audio: false,
+    };
+  }
+
+  function setRangeControl(input, output, capability, current, suffix = "") {
+    if (!input || !capability || typeof capability !== "object") return false;
+    if (!Number.isFinite(capability.min) || !Number.isFinite(capability.max)) return false;
+    input.min = String(capability.min);
+    input.max = String(capability.max);
+    input.step = String(capability.step || Math.max((capability.max - capability.min) / 40, .01));
+    const value = Number.isFinite(current)
+      ? Math.min(capability.max, Math.max(capability.min, current))
+      : capability.min;
+    input.value = String(value);
+    if (output) output.textContent = Number(value.toFixed(2)) + suffix;
+    return true;
+  }
+
+  async function configureTrackCapabilities() {
+    const track = camera.track;
+    if (!track) return;
+
+    const capabilities = typeof track.getCapabilities === "function"
+      ? track.getCapabilities()
+      : {};
+    const settings = typeof track.getSettings === "function"
+      ? track.getSettings()
+      : {};
+
+    if (camera.torch) {
+      const torchSupported = Boolean(capabilities.torch);
+      camera.torch.hidden = !torchSupported;
+      camera.torch.disabled = !torchSupported;
+    }
+
+    if (camera.zoomRow) {
+      camera.zoomRow.hidden = !setRangeControl(
+        camera.zoom, camera.zoomValue, capabilities.zoom, settings.zoom, "×"
+      );
+    }
+
+    if (camera.exposureRow) {
+      camera.exposureRow.hidden = !setRangeControl(
+        camera.exposure, camera.exposureValue,
+        capabilities.exposureCompensation, settings.exposureCompensation, ""
+      );
+    }
+
+    if (Array.isArray(capabilities.focusMode) &&
+        capabilities.focusMode.includes("continuous")) {
+      try {
+        await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+      } catch {}
+    }
+  }
+
+  async function startCamera({ restarting = false } = {}) {
+    stopStream({ hideControls: false });
+    camera.message.textContent = restarting
+      ? "Switching camera…"
+      : "Requesting permission to use your camera…";
     camera.start.disabled = true;
+
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       camera.message.textContent =
         "This browser cannot open a camera here. Use HTTPS on a compatible device.";
       camera.start.disabled = false;
       return;
     }
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
-        audio: false,
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(cameraConstraints());
       camera.stream = stream;
+      camera.track = stream.getVideoTracks()[0] || null;
       camera.video.srcObject = stream;
       camera.video.hidden = false;
-      camera.image.hidden = true;
+      camera.video.classList.toggle("is-selfie", camera.facingMode === "user");
+      camera.video.style.filter = CAMERA_FILTERS[camera.filter].css;
       camera.idle.hidden = true;
       await camera.video.play();
+      await configureTrackCapabilities();
+
       camera.message.textContent =
-        "Camera preview is active. Take a test photo—nothing will be uploaded.";
+        CAMERA_FILTERS[camera.filter].label + " · " +
+        (camera.facingMode === "user" ? "Front camera" : "Back camera");
       camera.start.hidden = true;
       camera.take.hidden = false;
-      camera.retake.hidden = true;
-      camera.save.hidden = true;
+      camera.quickTools.hidden = false;
+      camera.filterBar.hidden = false;
+      updateCameraQuota();
     } catch (error) {
       stopStream();
       const name = error && error.name;
       camera.message.textContent =
         name === "NotAllowedError" || name === "PermissionDeniedError"
-          ? "Camera access was denied. Allow camera permission in your browser settings to try again."
+          ? "Camera access was denied. Allow camera permission in your browser settings."
           : name === "NotFoundError"
             ? "No camera was detected on this device."
             : "The camera could not start. Another app may be using it.";
@@ -92,47 +262,275 @@
     }
   }
 
-  async function captureTestPhoto() {
-    const video = camera.video;
-    if (!camera.stream || !video.videoWidth || !video.videoHeight) {
-      camera.message.textContent = "The camera is not ready yet. Try again.";
-      return;
-    }
-
-    const maxWidth = 1600;
-    const factor = Math.min(1, maxWidth / video.videoWidth);
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(video.videoWidth * factor);
-    canvas.height = Math.round(video.videoHeight * factor);
-    const context = canvas.getContext("2d");
-    if (!context) {
-      camera.message.textContent = "Photo capture is unavailable in this browser.";
-      return;
-    }
-
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const photo = await new Promise(resolve =>
-      canvas.toBlob(resolve, "image/jpeg", 0.86)
-    );
-    if (!photo) {
-      camera.message.textContent = "Photo capture failed. Try again.";
-      return;
-    }
-
-    if (camera.url) URL.revokeObjectURL(camera.url);
-    camera.url = URL.createObjectURL(photo);
-    stopStream();
-    camera.image.src = camera.url;
-    camera.image.hidden = false;
-    camera.idle.hidden = true;
-    camera.take.hidden = true;
-    camera.start.hidden = true;
-    camera.retake.hidden = false;
-    camera.save.hidden = false;
-    camera.save.href = camera.url;
-    camera.message.textContent =
-      "Test photo captured! It remains on this device. Download it or retake.";
+  async function switchCamera() {
+    if (camera.capturing) return;
+    camera.facingMode = camera.facingMode === "environment" ? "user" : "environment";
+    await startCamera({ restarting: true });
   }
+
+  async function toggleTorch() {
+    if (!camera.track || camera.torch.hidden) return;
+    camera.torchOn = !camera.torchOn;
+    try {
+      await camera.track.applyConstraints({ advanced: [{ torch: camera.torchOn }] });
+      camera.torch.classList.toggle("active", camera.torchOn);
+    } catch {
+      camera.torchOn = false;
+      camera.torch.classList.remove("active");
+      camera.message.textContent = "This phone couldn't switch the camera light.";
+    }
+  }
+
+  async function applyTrackValue(name, value, output, suffix = "") {
+    if (!camera.track) return;
+    const number = Number(value);
+    try {
+      await camera.track.applyConstraints({ advanced: [{ [name]: number }] });
+      if (output) output.textContent = Number(number.toFixed(2)) + suffix;
+    } catch {
+      camera.message.textContent = "That camera control isn't available on this device.";
+    }
+  }
+
+  function selectFilter(name) {
+    if (!CAMERA_FILTERS[name]) return;
+    camera.filter = name;
+    camera.filterButtons.forEach(button =>
+      button.classList.toggle("active", button.dataset.filter === name)
+    );
+    camera.video.style.filter = CAMERA_FILTERS[name].css;
+    if (camera.stream) {
+      camera.message.textContent =
+        CAMERA_FILTERS[name].label + " · " +
+        (camera.facingMode === "user" ? "Front camera" : "Back camera");
+    }
+  }
+
+  function selectQuality(name) {
+    if (!["balanced", "high"].includes(name)) return;
+    camera.quality = name;
+    camera.qualityButtons.forEach(button =>
+      button.classList.toggle("active", button.dataset.quality === name)
+    );
+  }
+
+  function flashCamera() {
+    if (!camera.flash) return;
+    camera.flash.hidden = false;
+    camera.flash.classList.remove("fire");
+    void camera.flash.offsetWidth;
+    camera.flash.classList.add("fire");
+    camera.flash.addEventListener("animationend", () => {
+      camera.flash.hidden = true;
+      camera.flash.classList.remove("fire");
+    }, { once: true });
+  }
+
+  async function thumbnailFromCanvas(source) {
+    const thumb = document.createElement("canvas");
+    const targetW = 90;
+    const targetH = 116;
+    thumb.width = targetW;
+    thumb.height = targetH;
+    const context = thumb.getContext("2d");
+    if (!context) return null;
+
+    const sourceRatio = source.width / source.height;
+    const targetRatio = targetW / targetH;
+    let sx = 0, sy = 0, sw = source.width, sh = source.height;
+    if (sourceRatio > targetRatio) {
+      sw = source.height * targetRatio;
+      sx = (source.width - sw) / 2;
+    } else {
+      sh = source.width / targetRatio;
+      sy = (source.height - sh) / 2;
+    }
+    context.drawImage(source, sx, sy, sw, sh, 0, 0, targetW, targetH);
+    const blob = await new Promise(resolve => thumb.toBlob(resolve, "image/jpeg", .68));
+    return blob ? URL.createObjectURL(blob) : null;
+  }
+
+  function animateFilmAdvance(existing) {
+    requestAnimationFrame(() => {
+      existing.forEach(({ node, left }) => {
+        if (!node.isConnected) return;
+        const dx = left - node.getBoundingClientRect().left;
+        if (Math.abs(dx) < 1 || typeof node.animate !== "function") return;
+        node.animate(
+          [{ transform: "translateX(" + dx + "px)" }, { transform: "translateX(0)" }],
+          { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }
+        );
+      });
+    });
+  }
+
+  function addFilmFrame(url) {
+    if (!url || !camera.filmTrack || !camera.filmEmpty) return;
+    const existingNodes = [...camera.filmTrack.querySelectorAll(".camera-film-frame")];
+    const existing = existingNodes.map(node => ({
+      node,
+      left: node.getBoundingClientRect().left,
+    }));
+
+    const frame = document.createElement("div");
+    frame.className = "camera-film-frame";
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.backgroundImage = 'url("' + url + '")';
+    const number = document.createElement("span");
+    number.textContent = String(camera.photosUsed + camera.localTaken).padStart(2, "0");
+    frame.appendChild(number);
+    camera.filmTrack.insertBefore(frame, camera.filmEmpty);
+    camera.frames.push({ url, node: frame });
+
+    animateFilmAdvance(existing);
+    frame.classList.add("is-new");
+    frame.addEventListener("animationend", () => frame.classList.remove("is-new"), { once: true });
+
+    const maxVisible = window.innerWidth < 480 ? 3 : 4;
+    while (camera.frames.length > maxVisible) {
+      const old = camera.frames.shift();
+      if (!old) break;
+      old.node?.classList.add("is-leaving");
+      setTimeout(() => {
+        old.node?.remove();
+        if (old.url) URL.revokeObjectURL(old.url);
+      }, 280);
+    }
+
+    camera.filmEmpty.classList.remove("pulse");
+    void camera.filmEmpty.offsetWidth;
+    camera.filmEmpty.classList.add("pulse");
+  }
+
+  async function animateCaptureToFilm(thumbnailUrl) {
+    if (!thumbnailUrl || !camera.flight || !camera.filmEmpty || !camera.preview) {
+      addFilmFrame(thumbnailUrl);
+      return;
+    }
+
+    const source = camera.preview.getBoundingClientRect();
+    const target = camera.filmEmpty.getBoundingClientRect();
+    const startW = Math.min(150, source.width * .34);
+    const startH = startW * 1.28;
+    const startX = source.left + source.width / 2 - startW / 2;
+    const startY = source.top + source.height / 2 - startH / 2;
+
+    camera.flight.style.backgroundImage = 'url("' + thumbnailUrl + '")';
+    camera.flight.hidden = false;
+
+    if (typeof camera.flight.animate === "function") {
+      const animation = camera.flight.animate([
+        {
+          left: startX + "px", top: startY + "px",
+          width: startW + "px", height: startH + "px",
+          opacity: 1, transform: "rotate(-2deg) scale(1)"
+        },
+        {
+          left: target.left + "px", top: target.top + "px",
+          width: target.width + "px", height: target.height + "px",
+          opacity: .9, transform: "rotate(1deg) scale(.96)"
+        }
+      ], {
+        duration: 540,
+        easing: "cubic-bezier(.18,.82,.22,1)",
+        fill: "forwards"
+      });
+      try { await animation.finished; } catch {}
+      animation.cancel();
+    }
+
+    camera.flight.hidden = true;
+    camera.flight.style.backgroundImage = "";
+    addFilmFrame(thumbnailUrl);
+  }
+
+  async function capturePhoto() {
+    const video = camera.video;
+    if (camera.capturing || !camera.stream || !video.videoWidth || !video.videoHeight) {
+      return;
+    }
+    if (cameraRemaining() <= 0) {
+      camera.message.textContent = "This invitation's 50-photo film roll is full.";
+      camera.take.disabled = true;
+      return;
+    }
+
+    camera.capturing = true;
+    camera.take.disabled = true;
+    flashCamera();
+    navigator.vibrate?.(18);
+
+    try {
+      const maxWidth = camera.quality === "high" ? 2400 : 1600;
+      const factor = Math.min(1, maxWidth / video.videoWidth);
+      const canvas = camera.canvas;
+      canvas.width = Math.max(1, Math.round(video.videoWidth * factor));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * factor));
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("Canvas unavailable");
+
+      context.save();
+      context.filter = CAMERA_FILTERS[camera.filter].css;
+      if (camera.facingMode === "user") {
+        context.translate(canvas.width, 0);
+        context.scale(-1, 1);
+      }
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      context.restore();
+
+      const quality = camera.quality === "high" ? .92 : .86;
+      const photo = await new Promise(resolve =>
+        canvas.toBlob(resolve, "image/jpeg", quality)
+      );
+      if (!photo) throw new Error("Photo capture failed");
+
+      const thumbnailUrl = await thumbnailFromCanvas(canvas);
+      camera.localTaken += 1;
+      updateCameraQuota();
+
+      await animateCaptureToFilm(thumbnailUrl);
+      camera.message.textContent =
+        "Moment sealed · " + cameraRemaining() + " frames left on this invitation";
+
+      document.dispatchEvent(new CustomEvent("wedding:photo-captured", {
+        detail: {
+          blob: photo,
+          filter: camera.filter,
+          quality: camera.quality,
+          facingMode: camera.facingMode,
+          localSequence: camera.localTaken,
+        }
+      }));
+    } catch (error) {
+      camera.message.textContent = "That photo couldn't be captured. Please try again.";
+      console.error("Wedding camera capture failed:", error);
+    } finally {
+      camera.capturing = false;
+      camera.take.disabled = cameraRemaining() <= 0;
+    }
+  }
+
+  camera.start?.addEventListener("click", () => startCamera());
+  camera.take?.addEventListener("click", capturePhoto);
+  camera.flip?.addEventListener("click", switchCamera);
+  camera.torch?.addEventListener("click", toggleTorch);
+  camera.controlsToggle?.addEventListener("click", () => {
+    const open = camera.controlsToggle.getAttribute("aria-expanded") === "true";
+    camera.controlsToggle.setAttribute("aria-expanded", String(!open));
+    camera.advancedControls.hidden = open;
+  });
+  camera.zoom?.addEventListener("input", event =>
+    applyTrackValue("zoom", event.target.value, camera.zoomValue, "×")
+  );
+  camera.exposure?.addEventListener("input", event =>
+    applyTrackValue("exposureCompensation", event.target.value, camera.exposureValue)
+  );
+  camera.filterButtons.forEach(button =>
+    button.addEventListener("click", () => selectFilter(button.dataset.filter))
+  );
+  camera.qualityButtons.forEach(button =>
+    button.addEventListener("click", () => selectQuality(button.dataset.quality))
+  );
 
   const revealObserver = motionOK && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
@@ -616,13 +1014,14 @@
     button.addEventListener("click", () => navigate(button.dataset.go));
   });
 
-  camera.start.addEventListener("click", startCamera);
-  camera.take.addEventListener("click", captureTestPhoto);
-  camera.retake.addEventListener("click", resetCamera);
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
   window.addEventListener("pagehide", stopStream);
   document.addEventListener("wedding:camera-mode", event => {
-    if (!event.detail?.active) resetCamera();
+    if (!event.detail?.active) {
+      resetCamera();
+      return;
+    }
+    configureCameraSession(event.detail);
   });
 
   const plannerWorkspace = document.getElementById("planner-workspace");
