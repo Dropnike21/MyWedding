@@ -28,6 +28,21 @@ These static checks verify source syntax, controls in HTML and all six 4:3/1:1/1
 7. Check that panels remain scrollable in short landscape viewports, the shutter is reachable, and returning to the main site stops the camera stream.
 8. Confirm that the preview camera does not claim a cloud upload. Before enabling production uploads, verify that the RAW original is unfiltered while the wedding image includes effects and the watermark, and test photo quota enforcement server-side.
 
+## Camera layout review: portrait and landscape
+
+- **Portrait:** tap the side handle to expand a vertical column of Flip, Rotate, Flash (when supported), Timer, and Effects buttons. Tap the live view, film, shutter, or camera-pass region outside the tool rail to close the rail and any open effects sheet. The Escape key also dismisses the controls.
+- **Landscape:** the same controls expand horizontally at the top of the preview. The film remains beside the shutter in the side deck but hangs vertically, with sprocket holes on both sides and turned thumbnails. The film counter is above the strip; controls must never cover the shutter.
+- **Camera-pass identity:** the label and current guest text stay together, left-aligned. **Change code** is a separate trailing button with a consistent baseline and minimum touch area. On narrower landscape screens, guest text may wrap to two lines.
+- **Focus feedback:** tapping the preview shows the focus indicator briefly, then automatically hides it to keep the image clear.
+
+### Device QA after these refinements
+
+1. In portrait, open and close tools repeatedly. Confirm the expanded tools are **vertical**. Open Effects, tap outside, and verify **both** the tools and effects panel disappear. Confirm clicks inside a slider do **not** dismiss the panel.
+2. In landscape, open the tools and confirm a **horizontal row at the top**. Check the film is a **vertical hanging strip beside the shutter** and that its photos rotate without rotating the frame count.
+3. Take two photos while landscape is active, then rotate back and forth. Ensure the film count, thumbnails, and shutter are visible, without unintended overlap.
+4. In portrait and landscape, confirm **CAMERA PASS / Camera Preview · Test Guest** stays associated with **Change code** and does not collide with the film label or shutter. Repeat with a long guest name.
+5. Repeat at small landscape heights (about 320 CSS pixels), with auto-rotate on and off, and at high text-zoom settings.
+
 ## Browser limitations
 
 Camera lens features are negotiated with `MediaStreamTrack.getCapabilities()` and `applyConstraints()`; available controls vary across phones and browsers. Screen-orientation locking is not consistently available to ordinary webpages, and device-orientation sensors may require permission or be blocked. The manual orientation control is retained as fallback.
