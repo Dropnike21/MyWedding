@@ -303,3 +303,13 @@ footer small{font-size:9px;color:#aec0b4}
 @media(max-width:1050px){.planner-layout{grid-template-columns:190px minmax(0,1fr)}.planner-workspace{padding:22px}.planner-metrics{grid-template-columns:repeat(2,1fr)}.planner-metrics.compact{grid-template-columns:repeat(2,1fr)}.planner-split{grid-template-columns:1fr}.planner-editor-card{order:-1}}
 @media(max-width:760px){.planner-app{width:100%;border-radius:0;border-left:0;border-right:0}.planner-toolbar{align-items:flex-start;flex-direction:column}.planner-toolbar-actions{width:100%;justify-content:flex-start}.planner-layout{grid-template-columns:1fr}.planner-sidebar{display:flex;gap:5px;overflow-x:auto;padding:10px;position:sticky;top:0;z-index:3}.planner-sidebar-title,.planner-sidebar-note{display:none}.planner-nav{min-width:122px;padding:9px;grid-template-columns:19px 1fr}.planner-nav small{display:none}.planner-workspace{padding:20px 13px}.planner-page-head{flex-direction:column}.planner-overview-grid,.planner-budget-layout{grid-template-columns:1fr}.planner-form-grid{grid-template-columns:1fr}.planner-field-wide{grid-column:auto}.planner-editor-card{padding:16px}}
 @media(max-width:480px){.planner-metrics,.planner-metrics.compact{grid-template-columns:1fr 1fr;gap:7px}.planner-metric{padding:13px;min-height:88px}.planner-metric strong{font-size:22px}.planner-toolbar-actions .button{flex:1}.planner-page-head h2{font-size:29px}.planner-form-actions{flex-wrap:wrap}.planner-form-actions .button{flex:1}.planner-table{min-width:550px}}
+
+
+/* Firebase planner connection states */
+.planner-mode.error{background:#f7e4df;color:#964c3a}
+.planner-login-card{max-width:570px;margin:55px auto;padding:38px 34px;background:#fffefa;border:1px solid #dfe3da;border-radius:12px;box-shadow:0 18px 45px rgba(40,65,54,.09);text-align:center}
+.planner-login-card h2{font:normal 34px Georgia,serif;letter-spacing:-1px;color:#294b3d;margin:12px 0 10px}
+.planner-login-card p{font-size:12px;line-height:1.75;color:#6d776f;max-width:460px;margin:0 auto 21px}
+.planner-login-card small{display:block;font-size:10px;line-height:1.6;color:#92938c;margin-top:17px}
+.planner-login-card code{font-size:9px;color:#52685b;background:#f0f2ed;padding:2px 4px;border-radius:3px}
+.planner-toolbar button:disabled{opacity:.48;cursor:not-allowed;transform:none}
