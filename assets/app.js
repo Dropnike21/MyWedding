@@ -448,6 +448,7 @@
       camera.video.style.filter = "";
     }
     if (camera.depthOverlay) camera.depthOverlay.hidden = true;
+    camera.autoTiltLandscape = null;
     if (camera.torch) {
       camera.torch.classList.remove("active");
       camera.torch.hidden = true;
@@ -945,14 +946,9 @@
       sx+=(sw-zoomW)/2; sy+=(sh-zoomH)/2; sw=zoomW;sh=zoomH;
     }
 
-    let width,height;
-    if (landscape) {
-      width=Math.min(2400,Math.max(1200,Math.round(sw)));
-      height=Math.round(width/ratio);
-    } else {
-      height=Math.min(2400,Math.max(1600,Math.round(sh)));
-      width=Math.round(height*ratio);
-    }
+    const scale=Math.min(1,2400/Math.max(sw,sh));
+    const width=Math.max(1,Math.round(sw*scale));
+    const height=Math.max(1,Math.round(sh*scale));
     return {sx,sy,sw,sh,width,height,orientation:landscape?"landscape":"portrait"};
   }
 
@@ -993,14 +989,31 @@
       context.filter = combinedPreviewFilter() + " blur(" + (depth * 12).toFixed(1) + "px)";
       drawFrame(context);
       context.restore();
-      context.save();
-      context.beginPath();
-      context.ellipse(canvas.width / 2,canvas.height / 2,
-        canvas.width * .33,canvas.height * .37,0,0,Math.PI * 2);
-      context.clip();
-      context.filter = combinedPreviewFilter();
-      drawFrame(context);
-      context.restore();
+      // Feather the sharp central area instead of clipping at a hard ellipse.
+      const sharp=document.createElement("canvas");
+      sharp.width=canvas.width; sharp.height=canvas.height;
+      const mask=document.createElement("canvas");
+      mask.width=canvas.width; mask.height=canvas.height;
+      const foreground=sharp.getContext("2d"), matte=mask.getContext("2d");
+      if (foreground && matte) {
+        foreground.filter=combinedPreviewFilter();
+        drawFrame(foreground);
+        matte.save();
+        matte.translate(canvas.width/2,canvas.height/2);
+        matte.scale(canvas.width*.43,canvas.height*.48);
+        const fade=matte.createRadialGradient(0,0,0,0,0,1);
+        fade.addColorStop(0,"rgba(0,0,0,1)");
+        fade.addColorStop(.48,"rgba(0,0,0,1)");
+        fade.addColorStop(1,"rgba(0,0,0,0)");
+        matte.fillStyle=fade;
+        matte.fillRect(-3,-3,6,6);
+        matte.restore();
+        foreground.filter="none";
+        foreground.globalCompositeOperation="destination-in";
+        foreground.drawImage(mask,0,0);
+        foreground.globalCompositeOperation="source-over";
+        context.drawImage(sharp,0,0);
+      }
     } else {
       context.save();
       if (look) context.filter = combinedPreviewFilter();
@@ -1163,6 +1176,11 @@
   camera.start?.addEventListener("click",()=>startCamera());
   camera.take?.addEventListener("click",capturePhoto);
   camera.flip?.addEventListener("click",switchCamera);
+  camera.aspectButtons.forEach(button =>
+    button.addEventListener("click",()=>selectCameraAspect(button.dataset.cameraAspect)));
+  camera.temperature?.addEventListener("input",event=>setCameraTemperature(event.target.value));
+  camera.focusDistance?.addEventListener("input",event=>setManualFocus(event.target.value));
+  camera.focusAuto?.addEventListener("click",resetAutoFocus);
   camera.rotate?.addEventListener("click",toggleCameraOrientation);
   camera.beauty?.addEventListener("input",event=>setPortraitEffect("beauty",event.target.value));
   camera.aperture?.addEventListener("input",event=>setPortraitEffect("aperture",event.target.value));
@@ -1186,6 +1204,7 @@
   window.addEventListener("resize",updateCameraOrientation,{passive:true});
   window.addEventListener("orientationchange",updateCameraOrientation,{passive:true});
   window.visualViewport?.addEventListener("resize",updateCameraOrientation,{passive:true});
+  window.addEventListener("deviceorientation",handleCameraDeviceTilt,{passive:true});
 
   const revealObserver = motionOK && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
