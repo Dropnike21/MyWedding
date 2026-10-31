@@ -93,7 +93,7 @@ function publicInvitation(snapshot) {
     invitedSeats: v.invitedSeats || 1,
     rsvp: v.rsvp || "Pending",
     confirmedSeats: Number(v.confirmedSeats || 0),
-    photoLimit: Number(v.photoLimit || 40),
+    photoLimit: Number(v.photoLimit || 50),
     photosUsed: Number(v.photosUsed || 0),
     notes: v.notes || "",
     status: v.status,
@@ -186,7 +186,7 @@ exports.createInvitation = onCall(configuration(), async request => {
       revision: 1,
       status: "active",
       confirmedSeats: 0,
-      photoLimit: 40,
+      photoLimit: 50,
       photosUsed: 0,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
@@ -334,7 +334,7 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
       invitedSeats: Number(activeSnap.get("invitedSeats") || 1),
       rsvp: activeSnap.get("rsvp") || "Pending",
       confirmedSeats: Number(activeSnap.get("confirmedSeats") || 0),
-      photoLimit: Number(activeSnap.get("photoLimit") || 40),
+      photoLimit: Number(activeSnap.get("photoLimit") || 50),
       photosUsed: Number(activeSnap.get("photosUsed") || 0),
     };
   });
@@ -369,7 +369,7 @@ async function activeGuestSession(uid) {
       sessionData.validUntil.toMillis() <= Date.now()) {
     throw new HttpsError("permission-denied", "This invitation session has expired. Enter the current code.");
   }
-  const photoLimit = Number(invitation.get("photoLimit") || 40);
+  const photoLimit = Number(invitation.get("photoLimit") || 50);
   const photosUsed = Number(invitation.get("photosUsed") || 0);
   return {
     invitationId: invitation.id,
