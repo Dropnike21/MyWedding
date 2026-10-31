@@ -197,6 +197,8 @@
           <div class="camera-capture-flight" id="camera-capture-flight" hidden aria-hidden="true"></div>
           <div class="camera-flash" id="camera-flash" hidden aria-hidden="true"></div>
           <div class="camera-focus-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="camera-grid-overlay" id="camera-grid-overlay" hidden aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="camera-countdown" id="camera-countdown" hidden aria-live="assertive"></div>
 
           <div class="camera-quick-tools" id="camera-quick-tools" hidden>
             <button type="button" id="camera-flip" class="camera-tool" aria-label="Switch front or back camera"><span aria-hidden="true">↻</span><small>Flip</small></button>
@@ -217,6 +219,16 @@
               <span>Photo quality</span>
               <button type="button" class="camera-quality active" data-quality="balanced">Balanced</button>
               <button type="button" class="camera-quality" data-quality="high">High</button>
+            </div>
+            <div class="camera-option-row">
+              <span>Composition</span>
+              <button type="button" class="camera-option" id="camera-grid-toggle" aria-pressed="false">Grid</button>
+            </div>
+            <div class="camera-option-row camera-timer-options">
+              <span>Timer</span>
+              <button type="button" class="camera-option active" data-timer="0">Off</button>
+              <button type="button" class="camera-option" data-timer="3">3s</button>
+              <button type="button" class="camera-option" data-timer="10">10s</button>
             </div>
           </div>
 
