@@ -1,9 +1,12 @@
 "use strict";
 
 /**
- * SECURE INVITATION SERVICE — NOT DEPLOYED YET
- * Run only after Firebase Auth, App Check, Blaze billing and the HMAC secret
- * have been set up. No Google Drive photo access is implemented here.
+ * MyWedding invitation service (source only — not deployed).
+ *
+ * A guest uses a short bearer code. The raw code is shown once to the
+ * authorized organizer; Firestore contains HMAC digests, never plain codes.
+ * Regeneration atomically removes the old code index and increments a
+ * revision. Every camera request must recheck that revision on the server.
  */
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
@@ -12,167 +15,339 @@ const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestor
 const { createHmac, randomBytes } = require("node:crypto");
 
 if (!getApps().length) initializeApp();
-
 const db = getFirestore();
 const CODE_SECRET = defineSecret("INVITATION_CODE_HMAC_KEY");
-const LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 distinct symbols
-const VALID_CODE = /^[A-HJ-NP-Z2-9]{8}$/;
 const REGION = "asia-southeast1";
-const MAX_ATTEMPTS_PER_SESSION = 8;
-const MAX_ATTEMPTS_PER_NETWORK = 80;
-const WINDOW_MS = 10 * 60 * 1000;
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
+const RATE_WINDOW_MS = 10 * 60 * 1000;
+const MAX_UID_ATTEMPTS = 8;
+const MAX_IP_ATTEMPTS = 80;
 
+function hash(value) {
+  return createHmac("sha256", CODE_SECRET.value()).update(String(value)).digest("hex");
+}
+function generateCode() {
+  return Array.from(randomBytes(8), byte => ALPHABET[byte & 31]).join("");
+}
 function normalizeCode(value) {
   return String(value || "").toUpperCase().replace(/[\s-]/g, "");
 }
-
-function hmac(value) {
-  return createHmac("sha256", CODE_SECRET.value()).update(value).digest("hex");
+function idField(value, name = "record") {
+  const id = String(value || "").trim();
+  if (!/^[A-Za-z0-9_-]{10,100}$/.test(id))
+    throw new HttpsError("invalid-argument", "Choose a valid " + name + ".");
+  return id;
 }
-
-function makeCode() {
-  const bytes = randomBytes(8);
-  return Array.from(bytes, (n) => LETTERS[n & 31]).join("");
-}
-
-function requireAuth(request) {
+function requireUser(request) {
   if (!request.auth || !request.auth.uid)
-    throw new HttpsError("unauthenticated", "A temporary guest session is required.");
+    throw new HttpsError("unauthenticated", "A session is required.");
 }
-
+function requireAdmin(request) {
+  requireUser(request);
+  if (request.auth.token.admin !== true ||
+      request.auth.token.firebase?.sign_in_provider === "anonymous")
+    throw new HttpsError("permission-denied", "Organizer access is required.");
+}
+function textField(value, field, max = 120) {
+  const result = String(value || "").trim();
+  if (!result || result.length > max)
+    throw new HttpsError("invalid-argument", field + " is required (max " + max + " characters).");
+  return result;
+}
+function optionalText(value, max = 500) {
+  return String(value || "").trim().slice(0, max);
+}
+function enumField(value, valid, label, fallback) {
+  const candidate = String(value || fallback || "");
+  if (!valid.includes(candidate))
+    throw new HttpsError("invalid-argument", "Choose a valid " + label + ".");
+  return candidate;
+}
+function seatsField(value) {
+  const count = Number(value);
+  if (!Number.isInteger(count) || count < 1 || count > 30)
+    throw new HttpsError("invalid-argument", "Enter between 1 and 30 invited seats.");
+  return count;
+}
+function registrationFields(data) {
+  return {
+    partyLabel: textField(data.partyLabel, "Guest or family name"),
+    side: enumField(data.side, ["Angela", "Joseph", "Shared"], "side", "Shared"),
+    invitedSeats: seatsField(data.invitedSeats ?? 1),
+    rsvp: enumField(data.rsvp, ["Pending", "Yes", "No", "Maybe"], "RSVP", "Pending"),
+    notes: optionalText(data.notes),
+  };
+}
+function publicInvitation(snapshot) {
+  const v = snapshot.data();
+  return {
+    id: snapshot.id,
+    partyLabel: v.partyLabel,
+    side: v.side || "Shared",
+    invitedSeats: v.invitedSeats || 1,
+    rsvp: v.rsvp || "Pending",
+    notes: v.notes || "",
+    status: v.status,
+    revision: Number(v.revision || 1),
+    hasActiveCode: v.status === "active" && Boolean(v.codeDigest),
+    createdAt: v.createdAt?.toDate?.().toISOString() || null,
+    updatedAt: v.updatedAt?.toDate?.().toISOString() || null,
+  };
+}
 async function recordAttempt(request) {
   const now = Date.now();
-  const userId = request.auth.uid;
-  const keys = ["uid_" + hmac(userId)];
-  const networkAddress = request.rawRequest && request.rawRequest.ip;
-  if (networkAddress) keys.push("ip_" + hmac(networkAddress));
-  const refs = keys.map((key) => db.collection("invitationAttemptLimits").doc(key));
+  const keys = ["uid_" + hash(request.auth.uid)];
+  const ip = request.rawRequest?.ip;
+  if (ip) keys.push("ip_" + hash(ip));
+  const refs = keys.map(key => db.collection("invitationAttemptLimits").doc(key));
 
-  await db.runTransaction(async (tx) => {
-    // Read all relevant documents before writing any of them.
-    const snaps = await Promise.all(refs.map((ref) => tx.get(ref)));
-    const changes = snaps.map((snap, index) => {
-      const info = snap.exists ? snap.data() : {};
-      const previousWindow = Number(info.windowStartedAt || 0);
-      const recent = now - previousWindow >= 0 && now - previousWindow < WINDOW_MS;
-      const count = recent ? Number(info.count || 0) : 0;
-      const allowed = index === 0 ? MAX_ATTEMPTS_PER_SESSION : MAX_ATTEMPTS_PER_NETWORK;
-      if (count >= allowed) {
-        throw new HttpsError(
-          "resource-exhausted",
-          "Too many attempts. Try again later or ask the coordinator."
-        );
-      }
+  await db.runTransaction(async tx => {
+    const snaps = await Promise.all(refs.map(ref => tx.get(ref)));
+    const updates = snaps.map((snap, i) => {
+      const data = snap.exists ? snap.data() : {};
+      const start = Number(data.windowStartedAt || 0);
+      const inWindow = now >= start && now - start < RATE_WINDOW_MS;
+      const used = inWindow ? Number(data.count || 0) : 0;
+      if (used >= (i === 0 ? MAX_UID_ATTEMPTS : MAX_IP_ATTEMPTS))
+        throw new HttpsError("resource-exhausted", "Too many attempts. Please try later.");
       return {
-        windowStartedAt: recent ? previousWindow : now,
-        count: count + 1,
+        windowStartedAt: inWindow ? start : now,
+        count: used + 1,
         updatedAt: FieldValue.serverTimestamp(),
-        // Firestore TTL can be enabled for this field in production.
         expireAt: Timestamp.fromMillis(now + 24 * 60 * 60 * 1000),
       };
     });
-    changes.forEach((data, i) => tx.set(refs[i], data));
+    updates.forEach((value, i) => tx.set(refs[i], value));
   });
 }
-
-exports.redeemInvitation = onCall(
-  {
+async function eventWindow() {
+  const schedule = await db.doc("weddingSettings/camera").get();
+  const start = schedule.get("openAt");
+  const end = schedule.get("closeAt");
+  if (!start?.toMillis || !end?.toMillis || start.toMillis() >= end.toMillis())
+    throw new HttpsError("failed-precondition", "Wedding camera schedule is not ready.");
+  const now = Date.now();
+  return {
+    start, end,
+    cameraOpen: now >= start.toMillis() && now < end.toMillis(),
+  };
+}
+function configuration(options = {}, withSecret = true) {
+  return {
     region: REGION,
-    secrets: [CODE_SECRET],
     enforceAppCheck: true,
-    maxInstances: 8,
-    timeoutSeconds: 20,
-  },
-  async (request) => {
-    requireAuth(request);
-    const code = normalizeCode(request.data && request.data.code);
-    if (!VALID_CODE.test(code))
-      throw new HttpsError("invalid-argument", "Enter the eight-character code.");
+    maxInstances: 6,
+    timeoutSeconds: 30,
+    ...(withSecret ? { secrets: [CODE_SECRET] } : {}),
+    ...options,
+  };
+}
+function isDuplicate(error) {
+  return error.code === 6 || error.code === "already-exists";
+}
+function oneTimeCodeResponse(id, code, revision) {
+  return {
+    invitationId: id,
+    code,
+    formattedCode: code.slice(0, 4) + "-" + code.slice(4),
+    revision,
+  };
+}
 
-    // Rate limiting always happens before checking whether a code exists.
-    await recordAttempt(request);
-
-    const codeDoc = await db.collection("invitationCodes").doc(hmac(code)).get();
-    if (!codeDoc.exists || codeDoc.get("status") !== "active") {
-      throw new HttpsError("permission-denied", "Invalid or inactive invitation.");
+/**
+ * Issue an invitation. No plaintext code is stored in Firestore.
+ * A retry handles the extraordinarily unlikely random-code collision.
+ */
+exports.createInvitation = onCall(configuration(), async request => {
+  requireAdmin(request);
+  const values = registrationFields(request.data || {});
+  for (let i = 0; i < 5; i++) {
+    const code = generateCode();
+    const digest = hash(code);
+    const invitation = db.collection("invitationRegistry").doc();
+    const batch = db.batch();
+    batch.create(db.collection("invitationCodes").doc(digest), {
+      invitationId: invitation.id,
+      revision: 1,
+      status: "active",
+    });
+    batch.create(invitation, {
+      ...values,
+      codeDigest: digest,
+      revision: 1,
+      status: "active",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    try {
+      await batch.commit();
+      return { ...oneTimeCodeResponse(invitation.id, code, 1), record: publicInvitation({
+        id: invitation.id,
+        data: () => ({ ...values, status: "active", revision: 1, codeDigest: digest }),
+      }) };
+    } catch (error) {
+      if (!isDuplicate(error)) throw error;
     }
-
-    const schedule = await db.doc("weddingSettings/camera").get();
-    if (!schedule.exists)
-      throw new HttpsError("failed-precondition", "The wedding schedule has not been configured.");
-
-    const start = schedule.get("openAt");
-    const end = schedule.get("closeAt");
-    if (!start || !end || typeof start.toMillis !== "function" || typeof end.toMillis !== "function" || start.toMillis() >= end.toMillis()) {
-      throw new HttpsError("failed-precondition", "The camera access window is incomplete.");
-    }
-
-    const now = Date.now();
-    const cameraOpen = now >= start.toMillis() && now < end.toMillis();
-
-    await db.collection("guestSessions").doc(request.auth.uid).set(
-      {
-        invitationId: codeDoc.get("invitationId") || codeDoc.id,
-        invitedParty: codeDoc.get("partyLabel") || "",
-        createdAt: FieldValue.serverTimestamp(),
-        validUntil: end,
-      },
-      { merge: true }
-    );
-
-    // The camera upload endpoint MUST separately confirm both this session
-    // and the server-side event window; the response here is NOT upload authorization.
-    return {
-      verified: true,
-      cameraOpen,
-      openAt: start.toDate().toISOString(),
-      closeAt: end.toDate().toISOString(),
-    };
   }
-);
+  throw new HttpsError("internal", "Could not issue a unique code.");
+});
 
-exports.createInvitation = onCall(
-  {
-    region: REGION,
-    secrets: [CODE_SECRET],
-    enforceAppCheck: true,
-    maxInstances: 4,
-  },
-  async (request) => {
-    requireAuth(request);
-    if (request.auth.token.admin !== true) {
-      throw new HttpsError("permission-denied", "Only an authorized organizer can issue invitations.");
-    }
+/** Private invitation register. This NEVER returns plaintext codes. */
+exports.listInvitations = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const snapshot = await db.collection("invitationRegistry").orderBy("createdAt", "desc").limit(300).get();
+  return { items: snapshot.docs.map(publicInvitation) };
+});
 
-    const partyLabel = String(request.data && request.data.partyLabel || "").trim().slice(0, 120);
-    if (!partyLabel) throw new HttpsError("invalid-argument", "An invitation label is required.");
+/** Update guest/family information without changing the existing code. */
+exports.updateInvitation = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const data = request.data || {};
+  const id = idField(data.invitationId, "invitation");
+  const values = registrationFields(data);
+  const ref = db.collection("invitationRegistry").doc(id);
+  await db.runTransaction(async tx => {
+    const existing = await tx.get(ref);
+    if (!existing.exists) throw new HttpsError("not-found", "Invitation not found.");
+    tx.update(ref, { ...values, updatedAt: FieldValue.serverTimestamp() });
+  });
+  return { saved: true, invitationId: id };
+});
 
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const code = makeCode();
-      const digest = hmac(code);
-      const invitationId = db.collection("invitationRegistry").doc().id;
-      try {
-        const batch = db.batch();
-        batch.create(db.collection("invitationCodes").doc(digest), {
-          invitationId,
-          partyLabel,
-          status: "active",
-          createdAt: FieldValue.serverTimestamp(),
-        });
-        batch.set(db.collection("invitationRegistry").doc(invitationId), {
+/**
+ * Regenerate invitation: delete old code index and increment revision IN ONE
+ * Firestore transaction. Concurrent rotations cannot preserve the old code.
+ * Issued guest sessions have an old revision and must be rejected by the
+ * protected upload and gallery endpoints (not implemented yet).
+ */
+exports.rotateInvitation = onCall(configuration(), async request => {
+  requireAdmin(request);
+  const id = idField(request.data?.invitationId, "invitation");
+  const ref = db.collection("invitationRegistry").doc(id);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = generateCode();
+    const digest = hash(code);
+    const nextIndex = db.collection("invitationCodes").doc(digest);
+    try {
+      const revision = await db.runTransaction(async tx => {
+        const [oldSnap, codeSnap] = await Promise.all([tx.get(ref), tx.get(nextIndex)]);
+        if (!oldSnap.exists)
+          throw new HttpsError("not-found", "Invitation not found.");
+        if (codeSnap.exists)
+          throw new HttpsError("already-exists", "Code collision; retry.");
+        const old = oldSnap.data();
+        const nextRevision = Number(old.revision || 1) + 1;
+        const previousHash = old.codeDigest || null;
+        if (previousHash) tx.delete(db.collection("invitationCodes").doc(previousHash));
+        tx.create(nextIndex, { invitationId: id, revision: nextRevision, status: "active" });
+        tx.update(ref, {
           codeDigest: digest,
-          partyLabel,
-          createdAt: FieldValue.serverTimestamp(),
           status: "active",
+          revision: nextRevision,
+          rotatedAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         });
-        await batch.commit();
-        // Return the code ONCE, to the authorized organizer only.
-        // It is not stored in plaintext in Firestore.
-        return { invitationId, code, formattedCode: code.slice(0, 4) + "-" + code.slice(4) };
-      } catch (err) {
-        if (err.code !== 6 && err.code !== "already-exists") throw err;
-      }
+        return nextRevision;
+      });
+      return oneTimeCodeResponse(id, code, revision);
+    } catch (error) {
+      if (!isDuplicate(error)) throw error;
     }
-    throw new HttpsError("internal", "Unable to issue invitation. Try again.");
   }
-);
+  throw new HttpsError("internal", "Could not generate a new code.");
+});
+
+/** Disable access without deleting invitation history. Re-issue via Rotate. */
+exports.revokeInvitation = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const id = idField(request.data?.invitationId, "invitation");
+  const ref = db.collection("invitationRegistry").doc(id);
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new HttpsError("not-found", "Invitation not found.");
+    const old = snap.data();
+    if (old.codeDigest)
+      tx.delete(db.collection("invitationCodes").doc(old.codeDigest));
+    tx.update(ref, {
+      status: "revoked",
+      codeDigest: null,
+      revision: Number(old.revision || 1) + 1,
+      updatedAt: FieldValue.serverTimestamp(),
+      revokedAt: FieldValue.serverTimestamp(),
+    });
+  });
+  return { revoked: true, invitationId: id };
+});
+
+/**
+ * Code redemption is serialized with rotations/revocations using a transaction.
+ * The session binds to the CURRENT invitation revision, not just a guest name.
+ */
+exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async request => {
+  requireUser(request);
+  const code = normalizeCode(request.data?.code);
+  if (!CODE_PATTERN.test(code))
+    throw new HttpsError("invalid-argument", "Invalid code format.");
+  await recordAttempt(request);
+  const window = await eventWindow();
+  const digest = hash(code);
+  const indexRef = db.collection("invitationCodes").doc(digest);
+  const sessionRef = db.collection("guestSessions").doc(request.auth.uid);
+  const result = await db.runTransaction(async tx => {
+    const indexSnap = await tx.get(indexRef);
+    if (!indexSnap.exists || indexSnap.get("status") !== "active")
+      throw new HttpsError("permission-denied", "Invalid or expired invitation.");
+    const invitationId = indexSnap.get("invitationId");
+    const invitationRef = db.collection("invitationRegistry").doc(invitationId);
+    const activeSnap = await tx.get(invitationRef);
+    if (!activeSnap.exists || activeSnap.get("status") !== "active" ||
+        activeSnap.get("codeDigest") !== digest ||
+        Number(activeSnap.get("revision")) !== Number(indexSnap.get("revision")))
+      throw new HttpsError("permission-denied", "Invalid or expired invitation.");
+    tx.set(sessionRef, {
+      invitationId,
+      revision: Number(activeSnap.get("revision")),
+      validUntil: window.end,
+      redeemedAt: FieldValue.serverTimestamp(),
+    });
+    return { partyLabel: activeSnap.get("partyLabel") };
+  });
+  return {
+    verified: true,
+    cameraOpen: window.cameraOpen,
+    // No private guest details are returned to browsers.
+    openAt: window.start.toDate().toISOString(),
+    closeAt: window.end.toDate().toISOString(),
+  };
+});
+
+/**
+ * A reusable server-side validation for future protected photo endpoints.
+ * Re-read invitation + session for EVERY upload/download request. Never trust
+ * a previously returned cameraOpen flag or guest-supplied invitationId.
+ */
+async function activeGuestSession(uid) {
+  const session = await db.collection("guestSessions").doc(uid).get();
+  if (!session.exists)
+    throw new HttpsError("permission-denied", "Please enter your invitation code.");
+  const sessionData = session.data();
+  const invitation = await db.collection("invitationRegistry").doc(sessionData.invitationId).get();
+  if (!invitation.exists || invitation.get("status") !== "active" ||
+      Number(invitation.get("revision")) !== Number(sessionData.revision) ||
+      !invitation.get("codeDigest") ||
+      !sessionData.validUntil?.toMillis ||
+      sessionData.validUntil.toMillis() <= Date.now()) {
+    throw new HttpsError("permission-denied", "This invitation session has expired. Enter the current code.");
+  }
+  return { invitationId: invitation.id, revision: Number(invitation.get("revision")) };
+}
+exports.checkGuestSession = onCall(configuration({}, false), async request => {
+  requireUser(request);
+  await activeGuestSession(request.auth.uid);
+  const window = await eventWindow();
+  return { valid: true, cameraOpen: window.cameraOpen };
+});
+
+// Important: no upload function exists yet. Drive OAuth, content validation,
+// anti-abuse quotas, and server-side gallery release are separate work.
