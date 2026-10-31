@@ -5,6 +5,13 @@ const form = document.getElementById("invitation-form");
 const input = document.getElementById("invitation-code");
 const feedback = document.getElementById("invitation-status");
 const submit = document.getElementById("check-invitation");
+const testCameraButton = document.getElementById("start-camera");
+if (guestAccessConfig.enabled) {
+  testCameraButton.disabled = true;
+  testCameraButton.setAttribute("aria-disabled", "true");
+  document.getElementById("camera-message").textContent =
+    "Please verify your invitation above. The camera opens only during the approved wedding window.";
+}
 const rsvpCard = document.getElementById("guest-rsvp-card");
 const rsvpForm = document.getElementById("guest-rsvp-form");
 const rsvpChoice = document.getElementById("guest-rsvp-choice");
@@ -137,10 +144,15 @@ form.addEventListener("submit", async (event) => {
 
   submit.disabled = true;
   rsvpCard.hidden = true;
+  if (guestAccessConfig.enabled) {
+    testCameraButton.disabled = true;
+  }
   show("Checking your invitation securely…");
   try {
     const verified = await redeem(code);
     showRSVP(verified);
+    testCameraButton.disabled = !verified.cameraOpen;
+    testCameraButton.setAttribute("aria-disabled", String(!verified.cameraOpen));
     if (verified.cameraOpen) {
       show(
         "Invitation verified. The camera upload window is open. Photo uploads will activate after the Drive connection is ready.",
