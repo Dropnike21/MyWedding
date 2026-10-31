@@ -1,6 +1,7 @@
 /**
- * Shared Firebase client initialization for the static GitHub Pages frontend.
- * No secrets are present here. Backend operations require Auth + App Check.
+ * Shared Firebase initialization for the static GitHub Pages frontend.
+ * Planner and guest camera use separate Firebase app instances so Google
+ * organizer auth and persistent anonymous guest auth never replace each other.
  */
 import {
   initializeApp, getApp, getApps
@@ -17,10 +18,18 @@ import {
 import { firebaseConfig } from "./firebase-config.js?v=20261031-1830";
 import { guestAccessConfig } from "./guest-config.js?v=20261031-1830";
 
-let appCheckInitialized = false;
+let plannerAppCheckInitialized = false;
+let guestAppCheckInitialized = false;
 
 export function getWeddingClient() {
-  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  const app = getApps().find(item => item.name === "[DEFAULT]")
+    || initializeApp(firebaseConfig);
+  return { app, auth: getAuth(app) };
+}
+
+export function getGuestClient() {
+  const existing = getApps().find(item => item.name === "wedding-guest");
+  const app = existing || initializeApp(firebaseConfig, "wedding-guest");
   return { app, auth: getAuth(app) };
 }
 
@@ -29,17 +38,37 @@ export function enableAppCheck() {
     throw new Error("The Firebase App Check site key has not been configured yet.");
   }
   const { app } = getWeddingClient();
-  if (!appCheckInitialized) {
+  if (!plannerAppCheckInitialized) {
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(guestAccessConfig.appCheckSiteKey),
       isTokenAutoRefreshEnabled: true,
     });
-    appCheckInitialized = true;
+    plannerAppCheckInitialized = true;
+  }
+}
+
+export function enableGuestAppCheck() {
+  if (!guestAccessConfig.appCheckSiteKey) {
+    throw new Error("The Firebase App Check site key has not been configured yet.");
+  }
+  const { app } = getGuestClient();
+  if (!guestAppCheckInitialized) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(guestAccessConfig.appCheckSiteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    guestAppCheckInitialized = true;
   }
 }
 
 export function callWeddingFunction(functionName) {
   enableAppCheck();
   const { app } = getWeddingClient();
+  return httpsCallable(getFunctions(app, guestAccessConfig.region), functionName);
+}
+
+export function callGuestFunction(functionName) {
+  enableGuestAppCheck();
+  const { app } = getGuestClient();
   return httpsCallable(getFunctions(app, guestAccessConfig.region), functionName);
 }
