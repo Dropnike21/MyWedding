@@ -132,7 +132,7 @@ function save() {
       .catch(error=>{
         console.error("Planner sync failed",error);
         setSyncState("SYNC ERROR",true);
-        alert("Firebase could not save that change. Your browser kept a local copy.\n\n"+(error?.message||"Unknown sync error"));
+        alert("Firebase could not confirm that change. It is still visible in this tab, but do not refresh until a later save shows FIREBASE SYNCED.\n\n"+(error?.message||"Unknown sync error"));
       });
   }
 }
@@ -352,7 +352,7 @@ function renderSettings() {
   root.querySelector("#planner-settings-form").addEventListener("submit",e=>{
     e.preventDefault();const fd=new FormData(e.currentTarget);
     db.settings={...db.settings,date:fd.get("date"),budget:num(fd.get("budget")),guestTarget:num(fd.get("guestTarget")),ceremony:String(fd.get("ceremony")||""),venue:String(fd.get("venue")||""),city:String(fd.get("city")||""),notes:String(fd.get("notes")||"")};save();
-    root.querySelector("#planner-settings-msg").textContent="Saved locally.";
+    root.querySelector("#planner-settings-msg").textContent=remoteActive?"Saved to Firebase.":"Saved locally.";
     updateToolbar();
   });
 }
@@ -434,7 +434,7 @@ function renderEntity(view) {
     }
     if(selected){if(selected.archived)return;Object.assign(selected,record)}else{record.id=uid(view.slice(0,2));db[schema.collection].push(record);selectedId=record.id}
     save();renderEntity(view);updateToolbar();
-    const msg=root.querySelector("#planner-entity-msg");if(msg)msg.textContent="Saved locally.";
+    const msg=root.querySelector("#planner-entity-msg");if(msg)msg.textContent=remoteActive?"Saved to Firebase.":"Saved locally.";
   });
   const archive=root.querySelector("#planner-archive");
   if(archive) archive.addEventListener("click",()=>{
@@ -564,10 +564,13 @@ function lockPlanner(message="Sign in with your organizer Google account to open
     button.onclick=async()=>{
       button.disabled=true;
       if(copy)copy.textContent="Opening secure Google sign-in…";
+      const token=window.WeddingUI?.begin("Signing you in…","Opening secure Google organizer access.",{blocking:true,delay:120});
       try{await plannerFirestore.signIn();}
       catch(error){
         if(copy)copy.textContent=error?.message||"Sign-in failed.";
         button.disabled=false;
+      }finally{
+        if(token)window.WeddingUI?.end(token);
       }
     };
   }
@@ -627,17 +630,33 @@ async function initializePlanner(){
   document.querySelector(".planner-toolbar small").textContent="Connecting securely to Firebase…";
   setSyncState("FIREBASE CONNECTING");
 
+  let initialToken=window.WeddingUI?.begin(
+    "Connecting Wedding Studio…",
+    "Checking your organizer session.",
+    {blocking:true,delay:120}
+  );
+
   plannerFirestore.onAuth(async user=>{
+    const token=initialToken || window.WeddingUI?.begin(
+      user?"Loading wedding plan…":"Updating organizer session…",
+      user?"Reading the latest Firebase planning records.":"Checking sign-in status.",
+      {blocking:Boolean(user),delay:160}
+    );
+    initialToken=null;
+
     if(!user){
       organizerProfile=null;organizerRole="local";db=seed();localStorage.removeItem(STORAGE_KEY);
       document.getElementById("planner-signout")?.remove();
       setSyncState("SIGN-IN REQUIRED");
       lockPlanner("Sign in with an authorized organizer Google account to open the wedding workspace.",true);
+      if(token)window.WeddingUI?.end(token);
       return;
     }
     try{
+      if(token)window.WeddingUI?.update(token,"Loading wedding plan…","Reading guests, expenses, suppliers, payments and tasks in parallel.");
       organizerProfile=await plannerFirestore.organizerProfile(user);
       db=await plannerFirestore.load(seed());
+      if(!Array.isArray(db.expenses))db.expenses=[];
       localStorage.removeItem(STORAGE_KEY);
       remoteActive=true;
       applyRoleUI(organizerProfile.role);
@@ -649,6 +668,8 @@ async function initializePlanner(){
       console.error(error);
       await plannerFirestore.signOut().catch(()=>{});
       lockPlanner(error?.message||"This account cannot access the wedding planner.",true);
+    }finally{
+      if(token)window.WeddingUI?.end(token);
     }
   });
 }
