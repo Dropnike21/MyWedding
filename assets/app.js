@@ -93,6 +93,10 @@
         delay: 120,
       });
       const promise = import(featureUrl(file))
+        .catch(error => {
+          featureModules.delete(view);
+          throw error;
+        })
         .finally(() => WeddingUI.end(token));
       featureModules.set(view, promise);
     }
@@ -1712,9 +1716,10 @@
       });
       requestAnimationFrame(() => refreshInteractions(activeSection));
     }
+    document.dispatchEvent(new CustomEvent("wedding:view-change", { detail: { view } }));
   }
 
-  function switchView(next) {
+  async function switchView(next) {
     const requested = next.startsWith("camera/") ? "camera" : next;
     const view = views.has(requested) ? requested : "home";
 
@@ -1724,6 +1729,17 @@
       applyView(view);
     }
     activeView = view;
+
+    try {
+      await ensureViewModule(view);
+    } catch (error) {
+      console.error("Could not load " + view + " module", error);
+      const fallback =
+        view === "planner" ? document.getElementById("planner-access-message") :
+        view === "camera" ? document.getElementById("invitation-status") :
+        document.getElementById("firebase-status");
+      if (fallback) fallback.textContent = "This section could not finish loading. Please refresh and try again.";
+    }
   }
 
   function navigate(view) {
@@ -1766,8 +1782,15 @@
 
   const plannerWorkspace = document.getElementById("planner-workspace");
   if (plannerWorkspace && "MutationObserver" in window) {
-    new MutationObserver(() => requestAnimationFrame(() => refreshInteractions(plannerWorkspace)))
-      .observe(plannerWorkspace, { childList: true, subtree: true });
+    let plannerRefreshQueued = false;
+    new MutationObserver(() => {
+      if (plannerRefreshQueued) return;
+      plannerRefreshQueued = true;
+      requestAnimationFrame(() => {
+        plannerRefreshQueued = false;
+        refreshInteractions(plannerWorkspace);
+      });
+    }).observe(plannerWorkspace, { childList: true });
   }
 
   createAmbience();
