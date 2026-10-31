@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261101-camera2";
+  const BUILD = "20261101-camera3";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -229,6 +229,7 @@
     dragStartY: 0,
     dragStartExposure: 0,
     gestureMoved: false,
+    focusUiTimeout: null,
   };
 
   function clamp(value,min,max) {
@@ -244,11 +245,16 @@
     if (camera.take) camera.take.disabled = cameraRemaining() <= 0;
   }
 
-  function maxVisibleFilmFrames(sampleWidth = 36) {
+  function isFilmVertical() {
+    return Boolean(camera.session?.classList.contains("is-landscape"));
+  }
+
+  function maxVisibleFilmFrames(sampleSize = 36) {
     if (!camera.filmTrack || !camera.filmEmpty) return 3;
-    const trackWidth = camera.filmTrack.clientWidth || 180;
-    const emptyWidth = camera.filmEmpty.getBoundingClientRect().width || 34;
-    return Math.max(1, Math.floor((trackWidth - emptyWidth - 4) / (sampleWidth + 4)));
+    const vertical = isFilmVertical();
+    const available = (vertical ? camera.filmTrack.clientHeight : camera.filmTrack.clientWidth) || 180;
+    const emptySize = vertical ? camera.filmEmpty.offsetHeight : camera.filmEmpty.offsetWidth;
+    return Math.max(1, Math.floor((available - (emptySize || 34) - 4) / (sampleSize + 4)));
   }
 
   function clearFilm() {
@@ -366,12 +372,18 @@
   }
 
   function updateCameraOrientation() {
+    const wasLandscape=camera.session?.classList.contains("is-landscape");
     const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
     const manual = !viewportLandscape &&
       (camera.manualLandscape || camera.autoTiltLandscape === true);
     const landscape = viewportLandscape || manual;
     camera.session?.classList.toggle("is-landscape",landscape);
     camera.session?.classList.toggle("is-manual-landscape",manual);
+    if (wasLandscape !== landscape) setRail(false);
+    if (!camera.railOpen) {
+      const icon=camera.railToggle?.querySelector("span");
+      if (icon) icon.textContent=landscape ? "☰" : "‹";
+    }
     document.body.classList.toggle("camera-landscape",
       landscape && document.body.classList.contains("camera-session-active"));
     camera.rotate?.setAttribute("aria-pressed",String(camera.manualLandscape));
@@ -379,7 +391,10 @@
     camera.rotate?.setAttribute("aria-label",camera.manualLandscape
       ? "Return camera interface to automatic orientation"
       : "Rotate camera interface into landscape mode");
-    requestAnimationFrame(updateCameraFrameGuide);
+    requestAnimationFrame(()=>{
+      updateCameraFrameGuide();
+      if (wasLandscape !== landscape) trimFilmFrames();
+    });
   }
 
   function selectCameraAspect(aspect) {
@@ -435,13 +450,27 @@
   }
 
   function setRail(open) {
-    camera.railOpen = Boolean(open);
+    camera.railOpen=Boolean(open);
     camera.quickTools?.classList.toggle("is-open",camera.railOpen);
     camera.railToggle?.classList.toggle("is-open",camera.railOpen);
     camera.railToggle?.setAttribute("aria-expanded",String(camera.railOpen));
-    const icon = camera.railToggle?.querySelector("span");
-    if (icon) icon.textContent = camera.railOpen ? "›" : "‹";
+    camera.railToggle?.setAttribute("aria-label",camera.railOpen ? "Hide camera tools" : "Show camera tools");
+    const icon=camera.railToggle?.querySelector("span");
+    if (icon) icon.textContent=camera.railOpen ? "×" :
+      (isCameraLandscape() ? "☰" : "‹");
     if (!camera.railOpen) closeCameraSheet();
+  }
+
+  function dismissCameraPanelsOnOutsidePointer(event) {
+    if (!camera.session || camera.session.hidden) return;
+    if (!camera.railOpen && camera.effectsPanel?.hidden !== false) return;
+    const target=event.target;
+    if (target instanceof Element && (
+      camera.railToggle?.contains(target) ||
+      camera.quickTools?.contains(target) ||
+      camera.effectsPanel?.contains(target)
+    )) return;
+    setRail(false);
   }
 
   function stopStream({ hideControls = true } = {}) {
@@ -462,6 +491,10 @@
     camera.digitalZoom = 1;
     camera.exposureValue = 0;
     camera.pointers.clear();
+    if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
+    camera.focusUiTimeout=null;
+    if (camera.focusPoint) camera.focusPoint.hidden=true;
+    if (camera.exposureHud) camera.exposureHud.hidden=true;
     if (camera.video) {
       camera.video.pause();
       camera.video.srcObject = null;
@@ -513,6 +546,8 @@
     camera.effectPreviewData = "";
     if (camera.gridOverlay) camera.gridOverlay.hidden = true;
     if (camera.countdown) camera.countdown.hidden = true;
+    if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
+    camera.focusUiTimeout=null;
     if (camera.focusPoint) camera.focusPoint.hidden = true;
     if (camera.exposureHud) camera.exposureHud.hidden = true;
     if (camera.idle) camera.idle.hidden = false;
@@ -704,6 +739,12 @@
     camera.exposureHud.hidden = false;
     camera.exposureHud.style.left = clamp(x+34,24,Math.max(24,width-34))+"px";
     camera.exposureHud.style.top = clamp(y-46,40,Math.max(40,height-120))+"px";
+    if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
+    camera.focusUiTimeout=setTimeout(()=>{
+      if (camera.focusPoint) camera.focusPoint.hidden=true;
+      if (camera.exposureHud) camera.exposureHud.hidden=true;
+      camera.focusUiTimeout=null;
+    },2600);
   }
 
   async function focusAt(clientX,clientY) {
@@ -1083,14 +1124,21 @@
   }
 
   function animateFilmAdvance(existing) {
+    const vertical=isFilmVertical();
+    const manual=camera.session?.classList.contains("is-manual-landscape");
+    // CSS rotates the entire camera in manual landscape; avoid screen-space
+    // translation animations that could move film frames sideways.
+    if (manual) return;
     requestAnimationFrame(()=>{
-      existing.forEach(({node,left})=>{
-        if (!node.isConnected) return;
-        const dx=left-node.getBoundingClientRect().left;
-        if (Math.abs(dx)<1 || typeof node.animate!=="function") return;
+      existing.forEach(({node,left,top})=>{
+        if (!node.isConnected || typeof node.animate!=="function") return;
+        const rect=node.getBoundingClientRect();
+        const delta=vertical ? top-rect.top : left-rect.left;
+        if (Math.abs(delta)<1) return;
+        const axis=vertical?"Y":"X";
         node.animate(
-          [{transform:"translateX("+dx+"px)"},{transform:"translateX(0)"}],
-          {duration:360,easing:"cubic-bezier(.16,1,.3,1)"}
+          [{transform:"translate"+axis+"("+delta+"px)"},{transform:"translate"+axis+"(0)"}],
+          {duration:300,easing:"cubic-bezier(.16,1,.3,1)"}
         );
       });
     });
@@ -1098,16 +1146,17 @@
 
   function trimFilmFrames() {
     if (!camera.filmTrack || !camera.filmEmpty) return;
+    const vertical=isFilmVertical();
     const frames=[...camera.filmTrack.querySelectorAll(".camera-film-frame")];
-    let total=camera.filmEmpty.getBoundingClientRect().width||34;
+    let total=(vertical ? camera.filmEmpty.offsetHeight : camera.filmEmpty.offsetWidth)||34;
     const gap=4;
-    const available=camera.filmTrack.clientWidth||180;
+    const available=(vertical ? camera.filmTrack.clientHeight : camera.filmTrack.clientWidth)||180;
     const keep=[];
     for (let i=frames.length-1;i>=0;i-=1) {
-      const width=frames[i].getBoundingClientRect().width||34;
-      if (total+gap+width>available) break;
+      const size=(vertical ? frames[i].offsetHeight : frames[i].offsetWidth)||34;
+      if (total+gap+size>available) break;
       keep.unshift(frames[i]);
-      total+=gap+width;
+      total+=gap+size;
     }
     frames.forEach(frame=>{
       if (!keep.includes(frame)) {
@@ -1121,13 +1170,17 @@
 
   function addFilmFrame(thumbnail,number) {
     if (!camera.filmTrack || !camera.filmEmpty || !thumbnail?.url) return;
-    const existing=[...camera.filmTrack.querySelectorAll(".camera-film-frame")].map(node=>({
-      node,left:node.getBoundingClientRect().left
-    }));
+    const existing=[...camera.filmTrack.querySelectorAll(".camera-film-frame")].map(node=>{
+      const rect=node.getBoundingClientRect();
+      return {node,left:rect.left,top:rect.top};
+    });
     const frame=document.createElement("div");
     frame.className="camera-film-frame "+thumbnail.orientation;
     frame.setAttribute("aria-hidden","true");
-    frame.style.backgroundImage='url("'+thumbnail.url+'")';
+    const image=document.createElement("i");
+    image.className="camera-film-image";
+    image.style.backgroundImage='url("'+thumbnail.url+'")';
+    frame.appendChild(image);
     const count=document.createElement("span");
     count.textContent=String(number).padStart(2,"0");
     frame.appendChild(count);
@@ -1233,6 +1286,13 @@
   camera.torch?.addEventListener("click",toggleTorch);
   camera.timerButton?.addEventListener("click",cycleTimer);
   camera.railToggle?.addEventListener("click",()=>setRail(!camera.railOpen));
+  document.addEventListener("pointerdown",dismissCameraPanelsOnOutsidePointer);
+  document.addEventListener("keydown",event=>{
+    if (event.key === "Escape" && (camera.railOpen || !camera.effectsPanel?.hidden)) {
+      setRail(false);
+      camera.railToggle?.focus();
+    }
+  });
   camera.effectsToggle?.addEventListener("click",()=>{
     const open=camera.effectsToggle.getAttribute("aria-expanded")==="true";
     if (open) closeCameraSheet(); else openCameraSheet();
