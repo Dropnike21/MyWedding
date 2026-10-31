@@ -1,3 +1,4 @@
+import { plannerFirestore } from "./planner-firestore.js";
 (() => {
 "use strict";
 
@@ -86,9 +87,35 @@ let currentView = "overview";
 let selectedId = null;
 let search = "";
 let showArchived = false;
+let remoteActive = false;
+let organizerRole = "local";
+let organizerProfile = null;
+
+function setSyncState(label,bad=false) {
+  const mode=document.querySelector(".planner-mode");
+  const note=document.querySelector(".planner-toolbar small");
+  if(mode){
+    mode.innerHTML='<span class="live-dot"></span>'+esc(label);
+    mode.classList.toggle("error",bad);
+  }
+  if(note && remoteActive){
+    note.textContent=bad ? "Sync problem — your browser copy is still preserved." :
+      "Firebase is the primary planner database. Browser storage is only a local cache.";
+  }
+}
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  if(remoteActive){
+    setSyncState("SYNCING");
+    plannerFirestore.queue(db)
+      .then(()=>setSyncState("FIREBASE SYNCED"))
+      .catch(error=>{
+        console.error("Planner sync failed",error);
+        setSyncState("SYNC ERROR",true);
+        alert("Firebase could not save that change. Your browser kept a local copy.\n\n"+(error?.message||"Unknown sync error"));
+      });
+  }
 }
 function active(records) { return (records || []).filter(x => !x.archived); }
 function num(v) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
@@ -412,6 +439,7 @@ document.querySelectorAll("[data-planner-view]").forEach(b=>b.addEventListener("
 function updateToolbar(){
   const strong=document.querySelector(".planner-toolbar strong");
   if(strong)strong.textContent="Angela & Joseph · "+dateLabel(db.settings.date);
+  if(remoteActive) setSyncState("FIREBASE SYNCED");
 }
 
 document.getElementById("planner-export").addEventListener("click",()=>{
@@ -434,5 +462,76 @@ document.getElementById("planner-reset").addEventListener("click",()=>{
   db=seed();save();selectedId=null;search="";switchPlanner("overview");updateToolbar();
 });
 
-save();updateToolbar();switchPlanner("overview");
+function plannerLogin(message="Sign in with your organizer Google account to open the wedding workspace.") {
+  remoteActive=false;
+  root.innerHTML='<section class="planner-login-card"><span class="eyebrow">PRIVATE WEDDING WORKSPACE</span><h2>Organizer sign-in</h2><p id="planner-login-message">'+esc(message)+'</p><button type="button" class="button primary" id="planner-firebase-login">Continue with Google</button><small>Only Google accounts listed in Firestore under <code>organizers/{uid}</code> can open this planner.</small></section>';
+  const button=root.querySelector("#planner-firebase-login");
+  button.addEventListener("click",async()=>{
+    button.disabled=true;
+    root.querySelector("#planner-login-message").textContent="Opening secure Google sign-in…";
+    try{await plannerFirestore.signIn();}
+    catch(error){root.querySelector("#planner-login-message").textContent=error?.message||"Sign-in failed.";button.disabled=false;}
+  });
+}
+
+function applyRoleUI(role){
+  organizerRole=role;
+  const hidden=new Set();
+  if(role==="coordinator"){hidden.add("settings");hidden.add("budget");}
+  if(role==="finance"){["settings","guests","tasks","timeline","decisions","team"].forEach(x=>hidden.add(x));}
+  document.querySelectorAll("[data-planner-view]").forEach(btn=>{
+    btn.hidden=hidden.has(btn.dataset.plannerView);
+  });
+  let signout=document.getElementById("planner-signout");
+  if(!signout){
+    signout=document.createElement("button");
+    signout.type="button";signout.id="planner-signout";
+    signout.className="button outlined planner-compact";
+    signout.textContent="Sign out";
+    document.querySelector(".planner-toolbar-actions")?.appendChild(signout);
+    signout.addEventListener("click",()=>plannerFirestore.signOut());
+  }
+  signout.hidden=false;
+  const toolbar=document.querySelector(".planner-toolbar strong");
+  if(toolbar&&organizerProfile){
+    toolbar.textContent="Angela & Joseph · "+dateLabel(db.settings.date)+" · "+(organizerProfile.displayName||organizerProfile.email||role);
+  }
+}
+
+async function initializePlanner(){
+  if(!plannerFirestore.enabled){
+    save();updateToolbar();switchPlanner("overview");
+    return;
+  }
+
+  document.getElementById("planner-import").disabled=true;
+  document.getElementById("planner-reset").disabled=true;
+  document.querySelector(".planner-toolbar small").textContent="Connecting securely to Firebase…";
+  setSyncState("FIREBASE CONNECTING");
+
+  plannerFirestore.onAuth(async user=>{
+    if(!user){
+      organizerProfile=null;organizerRole="local";
+      document.getElementById("planner-signout")?.remove();
+      setSyncState("SIGN-IN REQUIRED");
+      plannerLogin();
+      return;
+    }
+    try{
+      organizerProfile=await plannerFirestore.organizerProfile(user);
+      db=await plannerFirestore.load(seed());
+      localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
+      remoteActive=true;
+      applyRoleUI(organizerProfile.role);
+      selectedId=null;search="";showArchived=false;
+      updateToolbar();switchPlanner("overview");
+    }catch(error){
+      console.error(error);
+      await plannerFirestore.signOut().catch(()=>{});
+      plannerLogin(error?.message||"This account cannot access the wedding planner.");
+    }
+  });
+}
+
+initializePlanner();
 })();
