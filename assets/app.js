@@ -230,13 +230,14 @@
 
     const openPlayer = () => {
       const iframe = document.createElement("iframe");
-      iframe.title = "I Like You So Much, You'll Know It — Ysabelle Cuevas on Spotify";
-      iframe.src = "https://open.spotify.com/embed/album/5eXyaK1VO670evooLOqgK7?utm_source=generator&theme=0";
+      iframe.title = "I Like You So Much, You'll Know It — Ysabelle Cuevas (official)";
+      iframe.src = "https://www.youtube-nocookie.com/embed/oVyDjvq0SHY?autoplay=1&rel=0&modestbranding=1&playsinline=1";
       iframe.width = "100%";
-      iframe.height = "152";
+      iframe.height = "315";
       iframe.loading = "lazy";
       iframe.setAttribute("frameborder", "0");
-      iframe.setAttribute("allow", "autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture");
+      iframe.setAttribute("allow", "autoplay; encrypted-media; fullscreen; picture-in-picture");
+      iframe.setAttribute("allowfullscreen", "");
       player.replaceChildren(iframe);
       player.hidden = false;
       button.setAttribute("aria-expanded", "true");
