@@ -52,3 +52,69 @@ for (const aspect of ["4:3", "1:1", "16:9"]) {
     });
   }
 }
+
+test("camera pass name precedes the change-code action in both layouts", () => {
+  const groupStart=html.indexOf('<div class="camera-bottom-identity">');
+  const groupEnd=html.indexOf('<div class="camera-capture-deck">',groupStart);
+  assert.ok(groupStart >= 0 && groupEnd > groupStart);
+  const identity=html.slice(groupStart,groupEnd);
+  assert.ok(identity.indexOf('class="camera-current-guest"') <
+    identity.indexOf('id="camera-change-code"'));
+});
+
+test("portrait tools are vertical and landscape tools are horizontal on top", () => {
+  assert.match(styles,/camera-session:not\\(\\.is-landscape\\) \\.camera-action-rail\\{[\\s\\S]*?flex-direction:column!important/);
+  assert.match(styles,/camera-session\\.is-landscape \\.camera-action-rail\\{[\\s\\S]*?flex-direction:row!important/);
+  assert.match(styles,/camera-session\\.is-landscape \\.camera-action-rail\\{[\\s\\S]*?top:8px!important/);
+});
+
+test("landscape film hangs vertically with rotated thumbnails", () => {
+  assert.match(styles,/camera-session\\.is-landscape \\.camera-film-track\\{[\\s\\S]*?flex-direction:column!important/);
+  assert.match(styles,/camera-session\\.is-landscape \\.camera-film-frame \\.camera-film-image\\{[\\s\\S]*?rotate\\(90deg\\)/);
+  assert.match(app,/function isFilmVertical\\(\\)/);
+  assert.match(app,/const vertical=isFilmVertical\\(\\)/);
+});
+
+test("film capacity is measured on the active orientation axis", () => {
+  const first=app.indexOf("  function maxVisibleFilmFrames(");
+  const last=app.indexOf("\n  function clearFilm(",first);
+  assert.ok(first >= 0 && last > first);
+  const create=runInNewContext(
+    "(function(camera,isFilmVertical) {\n" + app.slice(first,last) +
+    "\nreturn maxVisibleFilmFrames;\n})"
+  );
+  const mock={
+    filmTrack:{clientWidth:320,clientHeight:160},
+    filmEmpty:{offsetWidth:38,offsetHeight:31}
+  };
+  assert.equal(create(mock,()=>false)(36),6);
+  assert.equal(create(mock,()=>true)(36),3);
+});
+
+test("tapping outside camera tools dismisses them but inside taps do not", () => {
+  const first=app.indexOf("  function dismissCameraPanelsOnOutsidePointer(");
+  const last=app.indexOf("\n  function stopStream(",first);
+  assert.ok(first >= 0 && last > first);
+  class UIElement {
+    constructor(children=[]) {this.children=children}
+    contains(other) {return this===other || this.children.includes(other)}
+  }
+  const inside=new UIElement();
+  const outside=new UIElement();
+  const camera={
+    session:{hidden:false},
+    railOpen:true,
+    railToggle:new UIElement(),
+    quickTools:new UIElement([inside]),
+    effectsPanel:Object.assign(new UIElement(),{hidden:true})
+  };
+  const calls=[];
+  const dismiss=runInNewContext(
+    "(function(camera,setRail,Element) {\n" + app.slice(first,last) +
+    "\nreturn dismissCameraPanelsOnOutsidePointer;\n})"
+  )(camera,open=>{calls.push(open);camera.railOpen=open},UIElement);
+  dismiss({target:inside});
+  assert.equal(calls.length,0);
+  dismiss({target:outside});
+  assert.deepEqual(calls,[false]);
+});
