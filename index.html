@@ -140,78 +140,73 @@
     </section>
 
     <section class="view" id="view-camera" aria-labelledby="camera-heading" hidden>
-      <div class="section-heading"><span class="eyebrow">GUEST EXPERIENCE / INVITATION ACCESS</span><h1 id="camera-heading">The Photo <em>Time Capsule</em></h1><p>Capture the celebration through everyone's eyes. During the wedding, photographs will be uploaded privately and revealed together later.</p></div>
-      <section class="invitation-access" aria-labelledby="invitation-heading">
-        <div class="invitation-copy">
-          <span class="eyebrow">YOUR INVITATION IS YOUR KEY</span>
-          <h2 id="invitation-heading">Have an invitation <em>code?</em></h2>
-          <p>Tap the private link on your invitation, or type your code below. No downloads, email, or account registration.</p>
-          <p class="invitation-notice">Invitation verification is being built. Codes are not yet active, and this preview does not unlock photo uploads.</p>
+      <div class="camera-gate-wrap" id="camera-gate-wrap">
+        <div class="section-heading camera-gate-heading">
+          <span class="eyebrow">WEDDING CAMERA</span>
+          <h1 id="camera-heading">Capture the <em>little moments.</em></h1>
+          <p>Your invitation is your camera pass. Open your private invitation link or enter the short code printed on it.</p>
         </div>
-        <form class="invitation-form" id="invitation-form" novalidate>
-          <label for="invitation-code">Your invitation code</label>
-          <div class="invitation-input-row">
-            <input type="text" id="invitation-code" name="invitation-code"
-                   inputmode="text" autocomplete="off" autocapitalize="characters"
-                   spellcheck="false" maxlength="9" placeholder="XXXX-XXXX"
-                   aria-describedby="invitation-help invitation-status" required />
-            <button class="button primary" type="submit" id="check-invitation">Continue →</button>
-          </div>
-          <p id="invitation-help" class="invitation-help">Eight letters or numbers. Spaces and the dash don't matter.</p>
-          <p class="invitation-status" id="invitation-status" role="status" aria-live="polite">Invitation verification will activate after the secure Firebase backend is deployed.</p>
-        </form>
-      </section>
 
-      <section class="guest-rsvp-card" id="guest-rsvp-card" hidden aria-labelledby="guest-rsvp-heading">
-        <div>
-          <span class="eyebrow">WELCOME TO THE CELEBRATION</span>
-          <h3 id="guest-rsvp-heading">You're <em>invited!</em></h3>
-          <p id="guest-rsvp-greeting">Your invitation has been verified.</p>
-          <p class="guest-rsvp-helper">One response covers the people on this invitation. You can update it using the latest invitation link.</p>
-        </div>
-        <form id="guest-rsvp-form">
-          <label for="guest-rsvp-choice">Can you attend?</label>
-          <select id="guest-rsvp-choice" required>
-            <option value="Yes">Yes, we'll be there</option>
-            <option value="Maybe">We're not sure yet</option>
-            <option value="No">Sorry, we can't attend</option>
-          </select>
-          <div id="guest-rsvp-seats-wrap">
-            <label for="guest-rsvp-seats">How many people are attending?</label>
-            <input type="number" id="guest-rsvp-seats" min="1" max="1" step="1" value="1" required />
-            <p id="guest-rsvp-seat-help">Enter the number of people attending from your invitation.</p>
+        <section class="invitation-access camera-access-card" aria-labelledby="invitation-heading">
+          <div class="camera-gate-mark" aria-hidden="true">A<span>&</span>J</div>
+          <div class="invitation-copy">
+            <span class="eyebrow">YOUR INVITATION IS YOUR KEY</span>
+            <h2 id="invitation-heading">Enter your <em>camera code.</em></h2>
+            <p>No app download and no guest account. Once verified, this device remembers your access until the invitation is regenerated, revoked, or the wedding camera closes.</p>
           </div>
-          <button type="submit" id="guest-rsvp-save" class="button primary">Save our RSVP</button>
-          <p id="guest-rsvp-feedback" role="status" aria-live="polite"></p>
-        </form>
-      </section>
-      <div class="camera-layout">
-        <div class="camera-shell">
-          <div class="camera-head"><span>AJ <span class="muted">/ WEDDING CAM</span></span><span class="camera-badge">LOCAL TEST ONLY</span></div>
-          <div class="camera-preview" id="camera-preview">
-            <div class="camera-idle" id="camera-idle"><div class="camera-star">✳</div><div class="camera-idle-title">Your moment<br /><em>starts here.</em></div><p>Try the camera on your device. Test photos are kept locally and never uploaded.</p></div>
-            <video id="camera-video" autoplay playsinline muted hidden aria-label="Camera preview"></video>
-            <img id="camera-capture" alt="Your captured test photo" hidden />
+
+          <form class="invitation-form camera-code-form" id="invitation-form" novalidate>
+            <label for="invitation-code">Invitation code</label>
+            <div class="invitation-input-row">
+              <input type="text" id="invitation-code" name="invitation-code"
+                     inputmode="text" autocomplete="off" autocapitalize="characters"
+                     spellcheck="false" maxlength="9" placeholder="XXXX-XXXX"
+                     aria-describedby="invitation-help invitation-status" required />
+              <button class="button primary" type="submit" id="check-invitation">Open camera →</button>
+            </div>
+            <p id="invitation-help" class="invitation-help">Eight letters or numbers. The dash is optional.</p>
+            <p class="invitation-status" id="invitation-status" role="status" aria-live="polite">Checking whether this device already has camera access…</p>
+          </form>
+
+          <div class="camera-gate-note">
+            <span aria-hidden="true">✦</span>
+            <p>Using another person's invitation code is allowed if they share it with you. That code uses that invitation's own photo allowance.</p>
           </div>
-          <p class="camera-message" id="camera-message" role="status">Camera access requires your permission and a secure connection (HTTPS).</p>
-          <div class="camera-actions">
-            <button type="button" class="button primary" id="start-camera">Turn on camera <span aria-hidden="true">↗</span></button>
-            <button type="button" class="button primary" id="take-photo" hidden>Take test photo <span aria-hidden="true">●</span></button>
-            <button type="button" class="button outlined" id="retake-photo" hidden>Retake photo</button>
-            <a class="button outlined" id="save-photo" download="wedding-camera-test.jpg" hidden>Save to device</a>
-          </div>
-          <p class="camera-fineprint">This is only a browser camera demonstration. It does not submit photos, generate guest access tokens, or enforce the wedding-day window yet.</p>
-        </div>
-        <div class="capsule-info">
-          <span class="eyebrow">HOW THE FINAL EXPERIENCE WILL WORK</span>
-          <h2>A surprise worth<br /><em>waiting for.</em></h2>
-          <div class="step"><span class="step-number">01</span><div><h3>Open your unique invitation</h3><p>Tap your invitation link to pre-fill your code, or type the short code. No app download or guest account required.</p></div></div>
-          <div class="step"><span class="step-number">02</span><div><h3>Capture every little moment</h3><p>Photos upload through a secure backend into a private Google Drive folder during the approved event window.</p></div></div>
-          <div class="step"><span class="step-number">03</span><div><h3>Seal the time capsule</h3><p>Uploads are kept private. There is no public gallery to browse before release.</p></div></div>
-          <div class="step"><span class="step-number">04</span><div><h3>Reveal after 48 hours</h3><p>Once approved and unlocked by the server, the shared gallery becomes viewable.</p></div></div>
-          <div class="capsule-note"><span class="note-icon">✦</span><div><strong>Privacy first</strong><p>The 48-hour restriction must be enforced on the server, not simply hidden by a visual countdown.</p></div></div>
-        </div>
+        </section>
       </div>
+
+      <section class="camera-session" id="camera-session" hidden aria-label="Wedding camera">
+        <div class="camera-session-top">
+          <div class="camera-session-brand"><strong>A<span>&</span>J</strong><small>WEDDING CAM</small></div>
+          <div class="camera-session-meta">
+            <span id="camera-session-party">Invitation verified</span>
+            <strong id="camera-session-quota">40 memories available</strong>
+          </div>
+          <button type="button" class="camera-change-code" id="camera-change-code">Change code</button>
+        </div>
+
+        <div class="camera-preview camera-live-stage" id="camera-preview">
+          <div class="camera-idle" id="camera-idle">
+            <div class="camera-star">✳</div>
+            <div class="camera-idle-title">Ready when<br /><em>you are.</em></div>
+            <p id="camera-idle-copy">Tap below to let the wedding camera use this phone's camera.</p>
+          </div>
+          <video id="camera-video" autoplay playsinline muted hidden aria-label="Camera preview"></video>
+          <img id="camera-capture" alt="Your captured wedding photo" hidden />
+          <div class="camera-focus-frame" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        </div>
+
+        <div class="camera-session-bottom">
+          <p class="camera-message" id="camera-message" role="status">Your invitation has been verified. Open the camera when you're ready.</p>
+          <div class="camera-actions camera-full-actions">
+            <button type="button" class="camera-shutter-open" id="start-camera"><span>Open camera</span></button>
+            <button type="button" class="camera-shutter" id="take-photo" hidden aria-label="Take photo"><span></span></button>
+            <button type="button" class="camera-secondary" id="retake-photo" hidden>Retake</button>
+            <a class="camera-secondary" id="save-photo" download="wedding-camera-test.jpg" hidden>Save test photo</a>
+          </div>
+          <p class="camera-fineprint">Photo upload to the private wedding Drive will activate after the secure upload service is deployed. This build still captures test photos locally only.</p>
+        </div>
+      </section>
     </section>
 
     <section class="view" id="view-system" aria-labelledby="system-heading" hidden>
