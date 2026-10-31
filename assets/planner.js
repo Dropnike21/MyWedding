@@ -301,17 +301,22 @@ const schemas = {
 };
 
 function renderOverview() {
-  const paid=paymentTotal("Paid"), committed=vendorCommitted(), remaining=num(db.settings.budget)-committed;
+  const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
+  const committed=totalCommitted(), paid=totalPaid(), remaining=num(db.settings.budget)-committed;
   const recentTasks=active(db.tasks).filter(t=>t.status!=="Done").sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999")).slice(0,5);
   const decisions=active(db.decisions).filter(d=>d.status!=="Decided").slice(0,4);
+  const essentials=active(db.expenses)
+    .filter(item=>!["Received","Cancelled"].includes(item.status))
+    .sort((a,b)=>(a.pickupDate||a.dueDate||"9999").localeCompare(b.pickupDate||b.dueDate||"9999"))
+    .slice(0,5);
   root.innerHTML =
     header("Wedding Overview",remoteActive?"A consolidated view of your live Firebase wedding plan.":"A consolidated view of the plans stored in this browser.","<button class='button primary planner-compact' data-jump='guests'>+ Add guest</button>")+
     '<div class="planner-metrics">'+
       metric("Days to wedding",daysToWedding(),dateLabel(db.settings.date))+
       metric("Estimated seats",guestSeats(),active(db.guests).length+" guest entries")+
       metric("Confirmed seats",confirmedSeats(),active(db.guests).filter(g=>g.rsvp==="Yes").length+" accepted invites")+
-      metric("Budget remaining",money.format(remaining),"against supplier commitments")+
-      metric("Amount paid",money.format(paid),active(db.payments).filter(p=>p.status==="Paid").length+" payments")+
+      metric("Budget remaining",money.format(remaining),"suppliers + wedding expenses")+
+      metric("Amount paid",money.format(paid),"supplier payments + direct expenses")+
       metric("Open tasks",openTasks(),overdueTasks()+" overdue")+
     '</div>'+
     '<div class="planner-overview-grid">'+
@@ -319,8 +324,10 @@ function renderOverview() {
       (recentTasks.length?'<div class="planner-mini-list">'+recentTasks.map(t=>'<button data-open-view="tasks" data-open-id="'+esc(t.id)+'"><span>'+esc(t.title)+'</span><small>'+dateLabel(t.dueDate)+' · '+esc(t.owner||"Unassigned")+'</small>'+statusBadge(t.status)+'</button>').join("")+'</div>':empty("Add your first planning task."))+'</section>'+
       '<section class="planner-card"><div class="planner-card-head"><h3>Open decisions</h3><button data-jump="decisions">Decision log →</button></div>'+
       (decisions.length?'<div class="planner-mini-list">'+decisions.map(d=>'<button data-open-view="decisions" data-open-id="'+esc(d.id)+'"><span>'+esc(d.title)+'</span><small>'+dateLabel(d.dueDate)+'</small>'+statusBadge(d.status)+'</button>').join("")+'</div>':empty("No open decisions."))+'</section>'+
+      '<section class="planner-card"><div class="planner-card-head"><h3>Wedding essentials</h3><button data-jump="expenses">Manage expenses →</button></div>'+
+      (essentials.length?'<div class="planner-mini-list">'+essentials.map(item=>'<button data-open-view="expenses" data-open-id="'+esc(item.id)+'"><span>'+esc(item.name)+'</span><small>'+esc(item.category)+' · balance '+money.format(expenseBalance(item))+'</small>'+statusBadge(item.status)+'</button>').join("")+'</div>':empty("Add rings, attire, souvenirs and other wedding essentials."))+'</section>'+
       '<section class="planner-card planner-budget-card"><div class="planner-card-head"><h3>Budget position</h3><button data-jump="budget">Open budget →</button></div>'+
-      '<div class="planner-budget-lines"><div><span>Total budget</span><strong>'+money.format(db.settings.budget)+'</strong></div><div><span>Supplier commitments</span><strong>'+money.format(committed)+'</strong></div><div><span>Paid so far</span><strong>'+money.format(paid)+'</strong></div></div>'+
+      '<div class="planner-budget-lines"><div><span>Total budget</span><strong>'+money.format(db.settings.budget)+'</strong></div><div><span>Suppliers</span><strong>'+money.format(supplierCommitted)+'</strong></div><div><span>Wedding expenses</span><strong>'+money.format(personalCommitted)+'</strong></div><div><span>Paid so far</span><strong>'+money.format(paid)+'</strong></div></div>'+
       '<div class="planner-progress"><i style="width:'+Math.min(100,Math.max(0,committed/Math.max(1,num(db.settings.budget))*100))+'%"></i></div></section>'+
       '<section class="planner-card"><div class="planner-card-head"><h3>Wedding setup</h3><button data-jump="settings">Edit setup →</button></div><dl class="planner-definition"><div><dt>Date</dt><dd>'+dateLabel(db.settings.date)+'</dd></div><div><dt>Ceremony</dt><dd>'+esc(db.settings.ceremony||"—")+'</dd></div><div><dt>Venue</dt><dd>'+esc(db.settings.venue||"—")+'</dd></div><div><dt>Budget</dt><dd>'+money.format(db.settings.budget)+'</dd></div></dl></section>'+
     '</div>';
@@ -448,15 +455,19 @@ function renderBudget() {
   const filtered=active(db.payments).filter(p=>JSON.stringify(p).toLowerCase().includes(search.toLowerCase()));
   const selected=active(db.payments).find(p=>p.id===selectedId)||null;
   const p=selected||{vendorId:"",description:"",amount:0,dueDate:"",status:"Planned",paidDate:"",method:"",notes:"",archived:false};
+  const expenseOptions=active(db.expenses);
   const allocated=db.budgetCategories.reduce((s,c)=>s+num(c.allocated),0);
-  const committed=vendorCommitted(), paid=paymentTotal("Paid");
-  root.innerHTML=header("Budget & Payments","Adjust category caps and record actual payment transactions.")+
-    '<div class="planner-metrics compact">'+metric("Total budget",money.format(db.settings.budget),"Event setup")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Supplier agreed costs")+metric("Paid",money.format(paid),"Transactions marked Paid")+'</div>'+
+  const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
+  const committed=totalCommitted(), paid=totalPaid();
+  root.innerHTML=header("Budget & Payments","Category caps, supplier payments, and direct wedding expenses roll into one financial position.")+
+    '<div class="planner-metrics compact">'+metric("Total budget",money.format(db.settings.budget),"Event setup")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Suppliers + wedding expenses")+metric("Paid",money.format(paid),"All recorded spending")+'</div>'+
     '<div class="planner-budget-layout"><section class="planner-card"><div class="planner-card-head"><h3>Category allocation</h3><span>Editable</span></div><div class="planner-allocation-list">'+
       db.budgetCategories.map(c=>'<label><span>'+esc(c.name)+'</span><input type="number" min="0" step="500" value="'+num(c.allocated)+'" data-budget-id="'+esc(c.id)+'" /></label>').join("")+
       '</div><div class="planner-allocation-total"><span>Allocation total</span><strong>'+money.format(allocated)+'</strong></div></section>'+
-      '<section class="planner-card"><div class="planner-card-head"><h3>Supplier commitments</h3><button data-jump="vendors">Manage suppliers →</button></div><div class="planner-mini-list">'+
-      (vendorOptions.length?vendorOptions.map(v=>'<button data-open-view="vendors" data-open-id="'+esc(v.id)+'"><span>'+esc(v.name)+'</span><small>'+esc(v.category)+'</small><strong>'+money.format(v.agreed||v.quote)+'</strong></button>').join(""):'<p>No supplier records yet.</p>')+
+      '<section class="planner-card"><div class="planner-card-head"><h3>Commitments</h3><span>'+money.format(committed)+'</span></div>'+
+        '<div class="planner-budget-lines"><div><span>Suppliers</span><strong>'+money.format(supplierCommitted)+'</strong></div><div><span>Wedding expenses</span><strong>'+money.format(personalCommitted)+'</strong></div></div>'+
+        '<div class="planner-card-head planner-subhead"><h3>Wedding expenses</h3><button data-jump="expenses">Manage expenses →</button></div><div class="planner-mini-list">'+
+        (expenseOptions.length?expenseOptions.slice(0,6).map(x=>'<button data-open-view="expenses" data-open-id="'+esc(x.id)+'"><span>'+esc(x.name)+'</span><small>'+esc(x.category)+'</small><strong>'+money.format(x.actualCost||x.expectedCost)+'</strong></button>').join(""):'<p>No direct wedding expenses yet.</p>')+
       '</div></section></div>'+
     '<div class="planner-split planner-payments-split"><section class="planner-list-card"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search payments" value="'+esc(search)+'" /><span>'+filtered.length+' transactions</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Payment</th><th>Supplier</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody>'+
