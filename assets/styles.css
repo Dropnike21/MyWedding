@@ -3255,3 +3255,93 @@ body:not([data-active-view="home"]) .ambient-heart{
     transform-origin:center center;
   }
 }
+
+/* Camera V3: framing, color temperature, and focus controls. */
+.camera-framing-guide{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  border:1px solid rgba(255,248,230,.7);
+  border-radius:2px;
+  box-shadow:0 0 0 100vmax rgba(0,0,0,.16),0 0 14px rgba(0,0,0,.12);
+  z-index:4;
+  pointer-events:none;
+}
+.camera-framing-guide[hidden]{display:none!important}
+.camera-capture-settings{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:8px;
+  padding:10px 0;
+  border-top:1px solid rgba(255,255,255,.15);
+  margin-top:8px;
+}
+.camera-setting-heading{
+  font-weight:850;
+  font-size:9px;
+  letter-spacing:1.2px;
+  color:#eed0b9;
+}
+.camera-aspect-options{display:flex;gap:8px;flex-wrap:wrap}
+.camera-setting-button{
+  border:1px solid rgba(255,255,255,.19);
+  border-radius:9px;
+  min-height:32px;
+  padding:7px 15px;
+  background:rgba(255,255,255,.08);
+  color:#f6f2e9;
+  font-weight:750;
+  font-size:11px;
+  touch-action:manipulation;
+}
+.camera-setting-button.active,
+.camera-setting-button[aria-pressed="true"]{
+  background:#e4c5bc;
+  border-color:#e4c5bc;
+  color:#39473a;
+}
+.camera-capture-settings label{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  font-weight:750;
+  font-size:10px;
+}
+.camera-capture-settings output{color:#f2cabe;white-space:nowrap}
+.camera-capture-settings input[type="range"]{
+  width:100%;
+  accent-color:#e4c5bc;
+  touch-action:pan-x;
+}
+.camera-capture-settings p{
+  margin:0;
+  color:#c4cebe;
+  font-size:9px;
+  line-height:1.45;
+}
+#camera-manual-focus-controls{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:8px;
+  border-top:1px solid rgba(255,255,255,.10);
+  padding-top:8px;
+}
+#camera-manual-focus-controls[hidden]{display:none!important}
+#camera-focus-auto{justify-self:start}
+.camera-sheet.camera-effects-panel{scrollbar-width:thin}
+@media(orientation:landscape) and (max-height:450px){
+  body.camera-session-active .camera-session.is-landscape .camera-session-bottom{
+    gap:4px;
+    padding-top:5px!important;
+    padding-bottom:5px!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-bottom-identity{
+    margin-bottom:0;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film{height:42px!important}
+  body.camera-session-active .camera-session.is-landscape .camera-rail-button{
+    width:34px;height:34px;
+  }
+}
