@@ -672,11 +672,26 @@
     if (camera.exposureIndicator) camera.exposureIndicator.style.top = (100-pct*100).toFixed(1)+"%";
   }
 
+  function localCameraPoint(clientX,clientY,element) {
+    const rect=element.getBoundingClientRect();
+    if (camera.session?.classList.contains("is-manual-landscape")) {
+      // The entire camera UI is rotated 90° clockwise when Android rotation
+      // lock is active. Convert screen touches back into local camera space.
+      return {
+        x:clamp(clientY-rect.top,0,element.clientWidth),
+        y:clamp(rect.right-clientX,0,element.clientHeight)
+      };
+    }
+    return {x:clamp(clientX-rect.left,0,element.clientWidth),
+      y:clamp(clientY-rect.top,0,element.clientHeight)};
+  }
+
   function showFocusUi(clientX,clientY) {
     if (!camera.preview || !camera.focusPoint || !camera.exposureHud) return;
-    const rect = camera.preview.getBoundingClientRect();
-    const x = clamp(clientX-rect.left,18,rect.width-18);
-    const y = clamp(clientY-rect.top,18,rect.height-18);
+    const {x:rawX,y:rawY}=localCameraPoint(clientX,clientY,camera.preview);
+    const width=camera.preview.clientWidth,height=camera.preview.clientHeight;
+    const x=clamp(rawX,18,Math.max(18,width-18));
+    const y=clamp(rawY,18,Math.max(18,height-18));
     camera.focusPoint.hidden = false;
     camera.focusPoint.style.left = x+"px";
     camera.focusPoint.style.top = y+"px";
@@ -684,20 +699,22 @@
     void camera.focusPoint.offsetWidth;
     camera.focusPoint.classList.add("pulse");
     camera.exposureHud.hidden = false;
-    camera.exposureHud.style.left = clamp(x+34,24,rect.width-34)+"px";
-    camera.exposureHud.style.top = clamp(y-46,40,rect.height-120)+"px";
+    camera.exposureHud.style.left = clamp(x+34,24,Math.max(24,width-34))+"px";
+    camera.exposureHud.style.top = clamp(y-46,40,Math.max(40,height-120))+"px";
   }
 
   async function focusAt(clientX,clientY) {
     if (!camera.preview || !camera.track || !camera.video) return;
     showFocusUi(clientX,clientY);
-    const rect = camera.preview.getBoundingClientRect();
-    let nx = clamp((clientX-rect.left)/rect.width,0,1);
-    const ny = clamp((clientY-rect.top)/rect.height,0,1);
-    if (camera.facingMode === "user") nx = 1-nx;
+    const video=camera.video;
+    const p=localCameraPoint(clientX,clientY,video);
+    let nx=clamp(p.x/Math.max(1,video.clientWidth),0,1);
+    const ny=clamp(p.y/Math.max(1,video.clientHeight),0,1);
+    if (camera.facingMode === "user") nx=1-nx;
+    const geo=captureGeometry(video);
     const point = {
-      x:Math.round(nx*Math.max(1,camera.video.videoWidth)),
-      y:Math.round(ny*Math.max(1,camera.video.videoHeight)),
+      x:Math.round(geo.sx + nx*geo.sw),
+      y:Math.round(geo.sy + ny*geo.sh),
     };
     const focusModes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
     if (camera.supportedConstraints.pointsOfInterest && focusModes.includes("single-shot")) {
