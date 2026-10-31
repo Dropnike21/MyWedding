@@ -1,4 +1,4 @@
-:root{--bg:#f7f4ec;--paper:#fffdfa;--ink:#282b32;--quiet:#74757b;--pine:#28463e;--sage:#8ba79a;--cream:#e8dfce;--border:#dedacf;--gold:#b49468;--rose:#f2e7df;--shadow:0 28px 65px rgba(36,38,34,.10)}
+:root{--bg:#f4ece3;--paper:#fff9f3;--ink:#3a302c;--quiet:#7d7069;--pine:#465545;--sage:#9ca78e;--olive:#7e886f;--cream:#eadbcf;--border:#dccbc0;--gold:#b59670;--rose:#d6aaa3;--blush:#e8ccc6;--terracotta:#b96854;--clay:#c9826c;--mauve:#a97873;--shadow:0 28px 65px rgba(72,54,46,.11)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{scroll-behavior:smooth}
@@ -1807,4 +1807,423 @@ body:not([data-active-view="home"]) .ambient-heart{opacity:0!important}
 
 @media(prefers-reduced-motion:reduce){
   .camera-sheet{animation:none!important}
+}
+
+
+/* =========================================================
+   REFERENCE-IMAGE WEDDING PALETTE
+   Warm ivory · sage/olive · dusty rose · terracotta · forest
+   ========================================================= */
+body{
+  background:
+    radial-gradient(circle at 7% 9%,rgba(214,170,163,.07),transparent 23%),
+    radial-gradient(circle at 92% 18%,rgba(156,167,142,.09),transparent 25%),
+    var(--bg);
+  color:var(--ink)
+}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{
+  outline-color:var(--terracotta)
+}
+.topline{
+  background:#465545;
+  color:#f6eee5
+}
+.site-header{
+  background:color-mix(in srgb,var(--bg) 94%,transparent);
+  border-color:#d8c8bd
+}
+.page-scrolled .site-header{
+  background:color-mix(in srgb,var(--bg) 96%,transparent);
+  box-shadow:0 10px 35px rgba(79,64,53,.08)
+}
+.brand-mark{color:#3d4438}
+.brand-mark span{color:var(--terracotta)}
+.brand-word,.build-state{color:#786e66}
+.live-dot{
+  background:#9da98c;
+  box-shadow:0 0 0 3px #dbe1d3
+}
+.main-nav button{color:#70645f}
+.main-nav button:hover{
+  background:#eadbd0;
+  color:#4b5545
+}
+.main-nav button[aria-current="page"]{
+  color:#4b5545;
+  background:#dde2d3
+}
+.main-nav button:after{background:var(--terracotta)}
+.overline,.eyebrow{color:#596551}
+.divider-line{background:var(--terracotta)}
+.amp{color:var(--terracotta)}
+.text-link{color:#815c50}
+.text-link:hover{color:#a65f4f}
+
+/* Homepage: botanical stationery instead of generic neutral blocks. */
+.home-hero{
+  background-image:
+    url("./floral-corner.svg"),
+    radial-gradient(circle at 78% 32%,rgba(201,130,108,.12),transparent 24%),
+    radial-gradient(circle at 65% 70%,rgba(151,164,135,.14),transparent 30%),
+    linear-gradient(135deg,#f7efe6 0%,#f4ece3 50%,#efe5db 100%);
+  background-repeat:no-repeat,no-repeat,no-repeat,no-repeat;
+  background-position:right -18px bottom -30px,center,center,center;
+  background-size:min(31vw,430px) auto,auto,auto,auto;
+  border-bottom-color:#dac8bc
+}
+.hero-copy:after{
+  content:"";
+  position:absolute;
+  right:-2%;
+  bottom:28px;
+  width:min(270px,36vw);
+  height:72px;
+  background:url("./floral-sprig.svg") center/contain no-repeat;
+  opacity:.26;
+  pointer-events:none
+}
+.hero-copy h1,.section-heading h1{color:#382f2c}
+.hero-subline{color:#715a50}
+.hero-intro,.hero-note,.section-heading p{color:#7a6f68}
+.hero-art .photo-card{
+  box-shadow:0 26px 55px rgba(91,62,50,.16)
+}
+.hero-art .photo-caption{color:#6e594e}
+.art-seal{
+  background:#b96854!important;
+  color:#fff4e8!important;
+  border-color:#d8a496!important
+}
+.art-ring{border-color:rgba(126,136,111,.34)!important}
+.flower{color:#b96854!important}
+.script-mark{color:#8d665e!important}
+.facts{
+  background:#eee3d8;
+  border-color:#dac8bc
+}
+.fact{
+  border-color:#d9c8bd
+}
+.fact-eyebrow{color:#7d806c}
+.fact-value{color:#463a34}
+.fact:hover .fact-value{color:#a45f4d}
+.intro-strip{
+  background:
+    url("./floral-sprig.svg") right 3% bottom 10%/250px auto no-repeat,
+    linear-gradient(105deg,#dce1d3 0%,#ebe1d5 56%,#ead1c9 100%);
+  border-color:#d1c0b4
+}
+.intro-number{color:#aa6556}
+.intro-strip h2{color:#41483d}
+
+/* Cards and buttons */
+.button.primary{
+  background:var(--terracotta)!important;
+  border-color:var(--terracotta)!important;
+  color:#fff8ef!important;
+  box-shadow:0 9px 24px rgba(165,89,70,.16)
+}
+.button.primary:hover{
+  background:#a95d4c!important;
+  border-color:#a95d4c!important
+}
+.button.outlined{
+  border-color:#ad9b90;
+  color:#5b504a;
+  background:rgba(255,249,243,.56)
+}
+.button.outlined:hover{
+  border-color:#a66557;
+  color:#9d5d50;
+  background:#f5e4df
+}
+.button.subtle{color:#6b6059}
+.button.subtle:hover{background:#e8dbd0}
+.fact,.system-node,.system-details>div,.project-state,
+.invitation-access,.planner-card,.planner-metric{
+  border-color:#dccbc0
+}
+
+/* Section headings use subtle floral stationery. */
+.section-heading{
+  position:relative;
+  background-image:
+    linear-gradient(90deg,rgba(244,236,227,.96),rgba(244,236,227,.78)),
+    url("./floral-corner.svg");
+  background-repeat:no-repeat;
+  background-position:center,right -28px center;
+  background-size:auto,min(280px,26vw) auto
+}
+.section-heading:after{
+  content:"";
+  display:block;
+  width:110px;
+  height:24px;
+  margin:22px auto 0;
+  background:url("./floral-sprig.svg") center/contain no-repeat;
+  opacity:.45
+}
+
+/* Music card */
+.home-music-card{
+  background:
+    radial-gradient(circle at 12% 20%,rgba(201,130,108,.13),transparent 28%),
+    linear-gradient(135deg,#fff9f2,#e5e7dc);
+  border-color:#d9c8bd;
+  box-shadow:0 22px 55px rgba(76,61,50,.09)
+}
+.home-music-copy h2{color:#4a4f43}
+.music-orb{
+  background:#6f7b67;
+  border-color:#a7b099;
+  color:#fff5e8;
+  box-shadow:0 16px 35px rgba(79,92,74,.20)
+}
+.music-orb:before,.music-orb:after{border-color:rgba(185,104,84,.24)}
+
+/* Guest camera gate */
+.camera-gate-wrap{
+  background:
+    url("./floral-corner.svg") left -70px bottom -55px/300px auto no-repeat,
+    linear-gradient(180deg,#f4ece3,#f8f1e9)
+}
+.camera-access-card{
+  background:
+    linear-gradient(140deg,rgba(255,249,243,.97),rgba(232,235,220,.92)),
+    url("./floral-sprig.svg");
+  border-color:#d8c8bc;
+  box-shadow:0 24px 60px rgba(73,58,48,.11)
+}
+.camera-gate-mark{
+  background:#596650;
+  color:#fff5e9;
+  box-shadow:0 16px 38px rgba(70,83,65,.18)
+}
+.camera-gate-mark small{color:#e5b9ad}
+.invitation-input-row input{
+  border-color:#cdbcb1;
+  background:#fffaf4;
+  color:#463a35
+}
+.invitation-input-row input:focus{
+  border-color:#b96854;
+  box-shadow:0 0 0 3px rgba(185,104,84,.11)
+}
+.invitation-status.is-ok{color:#6f795f}
+.invitation-status.is-error{color:#a65f50}
+.camera-gate-note{
+  background:#e1e5d7;
+  color:#66705e
+}
+.camera-preview-helper{
+  border-color:#d0aaa0!important;
+  background:#f3dfda!important
+}
+.camera-preview-helper code{
+  border-color:#d4c4b9!important;
+  color:#7d5047!important
+}
+.camera-preview-helper button{
+  background:#6f7b67!important
+}
+
+/* Planner: warm stationery + olive management chrome. */
+.planner-authenticated{
+  background:
+    radial-gradient(circle at 90% 5%,rgba(214,170,163,.08),transparent 22%),
+    linear-gradient(180deg,#eee4da 0,#f8f1ea 240px)
+}
+.planner-sidebar{
+  background:#4c5a49!important;
+  color:#f6efe6
+}
+.planner-sidebar-title{color:#fff2e4}
+.planner-nav{color:#e8eee4}
+.planner-nav:hover{background:#667461!important}
+.planner-nav.active{
+  background:#819077!important;
+  color:#fffaf2!important
+}
+.planner-nav.active span{color:#f2c0b1!important}
+.planner-sidebar-note{
+  color:#d3ddd0;
+  border-color:rgba(255,255,255,.14)
+}
+.planner-toolbar{
+  background:#fff9f3!important;
+  border-color:#d8c8bc!important
+}
+.planner-workspace{
+  background:#fbf5ef!important
+}
+.planner-metric,.planner-card,.planner-table-wrap,.planner-form-card{
+  background:#fffaf5!important;
+  border-color:#ddccc1!important;
+  box-shadow:0 8px 26px rgba(83,65,54,.045)
+}
+.planner-metric small,.planner-kicker{color:#8f7c73!important}
+.planner-metric strong{color:#4c5045!important}
+.planner-table th{
+  color:#7d746b!important;
+  background:#f1e7de!important
+}
+.planner-table tbody tr:hover{background:#f3e6e1!important}
+.planner-status,.status-pill{
+  background:#e2e6d8!important;
+  color:#596650!important
+}
+.planner-access-gate{
+  background:
+    url("./floral-corner.svg") right -80px bottom -70px/330px auto no-repeat,
+    linear-gradient(145deg,#fff9f3,#e6e9dc);
+  border-color:#d9c8bc;
+  box-shadow:0 30px 75px rgba(77,60,50,.12)
+}
+.planner-access-lock{
+  background:#68735f;
+  color:#fff4e8
+}
+.planner-access-gate h2{color:#474b41}
+.planner-access-gate:after{
+  background:radial-gradient(circle,rgba(185,104,84,.13),transparent 70%)
+}
+
+/* Blueprint/system sections */
+.system-card{
+  background:#fff9f3;
+  border-color:#d9c8bd
+}
+.system-node span{color:#a65f4f}
+.system-details>div{background:#f2e8df}
+.project-state{
+  background:
+    url("./floral-sprig.svg") right 4% center/260px auto no-repeat,
+    #596650;
+  color:#fff6eb;
+  border-color:#697560
+}
+.project-state p{color:#e0e7dc}
+
+/* Footer */
+footer{
+  position:relative;
+  overflow:hidden;
+  background:#465545;
+  color:#f5eee5
+}
+footer:before{
+  content:"";
+  position:absolute;
+  left:-18px;
+  bottom:-28px;
+  width:280px;
+  height:95px;
+  background:url("./floral-sprig.svg") center/contain no-repeat;
+  opacity:.17;
+  filter:brightness(1.5) saturate(.7)
+}
+.footer-brand em{color:#d89c8d}
+
+/* Ambient petals/hearts inherit the reference-photo florals. */
+.ambient-petal{
+  background:linear-gradient(145deg,rgba(201,130,108,.58),rgba(232,204,198,.20))
+}
+.ambient-heart{color:#b96f61}
+.pointer-glow{
+  background:radial-gradient(circle,rgba(201,130,108,.08),rgba(156,167,142,.035) 42%,transparent 70%)
+}
+
+/* Full-screen camera stays dark, but its accents match the wedding palette. */
+.camera-session,
+body.camera-session-active,
+body.camera-session-active #view-camera{
+  background:#17201b!important
+}
+.camera-session-bottom{background:#202c24!important}
+.camera-watermark{color:rgba(244,226,216,.66)!important}
+.camera-watermark span{color:rgba(214,170,163,.72)!important}
+.camera-rail-button[aria-expanded="true"],
+.camera-rail-button.active{
+  background:#e8d2cb!important;
+  color:#4b5545!important
+}
+.camera-sheet{
+  background:rgba(52,61,51,.88)!important;
+  border-color:rgba(232,204,198,.20)!important
+}
+.camera-sheet-kicker{color:#dda99b!important}
+.camera-effect-category.active,
+.camera-quality.active,
+.camera-option.active{
+  background:#e4c5bc!important;
+  border-color:#e4c5bc!important;
+  color:#4b5545!important
+}
+.camera-effect.active .camera-effect-preview{
+  box-shadow:0 0 0 2px #e6b3a6,0 6px 18px rgba(0,0,0,.22)!important
+}
+.camera-effect.active strong{color:#efc1b5!important}
+.camera-film{
+  background:#171e19!important;
+  box-shadow:inset 0 0 0 1px rgba(218,190,177,.10)!important
+}
+.camera-film:before,.camera-film:after{
+  background:repeating-linear-gradient(90deg,transparent 0 8px,#b7a48e 8px 13px,transparent 13px 20px)!important
+}
+.camera-film-empty{
+  border-color:rgba(220,170,157,.42)!important
+}
+.camera-film-empty.pulse{
+  border-color:#d59a8b!important;
+  background:rgba(201,130,108,.12)!important
+}
+.camera-shutter{
+  border-color:#f1e3d7!important
+}
+.camera-shutter>span{
+  background:#d08b78!important;
+  box-shadow:inset 0 0 0 4px #f7eee6
+}
+.camera-change-code{
+  color:#efdcd4!important;
+  border-color:rgba(214,170,163,.22)!important
+}
+.camera-current-guest small{color:#bcaa9f!important}
+.camera-film-label strong{color:#e0bbb0!important}
+.camera-message{color:#b8c1b4!important}
+
+/* Mobile keeps the floral language quieter and prioritizes content. */
+@media(max-width:820px){
+  .home-hero{
+    background-position:right -90px bottom -35px,center,center,center;
+    background-size:300px auto,auto,auto,auto
+  }
+  .hero-copy:after{opacity:.18;width:190px}
+  .section-heading{
+    background-position:center,right -90px center;
+    background-size:auto,230px auto
+  }
+  .main-nav{
+    background:rgba(247,239,231,.92)!important;
+    border-color:#d7c7bc!important
+  }
+  .main-nav button[aria-current="page"]{
+    background:#6b7966!important;
+    color:#fff7ed!important
+  }
+}
+@media(max-width:520px){
+  .home-hero{
+    background-image:
+      radial-gradient(circle at 80% 20%,rgba(201,130,108,.10),transparent 28%),
+      linear-gradient(135deg,#f7efe6,#f0e5db)
+  }
+  .section-heading{
+    background-image:linear-gradient(180deg,#f4ece3,#f4ece3)
+  }
+  .section-heading:after{width:90px;opacity:.40}
+  .camera-gate-wrap{
+    background:
+      linear-gradient(180deg,#f4ece3,#f8f1e9)
+  }
 }
