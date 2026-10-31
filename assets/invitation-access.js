@@ -11,6 +11,9 @@ const cameraButton = document.getElementById("start-camera");
 const changeCodeButton = document.getElementById("camera-change-code");
 const partyLabel = document.getElementById("camera-session-party");
 const quotaLabel = document.getElementById("camera-session-quota");
+const previewHelper = document.getElementById("camera-preview-helper");
+const previewCode = document.getElementById("camera-preview-code");
+const useTestCodeButton = document.getElementById("camera-use-test-code");
 
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 const normalize = value =>
@@ -22,6 +25,9 @@ let authApi = null;
 let pendingLinkCode = null;
 let sessionRestoring = false;
 let cameraAccess = null;
+const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
+const previewTestCode = normalize(guestAccessConfig.previewTestCode || "");
+const previewTestActive = Boolean(!guestAccessConfig.enabled && guestAccessConfig.previewTestEnabled && CODE_PATTERN.test(previewTestCode));
 
 function show(message, state = "") {
   feedback.textContent = message;
@@ -139,7 +145,20 @@ async function verifyCode(code, { fromLink = false } = {}) {
   }
 
   if (!guestAccessConfig.enabled) {
-    show("The secure wedding camera is not activated yet. The invitation backend still needs to be deployed.", "error");
+    if (previewTestActive && code === previewTestCode) {
+      localStorage.setItem(PREVIEW_SESSION_KEY, "1");
+      enterCameraMode({
+        verified: true,
+        cameraOpen: true,
+        partyLabel: "Camera Preview · Test Guest",
+        photoLimit: 50,
+        photosUsed: 0,
+        photosRemaining: 50,
+        preview: true
+      });
+      return;
+    }
+    show("Real invitation verification is not active yet. Use the temporary preview test code shown below.", "error");
     return;
   }
 
@@ -185,7 +204,19 @@ async function restoreOnThisDevice() {
   sessionRestoring = true;
 
   if (!guestAccessConfig.enabled) {
-    show("Wedding camera access is not active yet. Entering codes will be enabled after the secure backend is deployed.");
+    if (previewTestActive && localStorage.getItem(PREVIEW_SESSION_KEY) === "1") {
+      enterCameraMode({
+        verified: true,
+        cameraOpen: true,
+        partyLabel: "Camera Preview · Test Guest",
+        photoLimit: 50,
+        photosUsed: 0,
+        photosRemaining: 50,
+        preview: true
+      });
+    } else {
+      show("Preview mode is active. Use the temporary test code below to open the camera.");
+    }
     submit.disabled = false;
     sessionRestoring = false;
     return;
@@ -237,6 +268,7 @@ form.addEventListener("submit", event => {
 });
 
 changeCodeButton.addEventListener("click", () => {
+  if (!guestAccessConfig.enabled) localStorage.removeItem(PREVIEW_SESSION_KEY);
   leaveCameraMode({ focusCode: true });
 });
 
@@ -252,8 +284,19 @@ window.addEventListener("hashchange", () => {
 async function initializeGuestCameraAccess() {
   pendingLinkCode = absorbInvitationUrl();
 
+  if (previewTestActive) {
+    previewHelper.hidden = false;
+    previewCode.textContent = formatted(previewTestCode);
+    useTestCodeButton.addEventListener("click", () => {
+      input.value = formatted(previewTestCode);
+      verifyCode(previewTestCode);
+    });
+  } else {
+    previewHelper.hidden = true;
+  }
+
   if (!guestAccessConfig.enabled) {
-    show("Wedding camera access is not active yet. The camera itself stays hidden until secure invitation verification is deployed.");
+    await restoreOnThisDevice();
     return;
   }
 
