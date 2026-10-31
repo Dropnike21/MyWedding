@@ -296,7 +296,13 @@ async function initializeGuestCameraAccess() {
   }
 
   if (!guestAccessConfig.enabled) {
-    await restoreOnThisDevice();
+    if (pendingLinkCode) {
+      const code = pendingLinkCode;
+      pendingLinkCode = null;
+      await verifyCode(code, { fromLink: true });
+    } else {
+      await restoreOnThisDevice();
+    }
     return;
   }
 
