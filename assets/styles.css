@@ -446,3 +446,53 @@ footer small{font-size:9px;color:#aec0b4}
 
 .experience-progress{position:fixed;left:0;top:0;width:100%;height:2px;z-index:1000;pointer-events:none;transform-origin:left center;transform:scaleX(var(--scroll,0));background:linear-gradient(90deg,#b69a70,#5f8874,#d8c7a6);box-shadow:0 0 14px rgba(92,126,108,.35)}
 @media(prefers-reduced-motion:reduce){.experience-progress{transition:none}}
+
+
+/* Homepage romance ambience */
+body[data-active-view="home"] .ambient-petal{opacity:.42}
+body:not([data-active-view="home"]) .ambient-petal{opacity:.10}
+.ambient-petal{filter:blur(var(--blur,0px));transition:opacity .45s ease}
+.ambient-heart{position:absolute;left:var(--hx);top:var(--hy);font:var(--hsize) Georgia,serif;color:#8a5d55;opacity:0;filter:blur(var(--hblur));transform:translate(-50%,-50%) scale(.88);animation:heartBokeh 9s ease-in-out var(--hdelay) infinite;transition:opacity .45s ease}
+body[data-active-view="home"] .ambient-heart{opacity:var(--hopacity)}
+body:not([data-active-view="home"]) .ambient-heart{opacity:0!important}
+@keyframes heartBokeh{
+  0%,100%{transform:translate(-50%,-50%) scale(.84) rotate(-7deg)}
+  50%{transform:translate(calc(-50% + 12px),calc(-50% - 15px)) scale(1.08) rotate(8deg)}
+}
+.home-hero:after{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(circle at 14% 18%,rgba(167,116,107,.055),transparent 15%),
+  radial-gradient(circle at 82% 72%,rgba(180,151,109,.06),transparent 19%),
+  radial-gradient(circle at 47% 48%,rgba(255,255,255,.11),transparent 22%);
+  mix-blend-mode:multiply}
+
+/* Homepage licensed music experience */
+.home-music-card{width:min(1040px,88%);margin:58px auto 10px;padding:28px 31px;display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;background:
+  linear-gradient(135deg,rgba(255,253,248,.94),rgba(236,242,234,.88));
+  border:1px solid #dce1d8;border-radius:18px;box-shadow:0 22px 55px rgba(42,69,56,.08);position:relative;overflow:hidden}
+.home-music-card:before{content:"";position:absolute;inset:-70% auto auto -8%;width:250px;height:250px;border-radius:50%;background:radial-gradient(circle,rgba(188,155,111,.16),transparent 70%);pointer-events:none}
+.home-music-copy h2{font:normal 30px Georgia,serif;line-height:1.16;letter-spacing:-.9px;color:#2a473b;margin:8px 0 7px}
+.home-music-copy p{font-size:11px;line-height:1.65;color:#747c74;margin:0}
+.music-orb{width:122px;height:122px;border-radius:50%;border:1px solid #bdcdbf;background:#294b3e;color:#fff7e6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;box-shadow:0 16px 35px rgba(37,71,57,.18);cursor:pointer;position:relative}
+.music-orb:before,.music-orb:after{content:"";position:absolute;border-radius:50%;inset:-8px;border:1px solid rgba(70,108,88,.18);transition:inset .35s ease,opacity .35s ease}
+.music-orb:after{inset:-16px;opacity:.45}
+.music-orb:hover:before,.music-orb.is-playing:before{inset:-13px}.music-orb:hover:after,.music-orb.is-playing:after{inset:-23px;opacity:.22}
+.music-orb-icon{font:31px Georgia,serif;line-height:1}.music-orb-label{font-size:9px;letter-spacing:.7px;text-transform:uppercase;font-weight:800}
+.music-orb.is-playing .music-orb-icon{animation:musicPulse 1.6s ease-in-out infinite}
+@keyframes musicPulse{50%{transform:scale(1.16) rotate(8deg);text-shadow:0 0 18px rgba(255,246,220,.55)}}
+.home-music-player{grid-column:1/-1;border-radius:12px;overflow:hidden;animation:musicReveal .4s cubic-bezier(.16,1,.3,1) both}
+.home-music-player iframe{display:block;border:0;border-radius:12px;background:#e8eee8}
+@keyframes musicReveal{from{opacity:0;transform:translateY(-10px);clip-path:inset(0 0 100% 0 round 12px)}to{opacity:1;transform:none;clip-path:inset(0 round 12px)}}
+
+@media(max-width:720px){
+  .home-music-card{width:92%;grid-template-columns:1fr;padding:23px;text-align:center}
+  .music-orb{width:108px;height:108px;margin:0 auto}
+}
+@media(max-width:520px){
+  body[data-active-view="home"] .ambient-petal:nth-of-type(n+17){display:none}
+  .ambient-heart:nth-of-type(n+7){display:none}
+  .home-music-card{margin-top:36px}
+  .home-music-copy h2{font-size:26px}
+}
+@media(prefers-reduced-motion:reduce){
+  .ambient-heart,.music-orb.is-playing .music-orb-icon{animation:none!important}
+}
