@@ -214,3 +214,17 @@ footer small{font-size:9px;color:#aec0b4}
 .sr-label{position:absolute;clip:rect(0 0 0 0);width:1px;height:1px;overflow:hidden}
 @media(max-width:920px){.admin-columns{grid-template-columns:1fr}.admin-list-panel{border-right:0;border-bottom:1px solid var(--border)}.admin-invitation-list{max-height:280px}.admin-roadmap{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:570px){.admin-shell-head{flex-direction:column;gap:12px}.admin-shell-head h2{font-size:27px}.admin-kpis{grid-template-columns:repeat(2,1fr)}.admin-kpis>div:nth-child(2){border-right:0}.admin-kpis>div:nth-child(-n+2){border-bottom:1px solid var(--border)}.admin-kpis>div{padding:15px}.admin-list-panel,.admin-edit-panel{padding:20px 15px}.admin-field-pair{grid-template-columns:1fr;gap:0}.admin-roadmap{grid-template-columns:1fr}.admin-primary-actions .button{flex:1}.admin-rotation-actions .button{width:100%;margin:7px 0 0}.admin-link-result{padding:14px}.admin-code-line{flex-wrap:wrap}}
+
+
+/* RSVP appears only after a successful server-side invitation redemption. */
+.guest-rsvp-card{width:min(1130px,92%);margin:0 auto 48px;padding:28px 34px;background:#edf3e9;border:1px solid #ceddcb;border-radius:13px;display:grid;grid-template-columns:1fr 1fr;gap:34px;align-items:start}
+.guest-rsvp-card h3{font:normal 37px Georgia,serif;margin:11px 0 9px;letter-spacing:-1.1px}
+.guest-rsvp-card p{font-size:12px;line-height:1.7;color:#607468}
+.guest-rsvp-card .guest-rsvp-helper{font-size:11px}
+.guest-rsvp-card form label{display:block;font-size:12px;font-weight:750;color:#335946;margin:0 0 8px}
+.guest-rsvp-card form select,.guest-rsvp-card form input{display:block;background:#fffefa;border:1px solid #b6c9b8;border-radius:6px;padding:12px;font-size:16px;width:100%;margin-bottom:13px;color:#244839}
+.guest-rsvp-card form button{min-height:49px}
+#guest-rsvp-feedback{min-height:24px;margin:12px 0 0;font-weight:680;color:#2c6240}
+#guest-rsvp-seat-help{font-size:10px;margin:-5px 0 14px}
+@media(max-width:750px){.guest-rsvp-card{grid-template-columns:1fr;gap:16px;padding:25px 21px}}
+@media(max-width:520px){.guest-rsvp-card h3{font-size:31px}.guest-rsvp-card form button{width:100%}}
