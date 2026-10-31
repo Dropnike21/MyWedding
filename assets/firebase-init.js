@@ -1,7 +1,7 @@
 // Browser-only Firebase bootstrap. No Authentication, Firestore reads/writes
 // or photo uploads are started until security rules and the backend are ready.
 import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261031-2230";
+import { firebaseConfig } from "./firebase-config.js?v=20261031-2245";
 
 const status = document.querySelector("#firebase-status");
 
