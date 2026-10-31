@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261031-2330";
+  const BUILD = "20261101-camera1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -145,6 +145,13 @@
     preview: document.getElementById("camera-preview"),
     session: document.getElementById("camera-session"),
     video: document.getElementById("camera-video"),
+    depthOverlay: document.getElementById("camera-depth-overlay"),
+    rotate: document.getElementById("camera-rotate"),
+    rotateLabel: document.getElementById("camera-rotate-label"),
+    beauty: document.getElementById("camera-beauty"),
+    beautyValue: document.getElementById("camera-beauty-value"),
+    aperture: document.getElementById("camera-aperture"),
+    apertureValue: document.getElementById("camera-aperture-value"),
     canvas: document.getElementById("camera-capture-canvas"),
     flight: document.getElementById("camera-capture-flight"),
     flash: document.getElementById("camera-flash"),
@@ -197,6 +204,9 @@
     exposureMax: 1,
     exposureValue: 0,
     hardwareExposure: false,
+    beautyStrength: 0,
+    apertureStrength: 0,
+    manualLandscape: false,
     pointers: new Map(),
     pinchStartDistance: 0,
     pinchStartZoom: 1,
@@ -268,8 +278,14 @@
   function combinedPreviewFilter() {
     const base = CAMERA_FILTERS[camera.filter]?.css || "none";
     const exposure = camera.hardwareExposure ? 0 : camera.exposureValue;
-    const brightness = 1 + exposure * .14;
-    return (base === "none" ? "" : base + " ") + "brightness(" + brightness.toFixed(3) + ")";
+    const beauty = camera.beautyStrength / 100;
+    const brightness = 1 + exposure * .14 + beauty * .025;
+    // Gentle full-frame softening; this deliberately does not detect or reshape faces.
+    const softening = beauty ? " contrast(" + (1 - beauty * .055).toFixed(3) +
+      ") saturate(" + (1 + beauty * .035).toFixed(3) + ") blur(" +
+      (beauty * .65).toFixed(2) + "px)" : "";
+    return (base === "none" ? "" : base + " ") +
+      "brightness(" + brightness.toFixed(3) + ")" + softening;
   }
 
   function updateVideoPresentation() {
@@ -278,12 +294,48 @@
     const zoom = camera.hardwareZoom ? 1 : camera.digitalZoom;
     const mirror = camera.facingMode === "user" ? " scaleX(-1)" : "";
     camera.video.style.transform = "scale(" + zoom.toFixed(3) + ")" + mirror;
+    if (camera.depthOverlay) {
+      const depth = camera.apertureStrength / 100;
+      camera.depthOverlay.hidden = !camera.stream || depth === 0;
+      camera.depthOverlay.style.setProperty("--depth-blur", (depth * 12).toFixed(1) + "px");
+    }
   }
 
   function updateCameraOrientation() {
-    const landscape = window.matchMedia("(orientation: landscape)").matches;
+    // The OS may keep the viewport portrait with auto-rotate disabled.
+    // A manual control rotates the camera UI without locking the screen.
+    const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
+    const manual = camera.manualLandscape && !viewportLandscape;
+    const landscape = viewportLandscape || manual;
     camera.session?.classList.toggle("is-landscape",landscape);
-    document.body.classList.toggle("camera-landscape",landscape && document.body.classList.contains("camera-session-active"));
+    camera.session?.classList.toggle("is-manual-landscape",manual);
+    document.body.classList.toggle("camera-landscape",
+      landscape && document.body.classList.contains("camera-session-active"));
+    camera.rotate?.setAttribute("aria-pressed",String(camera.manualLandscape));
+    if (camera.rotateLabel) camera.rotateLabel.textContent = camera.manualLandscape ? "Auto" : "Rotate";
+    camera.rotate?.setAttribute("aria-label",camera.manualLandscape
+      ? "Return camera interface to automatic orientation"
+      : "Rotate camera interface into landscape mode");
+  }
+
+  function toggleCameraOrientation() {
+    camera.manualLandscape = !camera.manualLandscape;
+    updateCameraOrientation();
+    if (camera.message) camera.message.textContent = camera.manualLandscape
+      ? "Landscape interface selected. Tap Auto to return to the phone's orientation."
+      : "Camera interface follows the phone's screen orientation.";
+  }
+
+  function setPortraitEffect(kind, strength) {
+    const value = clamp(Number(strength) || 0, 0, 100);
+    if (kind === "beauty") {
+      camera.beautyStrength = value;
+      if (camera.beautyValue) camera.beautyValue.textContent = value ? value + "%" : "Off";
+    } else if (kind === "aperture") {
+      camera.apertureStrength = value;
+      if (camera.apertureValue) camera.apertureValue.textContent = value ? value + "%" : "Off";
+    }
+    updateVideoPresentation();
   }
 
   function closeCameraSheet() {
@@ -322,6 +374,7 @@
       camera.video.style.transform = "";
       camera.video.style.filter = "";
     }
+    if (camera.depthOverlay) camera.depthOverlay.hidden = true;
     if (camera.torch) {
       camera.torch.classList.remove("active");
       camera.torch.hidden = true;
@@ -340,6 +393,12 @@
     camera.localTaken = 0;
     camera.filter = "natural";
     camera.timer = 0;
+    camera.manualLandscape = false;
+    updateCameraOrientation();
+    if (camera.beauty) camera.beauty.value = "0";
+    if (camera.aperture) camera.aperture.value = "0";
+    setPortraitEffect("beauty",0);
+    setPortraitEffect("aperture",0);
     camera.gridOn = true;
     camera.capturing = false;
     camera.effectPreviewData = "";
@@ -746,7 +805,8 @@
   }
 
   function captureGeometry(video) {
-    const landscape=window.matchMedia("(orientation: landscape)").matches;
+    const landscape=camera.session?.classList.contains("is-landscape") ||
+      window.matchMedia("(orientation: landscape)").matches;
     const ratio=landscape?4/3:3/4;
     const vw=video.videoWidth,vh=video.videoHeight;
     let sx=0,sy=0,sw=vw,sh=vh;
@@ -792,14 +852,36 @@
     const context=canvas.getContext("2d");
     if (!context) return {canvas:null,orientation:geometry.orientation};
 
-    context.save();
-    if (look) context.filter=combinedPreviewFilter();
-    if (camera.facingMode==="user") {
-      context.translate(canvas.width,0);
-      context.scale(-1,1);
+    const drawFrame = target => {
+      target.save();
+      if (camera.facingMode === "user") {
+        target.translate(canvas.width,0);
+        target.scale(-1,1);
+      }
+      target.drawImage(video,geometry.sx,geometry.sy,geometry.sw,geometry.sh,0,0,canvas.width,canvas.height);
+      target.restore();
+    };
+    const depth = look ? camera.apertureStrength / 100 : 0;
+    if (depth && "filter" in context) {
+      // A center-focus approximation, not optical depth-of-field or subject segmentation.
+      context.save();
+      context.filter = combinedPreviewFilter() + " blur(" + (depth * 12).toFixed(1) + "px)";
+      drawFrame(context);
+      context.restore();
+      context.save();
+      context.beginPath();
+      context.ellipse(canvas.width / 2,canvas.height / 2,
+        canvas.width * .33,canvas.height * .37,0,0,Math.PI * 2);
+      context.clip();
+      context.filter = combinedPreviewFilter();
+      drawFrame(context);
+      context.restore();
+    } else {
+      context.save();
+      if (look) context.filter = combinedPreviewFilter();
+      drawFrame(context);
+      context.restore();
     }
-    context.drawImage(video,geometry.sx,geometry.sy,geometry.sw,geometry.sh,0,0,canvas.width,canvas.height);
-    context.restore();
     if (watermark) drawWatermark(context,canvas);
     return {canvas,orientation:geometry.orientation};
   }
@@ -956,6 +1038,9 @@
   camera.start?.addEventListener("click",()=>startCamera());
   camera.take?.addEventListener("click",capturePhoto);
   camera.flip?.addEventListener("click",switchCamera);
+  camera.rotate?.addEventListener("click",toggleCameraOrientation);
+  camera.beauty?.addEventListener("input",event=>setPortraitEffect("beauty",event.target.value));
+  camera.aperture?.addEventListener("input",event=>setPortraitEffect("aperture",event.target.value));
   camera.torch?.addEventListener("click",toggleTorch);
   camera.timerButton?.addEventListener("click",cycleTimer);
   camera.railToggle?.addEventListener("click",()=>setRail(!camera.railOpen));
@@ -974,6 +1059,8 @@
     screen.orientation.addEventListener("change",updateCameraOrientation);
   }
   window.addEventListener("resize",updateCameraOrientation,{passive:true});
+  window.addEventListener("orientationchange",updateCameraOrientation,{passive:true});
+  window.visualViewport?.addEventListener("resize",updateCameraOrientation,{passive:true});
 
   const revealObserver = motionOK && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
