@@ -55,9 +55,18 @@ Before publishing, review the file. It does the following:
 
 Publish via Firebase Console > Firestore > Rules, or with Firebase CLI after confirming the correct project.
 
-## 3. Bootstrap the first owner
+## 3. Default groom / owner accounts
 
-The planner authorizes against this document:
+These two verified Google accounts are built into the planner as default `owner` identities:
+
+- `babaynike2013@gmail.com`
+- `josephsixson@mcstayuman.edu.ph`
+
+They do **not** require an `organizers/{uid}` Firestore document. Firestore Security Rules independently verify the signed-in Firebase token's verified email before granting owner permissions.
+
+Because this repository is public, these two addresses are visible in the published rules/source. If that is undesirable, remove the built-in allowlist and use UID-based `organizers/{uid}` records instead.
+
+For any additional owner, coordinator, or finance account, the planner authorizes against:
 
 `organizers/{FIREBASE_AUTH_UID}`
 
