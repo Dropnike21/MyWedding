@@ -11,12 +11,31 @@
   document.documentElement.classList.add("motion-ready");
 
   const CAMERA_FILTERS = {
-    natural: { label: "Natural", css: "none" },
-    warm: { label: "Warm", css: "sepia(.12) saturate(1.12) contrast(1.02) brightness(1.02)" },
-    golden: { label: "Golden", css: "sepia(.2) saturate(1.22) hue-rotate(-7deg) brightness(1.04)" },
-    film: { label: "Film", css: "contrast(1.09) saturate(.86) sepia(.08)" },
-    soft: { label: "Soft", css: "brightness(1.05) contrast(.94) saturate(.94)" },
-    bw: { label: "B&W", css: "grayscale(1) contrast(1.1) brightness(1.02)" },
+    natural: { label:"Natural", group:"Essentials", css:"none", swatch:"linear-gradient(135deg,#d8ccb8,#6b756d)" },
+    glow: { label:"Glow", group:"Portrait", css:"brightness(1.08) contrast(.93) saturate(1.04)", swatch:"linear-gradient(135deg,#fff2df,#d7b2a7)" },
+    rose: { label:"Rosé", group:"Portrait", css:"sepia(.10) saturate(1.12) hue-rotate(335deg) brightness(1.04)", swatch:"linear-gradient(135deg,#f3d5d1,#b77b82)" },
+    soft: { label:"Soft", group:"Portrait", css:"brightness(1.06) contrast(.91) saturate(.95)", swatch:"linear-gradient(135deg,#f4eee7,#bfc5bd)" },
+    warm: { label:"Warm", group:"Warm", css:"sepia(.13) saturate(1.13) contrast(1.02) brightness(1.02)", swatch:"linear-gradient(135deg,#e3c08d,#9d6651)" },
+    golden: { label:"Golden Hour", group:"Warm", css:"sepia(.22) saturate(1.28) hue-rotate(-8deg) brightness(1.05)", swatch:"linear-gradient(135deg,#f0cf78,#ad6843)" },
+    cocoa: { label:"Cocoa", group:"Warm", css:"sepia(.25) saturate(.88) contrast(1.05) brightness(.98)", swatch:"linear-gradient(135deg,#c49a74,#5a4035)" },
+    sunset: { label:"Sunset", group:"Warm", css:"sepia(.16) saturate(1.35) hue-rotate(-16deg) contrast(1.04)", swatch:"linear-gradient(135deg,#f7a36e,#a94962)" },
+    cinema: { label:"Cinema", group:"Cinematic", css:"contrast(1.13) saturate(.82) brightness(.96)", swatch:"linear-gradient(135deg,#354b4d,#c8aa7a)" },
+    teal: { label:"Teal & Gold", group:"Cinematic", css:"saturate(1.12) contrast(1.08) hue-rotate(8deg) sepia(.05)", swatch:"linear-gradient(135deg,#2c7270,#d99c54)" },
+    moody: { label:"Moody", group:"Cinematic", css:"brightness(.88) contrast(1.16) saturate(.82)", swatch:"linear-gradient(135deg,#48504f,#181b1a)" },
+    night: { label:"Night Pop", group:"Cinematic", css:"brightness(1.05) contrast(1.18) saturate(1.25) hue-rotate(5deg)", swatch:"linear-gradient(135deg,#19274f,#9f4ca4)" },
+    film: { label:"Film", group:"Vintage", css:"contrast(1.08) saturate(.83) sepia(.10) brightness(1.01)", swatch:"linear-gradient(135deg,#bca27e,#6d715f)" },
+    disposable: { label:"Disposable", group:"Vintage", css:"contrast(1.16) saturate(1.08) sepia(.08) brightness(1.04)", swatch:"linear-gradient(135deg,#d8bb69,#4d6b63)" },
+    retro98: { label:"Retro '98", group:"Vintage", css:"sepia(.18) saturate(.76) contrast(1.09) brightness(1.03)", swatch:"linear-gradient(135deg,#d6b18a,#766356)" },
+    fade: { label:"Fade", group:"Vintage", css:"contrast(.88) saturate(.78) brightness(1.08) sepia(.06)", swatch:"linear-gradient(135deg,#ded7c9,#8c8e84)" },
+    seoul: { label:"Seoul", group:"Cool", css:"brightness(1.06) saturate(.95) hue-rotate(9deg) contrast(.97)", swatch:"linear-gradient(135deg,#dbe8e8,#a6b0c5)" },
+    ice: { label:"Ice", group:"Cool", css:"brightness(1.04) saturate(.84) hue-rotate(16deg) contrast(1.04)", swatch:"linear-gradient(135deg,#d9f1ef,#718ca3)" },
+    dream: { label:"Dream", group:"Cool", css:"brightness(1.09) contrast(.90) saturate(1.04) hue-rotate(8deg)", swatch:"linear-gradient(135deg,#e1dff1,#b7d8dc)" },
+    vivid: { label:"Vivid", group:"Party", css:"saturate(1.45) contrast(1.08) brightness(1.02)", swatch:"linear-gradient(135deg,#ed765f,#5c65d8)" },
+    neon: { label:"Neon", group:"Party", css:"saturate(1.65) contrast(1.17) hue-rotate(8deg)", swatch:"linear-gradient(135deg,#45d8cd,#d84fd1)" },
+    flashpop: { label:"Flash Pop", group:"Party", css:"brightness(1.12) contrast(1.13) saturate(1.18)", swatch:"linear-gradient(135deg,#fff5d8,#df7676)" },
+    bw: { label:"B&W", group:"Mono", css:"grayscale(1) contrast(1.10) brightness(1.02)", swatch:"linear-gradient(135deg,#ededeb,#454545)" },
+    noir: { label:"Noir", group:"Mono", css:"grayscale(1) contrast(1.35) brightness(.88)", swatch:"linear-gradient(135deg,#b9b9b9,#171717)" },
+    silver: { label:"Silver", group:"Mono", css:"grayscale(1) contrast(.93) brightness(1.09)", swatch:"linear-gradient(135deg,#f2f2f2,#8d9295)" },
   };
 
   const camera = {
@@ -32,6 +51,10 @@
     quickTools: document.getElementById("camera-quick-tools"),
     flip: document.getElementById("camera-flip"),
     torch: document.getElementById("camera-torch"),
+    effectsToggle: document.getElementById("camera-effects-toggle"),
+    effectsPanel: document.getElementById("camera-effects-panel"),
+    effectCategories: document.getElementById("camera-effect-categories"),
+    effectsGrid: document.getElementById("camera-effects-grid"),
     controlsToggle: document.getElementById("camera-controls-toggle"),
     advancedControls: document.getElementById("camera-advanced-controls"),
     zoomRow: document.getElementById("camera-zoom-row"),
@@ -44,8 +67,7 @@
     countdown: document.getElementById("camera-countdown"),
     gridToggle: document.getElementById("camera-grid-toggle"),
     timerButtons: [...document.querySelectorAll("[data-timer]")],
-    filterBar: document.getElementById("camera-filter-bar"),
-    filterButtons: [...document.querySelectorAll(".camera-filter")],
+    filterButtons: [],
     qualityButtons: [...document.querySelectorAll(".camera-quality")],
     filmTrack: document.getElementById("camera-film-track"),
     filmEmpty: document.getElementById("camera-film-empty"),
@@ -71,8 +93,7 @@
 
   function updateCameraQuota() {
     if (!camera.quotaLabel) return;
-    camera.quotaLabel.textContent =
-      cameraRemaining() + " of " + camera.photoLimit + " memories available";
+    camera.quotaLabel.textContent = cameraRemaining() + " left";
     if (camera.take) camera.take.disabled = cameraRemaining() <= 0;
   }
 
@@ -105,8 +126,8 @@
     if (camera.exposureRow) camera.exposureRow.hidden = true;
     if (hideControls) {
       if (camera.quickTools) camera.quickTools.hidden = true;
-      if (camera.filterBar) camera.filterBar.hidden = true;
-      if (camera.advancedControls) camera.advancedControls.hidden = true;
+      closeCameraSheet();
+      if (camera.effectsToggle) camera.effectsToggle.setAttribute("aria-expanded", "false");
       if (camera.controlsToggle) camera.controlsToggle.setAttribute("aria-expanded", "false");
     }
   }
@@ -263,7 +284,6 @@
       camera.start.hidden = true;
       camera.take.hidden = false;
       camera.quickTools.hidden = false;
-      camera.filterBar.hidden = false;
       updateCameraQuota();
     } catch (error) {
       stopStream();
@@ -309,6 +329,21 @@
     }
   }
 
+  function closeCameraSheet() {
+    if (camera.effectsPanel) camera.effectsPanel.hidden = true;
+    if (camera.advancedControls) camera.advancedControls.hidden = true;
+    camera.effectsToggle?.setAttribute("aria-expanded","false");
+    camera.controlsToggle?.setAttribute("aria-expanded","false");
+  }
+
+  function openCameraSheet(which) {
+    const effects = which === "effects";
+    if (camera.effectsPanel) camera.effectsPanel.hidden = !effects;
+    if (camera.advancedControls) camera.advancedControls.hidden = effects;
+    camera.effectsToggle?.setAttribute("aria-expanded",String(effects));
+    camera.controlsToggle?.setAttribute("aria-expanded",String(!effects));
+  }
+
   function selectFilter(name) {
     if (!CAMERA_FILTERS[name]) return;
     camera.filter = name;
@@ -321,6 +356,48 @@
         CAMERA_FILTERS[name].label + " · " +
         (camera.facingMode === "user" ? "Front camera" : "Back camera");
     }
+  }
+
+  function renderEffectCatalog() {
+    if (!camera.effectCategories || !camera.effectsGrid) return;
+    const groups = [...new Set(Object.values(CAMERA_FILTERS).map(item => item.group))];
+    camera.effectCategories.replaceChildren();
+    camera.effectsGrid.replaceChildren();
+
+    const renderGroup = group => {
+      camera.effectsGrid.replaceChildren();
+      const entries = Object.entries(CAMERA_FILTERS).filter(([,item]) => item.group === group);
+      for (const [key,item] of entries) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "camera-effect";
+        button.dataset.filter = key;
+        button.innerHTML =
+          '<span class="camera-effect-preview" style="background:'+item.swatch+'"></span>'+
+          '<strong>'+item.label+'</strong>';
+        button.addEventListener("click",()=>selectFilter(key));
+        camera.effectsGrid.appendChild(button);
+      }
+      camera.filterButtons = [...camera.effectsGrid.querySelectorAll(".camera-effect")];
+      camera.filterButtons.forEach(button =>
+        button.classList.toggle("active",button.dataset.filter === camera.filter)
+      );
+    };
+
+    groups.forEach((group,index) => {
+      const tab = document.createElement("button");
+      tab.type = "button";
+      tab.className = "camera-effect-category" + (index === 0 ? " active" : "");
+      tab.textContent = group;
+      tab.addEventListener("click",()=>{
+        camera.effectCategories.querySelectorAll(".camera-effect-category").forEach(node =>
+          node.classList.toggle("active",node === tab)
+        );
+        renderGroup(group);
+      });
+      camera.effectCategories.appendChild(tab);
+    });
+    renderGroup(groups[0]);
   }
 
   function selectQuality(name) {
@@ -436,7 +513,11 @@
     frame.classList.add("is-new");
     frame.addEventListener("animationend", () => frame.classList.remove("is-new"), { once: true });
 
-    const maxVisible = window.innerWidth < 480 ? 3 : 4;
+    const trackWidth = camera.filmTrack.clientWidth || 180;
+    const sampleWidth = frame.getBoundingClientRect().width || 38;
+    const emptyWidth = camera.filmEmpty.getBoundingClientRect().width || sampleWidth;
+    const gap = 4;
+    const maxVisible = Math.max(1, Math.floor((trackWidth - emptyWidth - gap) / (sampleWidth + gap)));
     while (camera.frames.length > maxVisible) {
       const old = camera.frames.shift();
       if (!old) break;
@@ -574,19 +655,22 @@
   camera.take?.addEventListener("click", capturePhoto);
   camera.flip?.addEventListener("click", switchCamera);
   camera.torch?.addEventListener("click", toggleTorch);
+  camera.effectsToggle?.addEventListener("click", () => {
+    const open = camera.effectsToggle.getAttribute("aria-expanded") === "true";
+    if (open) closeCameraSheet(); else openCameraSheet("effects");
+  });
   camera.controlsToggle?.addEventListener("click", () => {
     const open = camera.controlsToggle.getAttribute("aria-expanded") === "true";
-    camera.controlsToggle.setAttribute("aria-expanded", String(!open));
-    camera.advancedControls.hidden = open;
+    if (open) closeCameraSheet(); else openCameraSheet("controls");
   });
+  document.querySelectorAll("[data-close-camera-sheet]").forEach(button =>
+    button.addEventListener("click", closeCameraSheet)
+  );
   camera.zoom?.addEventListener("input", event =>
     applyTrackValue("zoom", event.target.value, camera.zoomValue, "×")
   );
   camera.exposure?.addEventListener("input", event =>
     applyTrackValue("exposureCompensation", event.target.value, camera.exposureValue)
-  );
-  camera.filterButtons.forEach(button =>
-    button.addEventListener("click", () => selectFilter(button.dataset.filter))
   );
   camera.qualityButtons.forEach(button =>
     button.addEventListener("click", () => selectQuality(button.dataset.quality))
@@ -595,6 +679,8 @@
   camera.timerButtons.forEach(button =>
     button.addEventListener("click", () => selectTimer(button.dataset.timer))
   );
+
+  renderEffectCatalog();
 
   const revealObserver = motionOK && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
