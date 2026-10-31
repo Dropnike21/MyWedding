@@ -314,6 +314,7 @@
 
   function updateVideoPresentation() {
     if (!camera.video) return;
+    if (camera.frameGuide) camera.frameGuide.hidden = !camera.stream;
     camera.video.style.filter = combinedPreviewFilter();
     const zoom = camera.hardwareZoom ? 1 : camera.digitalZoom;
     const mirror = camera.facingMode === "user" ? " scaleX(-1)" : "";
@@ -340,8 +341,26 @@
     const ratio = isCameraLandscape() ? base : 1/base;
     const w = Math.min(width*.94,height*.94*ratio);
     frame.style.width = Math.round(w) + "px";
-    frame.style.height = Math.round(w/ratio) + "px";
+    const h = w/ratio;
+    frame.style.height = Math.round(h) + "px";
     frame.dataset.aspect = camera.aspectRatio;
+    // The actual video viewport matches the JPEG crop, avoiding a misleading
+    // full-screen preview with a different field of view from the saved image.
+    if (camera.video) {
+      camera.video.style.position = "absolute";
+      camera.video.style.left = Math.round((width-w)/2) + "px";
+      camera.video.style.top = Math.round((height-h)/2) + "px";
+      camera.video.style.width = Math.round(w) + "px";
+      camera.video.style.height = Math.round(h) + "px";
+    }
+    if (camera.depthOverlay) {
+      camera.depthOverlay.style.left = Math.round((width-w)/2) + "px";
+      camera.depthOverlay.style.top = Math.round((height-h)/2) + "px";
+      camera.depthOverlay.style.width = Math.round(w) + "px";
+      camera.depthOverlay.style.height = Math.round(h) + "px";
+      camera.depthOverlay.style.right = "auto";
+      camera.depthOverlay.style.bottom = "auto";
+    }
   }
 
   function updateCameraOrientation() {
@@ -446,7 +465,13 @@
       camera.video.hidden = true;
       camera.video.style.transform = "";
       camera.video.style.filter = "";
+      camera.video.style.position = "";
+      camera.video.style.left = "";
+      camera.video.style.top = "";
+      camera.video.style.width = "";
+      camera.video.style.height = "";
     }
+    if (camera.frameGuide) camera.frameGuide.hidden = true;
     if (camera.depthOverlay) camera.depthOverlay.hidden = true;
     camera.autoTiltLandscape = null;
     if (camera.torch) {
@@ -781,6 +806,7 @@
       camera.railToggle.hidden=false;
       setRail(false);
       updateCameraOrientation();
+      requestAnimationFrame(updateCameraFrameGuide);
       updateCameraQuota();
     } catch(error) {
       stopStream();
