@@ -14,6 +14,11 @@ const quotaLabel = document.getElementById("camera-session-quota");
 const previewHelper = document.getElementById("camera-preview-helper");
 const previewCode = document.getElementById("camera-preview-code");
 const useTestCodeButton = document.getElementById("camera-use-test-code");
+const codeModal = document.getElementById("camera-code-modal");
+const codeModalClose = document.getElementById("camera-code-close");
+const switchForm = document.getElementById("camera-code-switch-form");
+const switchInput = document.getElementById("camera-code-switch-input");
+const switchStatus = document.getElementById("camera-code-switch-status");
 
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 const normalize = value =>
@@ -26,8 +31,28 @@ let pendingLinkCode = null;
 let sessionRestoring = false;
 let cameraAccess = null;
 const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
+const PREVIEW_USAGE_KEY = "mywedding_camera_preview_usage_v1";
 const previewTestCode = normalize(guestAccessConfig.previewTestCode || "AJ27-TEST");
 const previewTestActive = Boolean(!guestAccessConfig.enabled && guestAccessConfig.previewTestEnabled !== false && CODE_PATTERN.test(previewTestCode));
+
+function previewUsage() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(PREVIEW_USAGE_KEY) || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function previewUsed(code) {
+  return Math.max(0, Math.min(50, Number(previewUsage()[code] || 0)));
+}
+
+function savePreviewUsed(code, used) {
+  const data = previewUsage();
+  data[code] = Math.max(0, Math.min(50, Number(used || 0)));
+  localStorage.setItem(PREVIEW_USAGE_KEY, JSON.stringify(data));
+}
 
 function show(message, state = "") {
   feedback.textContent = message;
@@ -43,8 +68,29 @@ function quotaText(data) {
   return remaining + " left";
 }
 
+function closeCodeModal() {
+  if (!codeModal) return;
+  codeModal.hidden = true;
+  switchStatus.textContent = "";
+  switchInput.value = "";
+}
+
+function openCodeModal() {
+  if (!codeModal) return;
+  codeModal.hidden = false;
+  switchStatus.textContent = "";
+  switchInput.value = "";
+  requestAnimationFrame(() => switchInput.focus());
+}
+
+function modalShow(message, state = "") {
+  switchStatus.textContent = message;
+  switchStatus.className = "camera-code-switch-status" + (state ? " is-" + state : "");
+}
+
 function enterCameraMode(data = {}) {
   cameraAccess = data;
+  closeCodeModal();
   gate.hidden = true;
   cameraSession.hidden = false;
   cameraSession.removeAttribute("aria-hidden");
@@ -61,6 +107,7 @@ function enterCameraMode(data = {}) {
       partyLabel: data.partyLabel || data.invitation?.partyLabel || "",
       photoLimit: Math.max(1, Number(data.photoLimit || 50)),
       photosUsed: Math.max(0, Number(data.photosUsed || 0)),
+      accessCode: data.accessCode || "",
       photosRemaining: Math.max(0, Number(
         data.photosRemaining !== undefined
           ? data.photosRemaining
@@ -137,34 +184,44 @@ function absorbInvitationUrl() {
   return code;
 }
 
-async function verifyCode(code, { fromLink = false } = {}) {
+async function verifyCode(code, { fromLink = false, switching = false } = {}) {
+  const report = switching ? modalShow : show;
+  const focusTarget = switching ? switchInput : input;
+
   if (!CODE_PATTERN.test(code)) {
-    show("Please enter all eight characters from your invitation.", "error");
-    input.focus();
-    return;
+    report("Please enter all eight characters from the invitation.", "error");
+    focusTarget?.focus();
+    return false;
   }
 
   if (!guestAccessConfig.enabled) {
     if (previewTestActive && code === previewTestCode) {
-      localStorage.setItem(PREVIEW_SESSION_KEY, "1");
+      const used = previewUsed(code);
+      localStorage.setItem(PREVIEW_SESSION_KEY, code);
       enterCameraMode({
         verified: true,
         cameraOpen: true,
         partyLabel: "Camera Preview · Test Guest",
         photoLimit: 50,
-        photosUsed: 0,
-        photosRemaining: 50,
-        preview: true
+        photosUsed: used,
+        photosRemaining: Math.max(0, 50-used),
+        preview: true,
+        accessCode: code
       });
-      return;
+      return true;
     }
-    show("Real invitation verification is not active yet. Use the temporary preview test code shown below.", "error");
-    return;
+    report("That preview code is not recognized.", "error");
+    return false;
   }
 
-  submit.disabled = true;
-  cameraButton.disabled = true;
-  show(fromLink ? "Opening your private wedding camera…" : "Checking your invitation securely…");
+  const switchSubmit = switching ? switchForm?.querySelector('button[type="submit"]') : submit;
+  if (switchSubmit) switchSubmit.disabled = true;
+  if (!switching) cameraButton.disabled = true;
+  report(
+    fromLink ? "Opening your private wedding camera…" :
+    switching ? "Switching camera pass…" :
+    "Checking your invitation securely…"
+  );
 
   try {
     const verified = await redeem(code);
@@ -173,29 +230,32 @@ async function verifyCode(code, { fromLink = false } = {}) {
       const when = open && !Number.isNaN(open.getTime())
         ? open.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
         : "the wedding-day access window";
-      show("Invitation verified. The camera will open at " + when + ".", "ok");
-      return;
+      report("Invitation verified. The camera will open at " + when + ".", "ok");
+      return false;
     }
     enterCameraMode({
       ...verified,
       partyLabel: verified.invitation?.partyLabel,
       photoLimit: verified.photoLimit,
       photosUsed: verified.photosUsed,
-      photosRemaining: verified.photosRemaining
+      photosRemaining: verified.photosRemaining,
+      accessCode: code
     });
+    return true;
   } catch (error) {
     const codeName = String(error?.code || "");
     if (codeName.includes("resource-exhausted")) {
-      show("Too many code attempts. Please wait a little or ask a coordinator.", "error");
+      report("Too many code attempts. Please wait a little or ask a coordinator.", "error");
     } else if (codeName.includes("permission-denied")) {
-      show("That code is no longer active. Ask for the latest invitation link or try another code.", "error");
+      report("That code is no longer active. Ask for the latest invitation link or try another code.", "error");
     } else if (codeName.includes("unauthenticated")) {
-      show("Your camera session could not be created. Please try again.", "error");
+      report("Your camera session could not be created. Please try again.", "error");
     } else {
-      show("Code not recognized, or camera verification is temporarily unavailable.", "error");
+      report("Code not recognized, or camera verification is temporarily unavailable.", "error");
     }
+    return false;
   } finally {
-    submit.disabled = false;
+    if (switchSubmit) switchSubmit.disabled = false;
   }
 }
 
@@ -204,15 +264,18 @@ async function restoreOnThisDevice() {
   sessionRestoring = true;
 
   if (!guestAccessConfig.enabled) {
-    if (previewTestActive && localStorage.getItem(PREVIEW_SESSION_KEY) === "1") {
+    const savedCode = normalize(localStorage.getItem(PREVIEW_SESSION_KEY) || "");
+    if (previewTestActive && savedCode === previewTestCode) {
+      const used = previewUsed(savedCode);
       enterCameraMode({
         verified: true,
         cameraOpen: true,
         partyLabel: "Camera Preview · Test Guest",
         photoLimit: 50,
-        photosUsed: 0,
-        photosRemaining: 50,
-        preview: true
+        photosUsed: used,
+        photosRemaining: Math.max(0, 50-used),
+        preview: true,
+        accessCode: savedCode
       });
     } else {
       show("Preview mode is active. Use the temporary test code below to open the camera.");
@@ -267,13 +330,35 @@ form.addEventListener("submit", event => {
   verifyCode(normalize(input.value));
 });
 
-changeCodeButton.addEventListener("click", () => {
-  if (!guestAccessConfig.enabled) localStorage.removeItem(PREVIEW_SESSION_KEY);
-  leaveCameraMode({ focusCode: true });
+changeCodeButton.addEventListener("click", openCodeModal);
+codeModalClose?.addEventListener("click", closeCodeModal);
+codeModal?.addEventListener("click", event => {
+  if (event.target === codeModal) closeCodeModal();
+});
+
+switchInput?.addEventListener("input", () => {
+  const clean = normalize(switchInput.value);
+  switchInput.value = formatted(clean);
+  try { switchInput.setSelectionRange(switchInput.value.length, switchInput.value.length); } catch {}
+  if (switchStatus.classList.contains("is-error")) modalShow("");
+});
+
+switchForm?.addEventListener("submit", async event => {
+  event.preventDefault();
+  const code = normalize(switchInput.value);
+  await verifyCode(code, { switching: true });
 });
 
 document.addEventListener("wedding:camera-exit-request", () => {
+  closeCodeModal();
   if (!cameraSession.hidden) leaveCameraMode();
+});
+
+document.addEventListener("wedding:photo-captured", event => {
+  if (!cameraAccess?.preview || !cameraAccess.accessCode) return;
+  const usedAtOpen = Math.max(0, Number(cameraAccess.photosUsed || 0));
+  const localSequence = Math.max(0, Number(event.detail?.localSequence || 0));
+  savePreviewUsed(cameraAccess.accessCode, usedAtOpen + localSequence);
 });
 
 window.addEventListener("hashchange", () => {
