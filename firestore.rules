@@ -6,15 +6,30 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isHumanOrganizer() {
+    function isDefaultOwner() {
       return signedIn()
         && request.auth.token.firebase.sign_in_provider != "anonymous"
-        && exists(/databases/$(database)/documents/organizers/$(request.auth.uid))
-        && get(/databases/$(database)/documents/organizers/$(request.auth.uid)).data.active == true;
+        && request.auth.token.email_verified == true
+        && (
+          request.auth.token.email == "babaynike2013@gmail.com"
+          || request.auth.token.email == "josephsixson@mcstayuman.edu.ph"
+        );
+    }
+
+    function isHumanOrganizer() {
+      return isDefaultOwner()
+        || (
+          signedIn()
+          && request.auth.token.firebase.sign_in_provider != "anonymous"
+          && exists(/databases/$(database)/documents/organizers/$(request.auth.uid))
+          && get(/databases/$(database)/documents/organizers/$(request.auth.uid)).data.active == true
+        );
     }
 
     function role() {
-      return get(/databases/$(database)/documents/organizers/$(request.auth.uid)).data.role;
+      return isDefaultOwner()
+        ? "owner"
+        : get(/databases/$(database)/documents/organizers/$(request.auth.uid)).data.role;
     }
 
     function isOwner() {
