@@ -152,18 +152,20 @@ exports.createInvitation = onCall(
       const digest = hmac(code);
       const invitationId = db.collection("invitationRegistry").doc().id;
       try {
-        await db.collection("invitationCodes").doc(digest).create({
+        const batch = db.batch();
+        batch.create(db.collection("invitationCodes").doc(digest), {
           invitationId,
           partyLabel,
           status: "active",
           createdAt: FieldValue.serverTimestamp(),
         });
-        await db.collection("invitationRegistry").doc(invitationId).set({
+        batch.set(db.collection("invitationRegistry").doc(invitationId), {
           codeDigest: digest,
           partyLabel,
           createdAt: FieldValue.serverTimestamp(),
           status: "active",
         });
+        await batch.commit();
         // Return the code ONCE, to the authorized organizer only.
         // It is not stored in plaintext in Firestore.
         return { invitationId, code, formattedCode: code.slice(0, 4) + "-" + code.slice(4) };
