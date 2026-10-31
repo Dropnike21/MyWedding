@@ -557,11 +557,56 @@
       camera.exposureValue = 0;
     }
 
-    if (Array.isArray(camera.capabilities.focusMode) &&
-        camera.capabilities.focusMode.includes("continuous")) {
+    const modes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
+    const focus = camera.capabilities.focusDistance;
+    camera.focusRange = focus && Number.isFinite(focus.min) && Number.isFinite(focus.max) &&
+      focus.max > focus.min && modes.includes("manual") ? focus : null;
+    camera.manualFocusAvailable = Boolean(camera.focusRange);
+    if (camera.focusControls) camera.focusControls.hidden = !camera.manualFocusAvailable;
+    if (camera.settingsHelp) camera.settingsHelp.textContent = camera.manualFocusAvailable
+      ? "Manual lens focus is available. Tap the image to focus on supported phones."
+      : "Tap to focus where supported. White balance uses a software color adjustment.";
+    if (modes.includes("continuous")) {
       try { await track.applyConstraints({ advanced:[{ focusMode:"continuous" }] }); } catch {}
     }
     updateVideoPresentation();
+  }
+
+  function setCameraTemperature(value) {
+    camera.temperatureOffset = clamp(Number(value)||0,-100,100);
+    const offset = camera.temperatureOffset;
+    if (camera.temperatureValue) camera.temperatureValue.textContent =
+      offset === 0 ? "Neutral" : Math.abs(offset) + (offset < 0 ? "% warm" : "% cool");
+    // Software color-temperature simulation, independent of camera hardware support.
+    updateVideoPresentation();
+  }
+
+  async function setManualFocus(value) {
+    const track = camera.track, range = camera.focusRange;
+    if (!track || !range || !camera.manualFocusAvailable) return;
+    const pct = clamp(Number(value)||0,0,100);
+    try {
+      await track.applyConstraints({ advanced:[{
+        focusMode:"manual", focusDistance:range.min+(range.max-range.min)*pct/100
+      }] });
+      if (camera.focusDistanceValue) camera.focusDistanceValue.textContent = pct+"%";
+    } catch(error) {
+      console.warn("Manual lens focus rejected:",error);
+      camera.manualFocusAvailable = false;
+      if (camera.focusControls) camera.focusControls.hidden = true;
+      if (camera.message) camera.message.textContent = "Use tap to focus on this camera.";
+    }
+  }
+
+  async function resetAutoFocus() {
+    const modes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
+    const mode = modes.includes("continuous") ? "continuous" :
+      modes.includes("single-shot") ? "single-shot" : null;
+    if (!mode || !camera.track) return;
+    try {
+      await camera.track.applyConstraints({ advanced:[{focusMode:mode}] });
+      if (camera.focusDistanceValue) camera.focusDistanceValue.textContent = "Auto";
+    } catch {}
   }
 
   async function setCameraZoom(value) {
