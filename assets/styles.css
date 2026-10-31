@@ -3345,3 +3345,366 @@ body:not([data-active-view="home"]) .ambient-heart{
     width:34px;height:34px;
   }
 }
+
+
+/* =========================================================
+   WEDDING CAMERA — refined orientation UX (2026-11-01)
+   Keep this at the end: overrides older horizontal-tool/landscape rules.
+   ========================================================= */
+body.camera-session-active .camera-bottom-identity{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  justify-content:stretch!important;
+  gap:12px;
+  margin:0 0 10px!important;
+  min-width:0;
+  text-align:left;
+}
+body.camera-session-active .camera-current-guest{
+  order:0!important;
+  flex:none;
+  min-width:0;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:4px;
+  text-align:left;
+}
+body.camera-session-active .camera-current-guest small{
+  color:#c7afa0!important;
+  font-size:8px;
+  font-weight:800;
+  line-height:1.1;
+  letter-spacing:1.5px;
+}
+body.camera-session-active .camera-current-guest strong{
+  display:block;
+  width:100%;
+  max-width:none!important;
+  min-width:0;
+  color:#fff8ed!important;
+  font-size:11px;
+  font-weight:750;
+  line-height:1.35;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+body.camera-session-active .camera-change-code{
+  order:0!important;
+  justify-self:end;
+  white-space:nowrap;
+  min-height:34px;
+  border-radius:999px;
+  padding:8px 11px!important;
+  font-size:9px!important;
+  line-height:1.2;
+  touch-action:manipulation;
+}
+.camera-film-image{
+  position:absolute;
+  inset:0;
+  display:block;
+  border-radius:inherit;
+  background-position:center;
+  background-size:cover;
+  background-repeat:no-repeat;
+  pointer-events:none;
+}
+.camera-film-frame:after{pointer-events:none}
+body.camera-session-active .camera-grid-overlay{opacity:.36}
+body.camera-session-active .camera-focus-frame{opacity:.55}
+/* The small right-edge handle stays visible; portrait tools expand vertically. */
+body.camera-session-active .camera-session:not(.is-landscape) .camera-action-rail{
+  top:50%!important;
+  right:calc(34px + env(safe-area-inset-right,0px))!important;
+  left:auto!important;
+  bottom:auto!important;
+  width:auto;
+  max-height:calc(100% - 32px);
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center;
+  justify-content:center;
+  gap:7px!important;
+  overflow-y:auto;
+  scrollbar-width:none;
+  transform:translate(12px,-50%)!important;
+}
+body.camera-session-active .camera-session:not(.is-landscape) .camera-action-rail.is-open{
+  transform:translate(0,-50%)!important;
+}
+body.camera-session-active .camera-session:not(.is-landscape) .camera-rail-toggle{
+  right:0!important;
+  top:50%!important;
+  transform:translateY(-50%);
+  width:30px;
+  height:65px;
+  border-radius:14px 0 0 14px;
+}
+body.camera-session-active .camera-rail-toggle{
+  touch-action:manipulation;
+}
+body.camera-session-active .camera-action-rail .camera-rail-button{
+  flex:0 0 auto;
+}
+@media(max-width:1100px){
+  /* Side deck remains compact so the live preview gets the extra width. */
+  body.camera-session-active .camera-session.is-landscape{
+    grid-template-columns:minmax(0,1fr) clamp(212px,27vw,332px)!important;
+    overflow:hidden;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-session-bottom{
+    display:flex!important;
+    flex-direction:column;
+    justify-content:space-between!important;
+    gap:7px!important;
+    overflow:hidden;
+    padding:
+      calc(10px + env(safe-area-inset-top,0px))
+      calc(11px + env(safe-area-inset-right,0px))
+      calc(10px + env(safe-area-inset-bottom,0px))
+      calc(11px + env(safe-area-inset-left,0px))!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-bottom-identity{
+    flex:0 0 auto;
+    gap:7px;
+    margin:0!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-current-guest{
+    gap:3px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-current-guest small{
+    font-size:7px;
+    letter-spacing:1.15px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-current-guest strong{
+    font-size:10px;
+    line-height:1.2;
+    white-space:normal!important;
+    display:-webkit-box;
+    -webkit-box-orient:vertical;
+    -webkit-line-clamp:2;
+    line-clamp:2;
+    overflow:hidden;
+    overflow-wrap:anywhere;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-change-code{
+    min-height:30px;
+    padding:7px 9px!important;
+    font-size:8px!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-capture-deck{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:center!important;
+    flex:1 1 auto;
+    min-height:0;
+    gap:clamp(8px,1.4vw,20px)!important;
+    width:100%;
+    margin:0;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-wrap{
+    flex:0 0 58px;
+    width:58px!important;
+    max-width:58px;
+    min-width:0;
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    gap:5px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-label{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:2px;
+    width:100%;
+    margin:0!important;
+    text-align:center;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-label span{
+    font-size:7px;
+    letter-spacing:.6px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-label strong{
+    font-size:8px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film{
+    flex:0 1 auto;
+    width:56px!important;
+    max-width:56px!important;
+    height:clamp(84px,42dvh,220px)!important;
+    min-height:84px;
+    margin:0!important;
+    border-radius:9px;
+    overflow:hidden;
+  }
+  /* Rotate the sprocket direction: a vertical strip hangs below its label. */
+  body.camera-session-active .camera-session.is-landscape .camera-film:before,
+  body.camera-session-active .camera-session.is-landscape .camera-film:after{
+    top:0!important;
+    bottom:0!important;
+    left:2px!important;
+    right:auto!important;
+    width:5px!important;
+    height:auto!important;
+    background:repeating-linear-gradient(
+      to bottom,transparent 0 8px,#b7a48e 8px 13px,transparent 13px 20px
+    )!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film:after{
+    left:auto!important;
+    right:2px!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-track{
+    inset:7px 8px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    gap:4px!important;
+    overflow:hidden;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-frame,
+  body.camera-session-active .camera-session.is-landscape .camera-film-empty,
+  body.camera-session-active .camera-session.is-landscape .camera-film-frame.portrait,
+  body.camera-session-active .camera-session.is-landscape .camera-film-frame.landscape{
+    flex:0 0 31px!important;
+    width:39px!important;
+    height:31px!important;
+    min-height:31px;
+    align-self:center!important;
+    margin:0!important;
+    border-radius:3px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-frame .camera-film-image{
+    inset:auto;
+    top:50%;
+    left:50%;
+    width:28px;
+    height:28px;
+    border-radius:2px;
+    transform:translate(-50%,-50%) rotate(90deg);
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-frame.is-history:before{
+    writing-mode:vertical-rl;
+    transform:rotate(180deg);
+    font-size:5px;
+    letter-spacing:.1px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-frame>span{
+    bottom:1px;
+    right:1px;
+    font-size:6px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-full-actions{
+    flex:0 0 auto;
+    width:auto;
+    min-height:0!important;
+    margin:0!important;
+    order:0!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-shutter{
+    width:62px!important;
+    height:62px!important;
+    flex-basis:62px!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-shutter>span{
+    width:44px!important;
+    height:44px!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-message{
+    flex:0 0 auto;
+    width:100%;
+    margin:0!important;
+    padding:4px 0 0;
+    min-height:16px!important;
+    font-size:8px!important;
+    line-height:1.4!important;
+    text-align:left;
+  }
+  /* Landscape tools slide horizontally across the TOP of the live preview. */
+  body.camera-session-active .camera-session.is-landscape .camera-rail-toggle{
+    top:8px!important;
+    right:8px!important;
+    left:auto!important;
+    width:42px!important;
+    height:41px!important;
+    border:1px solid rgba(255,255,255,.15)!important;
+    border-radius:12px!important;
+    transform:none!important;
+    z-index:18;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-action-rail{
+    display:flex!important;
+    flex-direction:row!important;
+    flex-wrap:nowrap;
+    justify-content:flex-end;
+    align-items:center;
+    top:8px!important;
+    right:56px!important;
+    left:auto!important;
+    bottom:auto!important;
+    width:max-content;
+    max-width:calc(100% - 66px);
+    height:41px;
+    overflow:visible;
+    gap:6px!important;
+    transform:translateY(-12px)!important;
+    z-index:16;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-action-rail.is-open{
+    transform:translateY(0)!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-rail-button{
+    flex:0 0 39px;
+    width:39px!important;
+    height:39px!important;
+    border-radius:12px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-sheet{
+    left:8px!important;
+    right:8px!important;
+    top:60px!important;
+    bottom:auto!important;
+    max-height:calc(100% - 70px)!important;
+    overflow-y:auto;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-rail-button small{
+    font-size:5.6px;
+  }
+}
+@media(max-width:430px){
+  body.camera-session-active .camera-bottom-identity{
+    gap:8px;
+  }
+  body.camera-session-active .camera-current-guest strong{
+    font-size:10px;
+  }
+  body.camera-session-active .camera-change-code{
+    padding:8px 9px!important;
+    font-size:8px!important;
+  }
+  body.camera-session-active .camera-session:not(.is-landscape) .camera-action-rail{
+    right:34px!important;
+    gap:6px!important;
+  }
+}
+@media(max-height:380px) and (orientation:landscape){
+  body.camera-session-active .camera-session.is-landscape .camera-film{
+    height:90px!important;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-change-code{
+    min-height:27px;
+  }
+  body.camera-session-active .camera-session.is-landscape .camera-film-label{gap:0}
+  body.camera-session-active .camera-session.is-landscape .camera-capture-deck{gap:7px!important}
+}
