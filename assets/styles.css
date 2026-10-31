@@ -1210,3 +1210,69 @@ body:not([data-active-view="home"]) .ambient-heart{opacity:0!important}
   .camera-flash.fire,.camera-film-frame.is-new,.camera-film-frame.is-leaving,
   .camera-film-empty.pulse,.camera-advanced-controls{animation:none!important}
 }
+
+
+/* Camera grid and timer */
+.camera-grid-overlay{
+  position:absolute;
+  z-index:5;
+  inset:0;
+  pointer-events:none
+}
+.camera-grid-overlay i{position:absolute;background:rgba(255,255,255,.24);box-shadow:0 0 1px rgba(0,0,0,.35)}
+.camera-grid-overlay i:nth-child(1),
+.camera-grid-overlay i:nth-child(2){top:0;bottom:0;width:1px}
+.camera-grid-overlay i:nth-child(1){left:33.333%}
+.camera-grid-overlay i:nth-child(2){left:66.666%}
+.camera-grid-overlay i:nth-child(3),
+.camera-grid-overlay i:nth-child(4){left:0;right:0;height:1px}
+.camera-grid-overlay i:nth-child(3){top:33.333%}
+.camera-grid-overlay i:nth-child(4){top:66.666%}
+.camera-countdown{
+  position:absolute;
+  z-index:14;
+  inset:0;
+  display:grid;
+  place-items:center;
+  color:#fff8e9;
+  font:normal clamp(76px,18vw,150px) Georgia,serif;
+  text-shadow:0 8px 32px rgba(0,0,0,.42);
+  background:radial-gradient(circle,rgba(10,18,14,.08),rgba(10,18,14,.26));
+  pointer-events:none
+}
+.camera-countdown.tick{animation:cameraCountdownTick .78s cubic-bezier(.16,1,.3,1)}
+@keyframes cameraCountdownTick{
+  0%{opacity:0;transform:scale(1.38)}
+  28%{opacity:1}
+  100%{opacity:.78;transform:scale(.92)}
+}
+.camera-option-row{
+  display:grid;
+  grid-template-columns:1fr auto;
+  gap:6px;
+  align-items:center;
+  border-top:1px solid rgba(255,255,255,.08);
+  padding-top:10px;
+  margin-top:9px
+}
+.camera-option-row>span{font-size:9px}
+.camera-timer-options{grid-template-columns:1fr auto auto auto}
+.camera-option{
+  border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.06);
+  color:#eaf0eb;
+  border-radius:999px;
+  font-size:7px;
+  font-weight:800;
+  min-width:37px;
+  padding:7px 9px;
+  text-transform:uppercase
+}
+.camera-option.active{
+  background:#efe6d3;
+  color:#29483c;
+  border-color:#efe6d3
+}
+@media(prefers-reduced-motion:reduce){
+  .camera-countdown.tick{animation:none!important}
+}
