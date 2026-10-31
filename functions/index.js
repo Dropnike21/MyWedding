@@ -22,7 +22,7 @@ const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const MAX_UID_ATTEMPTS = 8;
-const MAX_IP_ATTEMPTS = 80;
+const MAX_IP_ATTEMPTS = 400; // Shared venue Wi-Fi: many guests may use one public IP.
 
 function hash(value) {
   return createHmac("sha256", CODE_SECRET.value()).update(String(value)).digest("hex");
