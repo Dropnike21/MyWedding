@@ -6,12 +6,13 @@
   <meta name="theme-color" content="#f4ece3" />
   <meta name="description" content="Angela & Joseph's wedding website and photo time capsule." />
   <title>Angela & Joseph | Wedding</title>
-  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg?v=20261031-2015" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261031-2015" />
-  <script src="./assets/app.js?v=20261031-2015" defer></script>
-  <script type="module" src="./assets/firebase-init.js?v=20261031-2015"></script>
-  <script type="module" src="./assets/guest-camera.js?v=20261031-2015"></script>
-  <script type="module" src="./assets/planner.js?v=20261031-2015"></script>
+  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg?v=20261031-2030" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261031-2030" />
+  <script src="./assets/venue-config.js?v=20261031-2030"></script>
+  <script src="./assets/app.js?v=20261031-2030" defer></script>
+  <script type="module" src="./assets/firebase-init.js?v=20261031-2030"></script>
+  <script type="module" src="./assets/guest-camera.js?v=20261031-2030"></script>
+  <script type="module" src="./assets/planner.js?v=20261031-2030"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -77,6 +78,62 @@
         </button>
         <div class="home-music-player" id="home-music-player" hidden></div>
       </aside>
+
+      <section class="venue-journey reveal" id="venue-journey" aria-labelledby="venue-heading">
+        <div class="venue-copy">
+          <span class="eyebrow">GETTING THERE · TENTATIVE VENUE</span>
+          <h2 id="venue-heading">Find your way to<br><em id="venue-name">Estoria.</em></h2>
+          <p id="venue-address">G/F Anex Hotel, 1125 M.H. Del Pilar St., Ermita, Manila</p>
+          <p class="venue-note" id="venue-note">This venue is tentative and is being used for the guest-experience preview.</p>
+
+          <form class="venue-route-form" id="venue-route-form">
+            <label for="venue-origin">Where are you coming from?</label>
+            <div class="venue-origin-row">
+              <input id="venue-origin" type="text" autocomplete="street-address" placeholder="e.g. Quezon City, Makati, your hotel…" />
+              <button type="button" class="venue-location-button" id="venue-use-location" aria-label="Use my current location">
+                <span aria-hidden="true">◎</span><small>Use my location</small>
+              </button>
+            </div>
+            <div class="venue-travel-modes" id="venue-travel-modes" aria-label="Travel mode">
+              <button type="button" class="active" data-travel-mode="driving">Drive</button>
+              <button type="button" data-travel-mode="transit">Transit</button>
+              <button type="button" data-travel-mode="walking">Walk</button>
+            </div>
+            <div class="venue-route-actions">
+              <button class="button primary" type="submit">Preview route <span aria-hidden="true">→</span></button>
+              <a class="button outlined" id="venue-open-maps" target="_blank" rel="noopener">Open in Maps ↗</a>
+            </div>
+            <p class="venue-route-status" id="venue-route-status" role="status" aria-live="polite">Enter your starting point to preview directions.</p>
+          </form>
+        </div>
+
+        <div class="venue-map-card">
+          <div class="venue-map-head">
+            <div><span>DESTINATION</span><strong id="venue-map-title">Estoria Manila</strong></div>
+            <span class="venue-tentative-pill">Tentative</span>
+          </div>
+          <iframe id="venue-map-frame" title="Map showing tentative wedding venue" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+        </div>
+
+        <div class="venue-immersive-card" id="venue-immersive-card">
+          <div class="venue-immersive-scene" id="venue-immersive-scene" aria-label="Immersive venue preview">
+            <div class="venue-immersive-photo" id="venue-immersive-photo"></div>
+            <div class="venue-immersive-vignette"></div>
+            <div class="venue-immersive-floral floral-near"></div>
+            <div class="venue-immersive-floral floral-far"></div>
+            <div class="venue-immersive-watermark"><span>LOOK AROUND</span><strong id="venue-immersive-name">ESTORIA</strong></div>
+          </div>
+          <div class="venue-immersive-controls">
+            <div>
+              <span class="eyebrow">IMMERSIVE PREVIEW</span>
+              <p>Drag on desktop or gently tilt your phone to move through the scene.</p>
+            </div>
+            <button type="button" class="venue-tilt-button" id="venue-tilt-button" hidden aria-pressed="false">
+              <span aria-hidden="true">◌</span><strong>Enable venue tilt</strong>
+            </button>
+          </div>
+        </div>
+      </section>
 
       <div class="intro-strip">
         <div class="intro-number">01 / 03</div>
