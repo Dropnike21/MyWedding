@@ -13,7 +13,7 @@ const DEFAULT_OWNER_EMAILS = new Set([
   "babaynike2013@gmail.com",
   "josephsixson@mcstayuman.edu.ph",
 ]);
-const COLLECTIONS = ["guests","vendors","payments","tasks","timeline","decisions","team","budgetCategories"];
+const COLLECTIONS = ["guests","vendors","expenses","payments","tasks","timeline","decisions","team","budgetCategories"];
 
 function sanitize(value) {
   if (Array.isArray(value)) return value.map(sanitize);
@@ -27,8 +27,18 @@ function sanitize(value) {
   return value;
 }
 
+function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const key of Object.keys(value).sort()) out[key] = canonical(value[key]);
+    return out;
+  }
+  return value;
+}
+
 function stable(value) {
-  return JSON.stringify(sanitize(value), Object.keys(sanitize(value)||{}).sort());
+  return JSON.stringify(canonical(sanitize(value)));
 }
 
 function collectionMap(data) {
@@ -116,12 +126,16 @@ export class PlannerFirestoreStore {
     const data = {
       version: seedData.version,
       settings: { ...seedData.settings, ...(base.settings||{}) },
-      guests: [], vendors: [], payments: [], tasks: [], timeline: [], decisions: [], team: [],
+      guests: [], vendors: [], expenses: [], payments: [], tasks: [], timeline: [], decisions: [], team: [],
       budgetCategories: []
     };
 
-    for (const name of COLLECTIONS) {
-      const snap = await getDocs(collection(this.db,"weddings",WEDDING_ID,name));
+    const collectionSnaps = await Promise.all(
+      COLLECTIONS.map(name =>
+        getDocs(collection(this.db,"weddings",WEDDING_ID,name)).then(snap => [name,snap])
+      )
+    );
+    for (const [name,snap] of collectionSnaps) {
       data[name] = snap.docs.map(x => ({ id:x.id, ...x.data() }))
         .map(({createdAt,updatedAt,...rest})=>rest);
     }
@@ -156,14 +170,16 @@ export class PlannerFirestoreStore {
 
   canWriteSection(name) {
     if (this.role === "owner") return true;
-    if (this.role === "coordinator") return ["guests","vendors","tasks","timeline","decisions","team"].includes(name);
-    if (this.role === "finance") return ["vendors","payments","budgetCategories"].includes(name);
+    if (this.role === "coordinator") return ["guests","vendors","expenses","tasks","timeline","decisions","team"].includes(name);
+    if (this.role === "finance") return ["vendors","expenses","payments","budgetCategories"].includes(name);
     return false;
   }
 
   queue(data) {
     const snapshot = structuredClone(data);
-    this.pending = this.pending.then(() => this.sync(snapshot));
+    this.pending = this.pending
+      .catch(() => {})
+      .then(() => this.sync(snapshot));
     return this.pending;
   }
 
