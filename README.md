@@ -100,3 +100,12 @@ For architecture, Firebase configuration, organizer claims, rate limiting, and a
 - Production deployment, Android/iPhone testing and accessibility rehearsal
 
 The current production/database state has not been verified by a live Firebase connection from ChatGPT. Deploying or modifying Google Cloud IAM permissions requires explicit action in your Firebase/Google accounts.
+
+
+## Firebase planner connection
+
+The Wedding Studio now has a Firestore adapter and role-based Security Rules. It uses Google Authentication + App Check + Firestore directly for planning CRUD, while invitation and camera security remain server-only.
+
+The Firebase planner switch is enabled, but the public reCAPTCHA Enterprise **site key is intentionally blank**. Add it and publish the new Firestore rules before testing live planning data.
+
+See **[Firebase planner setup and organizer bootstrap](docs/firebase-planner-setup.md)**.
