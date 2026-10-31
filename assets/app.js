@@ -125,7 +125,8 @@
   }
 
   function switchView(next) {
-    const view = views.has(next) ? next : "home";
+    const requested = next.startsWith("camera/") ? "camera" : next;
+    const view = views.has(requested) ? requested : "home";
     viewElements.forEach((section) => {
       const active = section.id === "view-" + view;
       section.hidden = !active;
