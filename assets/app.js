@@ -229,6 +229,7 @@
     dragStartY: 0,
     dragStartExposure: 0,
     gestureMoved: false,
+    focusUiTimeout: null,
   };
 
   function clamp(value,min,max) {
@@ -379,6 +380,10 @@
     camera.session?.classList.toggle("is-landscape",landscape);
     camera.session?.classList.toggle("is-manual-landscape",manual);
     if (wasLandscape !== landscape) setRail(false);
+    if (!camera.railOpen) {
+      const icon=camera.railToggle?.querySelector("span");
+      if (icon) icon.textContent=landscape ? "☰" : "‹";
+    }
     document.body.classList.toggle("camera-landscape",
       landscape && document.body.classList.contains("camera-session-active"));
     camera.rotate?.setAttribute("aria-pressed",String(camera.manualLandscape));
@@ -451,7 +456,8 @@
     camera.railToggle?.setAttribute("aria-expanded",String(camera.railOpen));
     camera.railToggle?.setAttribute("aria-label",camera.railOpen ? "Hide camera tools" : "Show camera tools");
     const icon=camera.railToggle?.querySelector("span");
-    if (icon) icon.textContent=camera.railOpen ? "×" : "‹";
+    if (icon) icon.textContent=camera.railOpen ? "×" :
+      (isCameraLandscape() ? "☰" : "‹");
     if (!camera.railOpen) closeCameraSheet();
   }
 
@@ -485,6 +491,10 @@
     camera.digitalZoom = 1;
     camera.exposureValue = 0;
     camera.pointers.clear();
+    if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
+    camera.focusUiTimeout=null;
+    if (camera.focusPoint) camera.focusPoint.hidden=true;
+    if (camera.exposureHud) camera.exposureHud.hidden=true;
     if (camera.video) {
       camera.video.pause();
       camera.video.srcObject = null;
@@ -536,6 +546,8 @@
     camera.effectPreviewData = "";
     if (camera.gridOverlay) camera.gridOverlay.hidden = true;
     if (camera.countdown) camera.countdown.hidden = true;
+    if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
+    camera.focusUiTimeout=null;
     if (camera.focusPoint) camera.focusPoint.hidden = true;
     if (camera.exposureHud) camera.exposureHud.hidden = true;
     if (camera.idle) camera.idle.hidden = false;
@@ -727,6 +739,12 @@
     camera.exposureHud.hidden = false;
     camera.exposureHud.style.left = clamp(x+34,24,Math.max(24,width-34))+"px";
     camera.exposureHud.style.top = clamp(y-46,40,Math.max(40,height-120))+"px";
+    if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
+    camera.focusUiTimeout=setTimeout(()=>{
+      if (camera.focusPoint) camera.focusPoint.hidden=true;
+      if (camera.exposureHud) camera.exposureHud.hidden=true;
+      camera.focusUiTimeout=null;
+    },2600);
   }
 
   async function focusAt(clientX,clientY) {
