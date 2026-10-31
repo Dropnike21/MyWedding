@@ -180,6 +180,30 @@
           <p class="invitation-status" id="invitation-status" role="status" aria-live="polite">Invitation verification will activate after the secure Firebase backend is deployed.</p>
         </form>
       </section>
+
+      <section class="guest-rsvp-card" id="guest-rsvp-card" hidden aria-labelledby="guest-rsvp-heading">
+        <div>
+          <span class="eyebrow">WELCOME TO THE CELEBRATION</span>
+          <h3 id="guest-rsvp-heading">You're <em>invited!</em></h3>
+          <p id="guest-rsvp-greeting">Your invitation has been verified.</p>
+          <p class="guest-rsvp-helper">One response covers the people on this invitation. You can update it using the latest invitation link.</p>
+        </div>
+        <form id="guest-rsvp-form">
+          <label for="guest-rsvp-choice">Can you attend?</label>
+          <select id="guest-rsvp-choice" required>
+            <option value="Yes">Yes, we'll be there</option>
+            <option value="Maybe">We're not sure yet</option>
+            <option value="No">Sorry, we can't attend</option>
+          </select>
+          <div id="guest-rsvp-seats-wrap">
+            <label for="guest-rsvp-seats">How many people are attending?</label>
+            <input type="number" id="guest-rsvp-seats" min="1" max="1" step="1" value="1" required />
+            <p id="guest-rsvp-seat-help">Enter the number of people attending from your invitation.</p>
+          </div>
+          <button type="submit" id="guest-rsvp-save" class="button primary">Save our RSVP</button>
+          <p id="guest-rsvp-feedback" role="status" aria-live="polite"></p>
+        </form>
+      </section>
       <div class="camera-layout">
         <div class="camera-shell">
           <div class="camera-head"><span>AJ <span class="muted">/ WEDDING CAM</span></span><span class="camera-badge">LOCAL TEST ONLY</span></div>
