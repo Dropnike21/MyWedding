@@ -43,6 +43,11 @@ function requireUser(request) {
   if (!request.auth || !request.auth.uid)
     throw new HttpsError("unauthenticated", "A session is required.");
 }
+function requireGuest(request) {
+  requireUser(request);
+  if (request.auth.token.firebase?.sign_in_provider !== "anonymous")
+    throw new HttpsError("permission-denied", "A guest camera session is required.");
+}
 function requireAdmin(request) {
   requireUser(request);
   if (request.auth.token.admin !== true ||
@@ -88,6 +93,8 @@ function publicInvitation(snapshot) {
     invitedSeats: v.invitedSeats || 1,
     rsvp: v.rsvp || "Pending",
     confirmedSeats: Number(v.confirmedSeats || 0),
+    photoLimit: Number(v.photoLimit || 40),
+    photosUsed: Number(v.photosUsed || 0),
     notes: v.notes || "",
     status: v.status,
     revision: Number(v.revision || 1),
@@ -179,6 +186,8 @@ exports.createInvitation = onCall(configuration(), async request => {
       revision: 1,
       status: "active",
       confirmedSeats: 0,
+      photoLimit: 40,
+      photosUsed: 0,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -294,7 +303,7 @@ exports.revokeInvitation = onCall(configuration({}, false), async request => {
  * The session binds to the CURRENT invitation revision, not just a guest name.
  */
 exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async request => {
-  requireUser(request);
+  requireGuest(request);
   const code = normalizeCode(request.data?.code);
   if (!CODE_PATTERN.test(code))
     throw new HttpsError("invalid-argument", "Invalid code format.");
@@ -325,12 +334,17 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
       invitedSeats: Number(activeSnap.get("invitedSeats") || 1),
       rsvp: activeSnap.get("rsvp") || "Pending",
       confirmedSeats: Number(activeSnap.get("confirmedSeats") || 0),
+      photoLimit: Number(activeSnap.get("photoLimit") || 40),
+      photosUsed: Number(activeSnap.get("photosUsed") || 0),
     };
   });
   return {
     verified: true,
     cameraOpen: window.cameraOpen,
     invitation: result,
+    photoLimit: result.photoLimit,
+    photosUsed: result.photosUsed,
+    photosRemaining: Math.max(0, result.photoLimit - result.photosUsed),
     // Only the matching invited party's own details are returned after code verification.
     openAt: window.start.toDate().toISOString(),
     closeAt: window.end.toDate().toISOString(),
@@ -355,13 +369,28 @@ async function activeGuestSession(uid) {
       sessionData.validUntil.toMillis() <= Date.now()) {
     throw new HttpsError("permission-denied", "This invitation session has expired. Enter the current code.");
   }
-  return { invitationId: invitation.id, revision: Number(invitation.get("revision")) };
+  const photoLimit = Number(invitation.get("photoLimit") || 40);
+  const photosUsed = Number(invitation.get("photosUsed") || 0);
+  return {
+    invitationId: invitation.id,
+    revision: Number(invitation.get("revision")),
+    partyLabel: invitation.get("partyLabel") || "",
+    photoLimit,
+    photosUsed,
+    photosRemaining: Math.max(0, photoLimit - photosUsed),
+  };
 }
 exports.checkGuestSession = onCall(configuration({}, false), async request => {
-  requireUser(request);
-  await activeGuestSession(request.auth.uid);
+  requireGuest(request);
+  const session = await activeGuestSession(request.auth.uid);
   const window = await eventWindow();
-  return { valid: true, cameraOpen: window.cameraOpen };
+  return {
+    valid: true,
+    cameraOpen: window.cameraOpen,
+    openAt: window.start.toDate().toISOString(),
+    closeAt: window.end.toDate().toISOString(),
+    ...session,
+  };
 });
 
 // Important: no upload function exists yet. Drive OAuth, content validation,
@@ -374,7 +403,7 @@ exports.checkGuestSession = onCall(configuration({}, false), async request => {
  * sessions cannot edit RSVPs after a code is rotated or revoked.
  */
 exports.respondToInvitation = onCall(configuration({}, false), async request => {
-  requireUser(request);
+  requireGuest(request);
   const rsvp = enumField(request.data?.rsvp, ["Yes", "No", "Maybe"], "RSVP", "");
   const sessionRef = db.collection("guestSessions").doc(request.auth.uid);
   const result = await db.runTransaction(async tx => {
