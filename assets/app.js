@@ -563,7 +563,13 @@
     stopStream({ hideControls:false });
     camera.message.textContent = restarting ? "Switching camera…" : "Requesting permission to use your camera…";
     camera.start.disabled=true;
+    const cameraLoader = WeddingUI.begin(
+      restarting ? "Switching camera…" : "Opening wedding camera…",
+      restarting ? "Selecting the other lens." : "Your browser may ask for camera permission.",
+      { blocking: false, delay: 180 }
+    );
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      WeddingUI.end(cameraLoader);
       camera.message.textContent="This browser cannot open a camera here. Use HTTPS on a compatible device.";
       camera.start.disabled=false;
       return;
@@ -596,6 +602,7 @@
             ? "No camera was detected on this device."
             : "The camera could not start. Another app may be using it.";
     } finally {
+      WeddingUI.end(cameraLoader);
       camera.start.disabled=false;
     }
   }
