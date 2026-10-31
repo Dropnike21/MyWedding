@@ -64,7 +64,7 @@ service cloud.firestore {
       }
 
       match /payments/{recordId} {
-        allow read: if isOwner() || isFinance();
+        allow read: if canReadPlanning();
         allow create, update: if canFinance();
         allow delete: if false;
       }
