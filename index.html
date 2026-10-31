@@ -6,10 +6,10 @@
   <meta name="theme-color" content="#f4ece3" />
   <meta name="description" content="Angela & Joseph's wedding website and photo time capsule." />
   <title>Angela & Joseph | Wedding</title>
-  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg?v=20261031-2330" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261031-2330" />
-  <script src="./assets/venue-config.js?v=20261031-2330"></script>
-  <script src="./assets/app.js?v=20261031-2330" defer></script>
+  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg?v=20261101-camera1" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261101-camera1" />
+  <script src="./assets/venue-config.js?v=20261101-camera1"></script>
+  <script src="./assets/app.js?v=20261101-camera1" defer></script>
 </head>
 <body>
   <div class="global-loader" id="global-loader" hidden aria-live="polite" aria-busy="true">
@@ -256,6 +256,7 @@
           </div>
 
           <video id="camera-video" autoplay playsinline muted hidden aria-label="Camera preview"></video>
+          <div id="camera-depth-overlay" class="camera-depth-overlay" hidden aria-hidden="true"></div>
           <canvas id="camera-capture-canvas" hidden aria-hidden="true"></canvas>
           <div class="camera-capture-flight" id="camera-capture-flight" hidden aria-hidden="true"></div>
           <div class="camera-flash" id="camera-flash" hidden aria-hidden="true"></div>
@@ -275,6 +276,10 @@
             <button type="button" id="camera-flip" class="camera-rail-button" aria-label="Switch front or back camera">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h7l2 2h2a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2h1Zm5 4a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/><path d="M8 3 5 6l3 3M5 6h7"/></svg>
               <small>Flip</small>
+            </button>
+            <button type="button" id="camera-rotate" class="camera-rail-button" aria-pressed="false" aria-label="Rotate camera interface into landscape mode">
+              <span class="camera-rotate-icon" aria-hidden="true">↻</span>
+              <small id="camera-rotate-label">Rotate</small>
             </button>
             <button type="button" id="camera-torch" class="camera-rail-button" aria-label="Toggle camera light" hidden>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 2 6 0-1 6 3 4-5 10-5-10 3-4-1-6Z"/></svg>
@@ -297,6 +302,13 @@
             </div>
             <div class="camera-effect-categories" id="camera-effect-categories" role="tablist" aria-label="Effect categories"></div>
             <div class="camera-effects-grid" id="camera-effects-grid"></div>
+            <div class="camera-portrait-controls" aria-label="Portrait effects">
+              <label for="camera-beauty">Soft beautify <output id="camera-beauty-value" for="camera-beauty">Off</output></label>
+              <input id="camera-beauty" type="range" min="0" max="100" step="20" value="0" />
+              <label for="camera-aperture">Portrait background blur <output id="camera-aperture-value" for="camera-aperture">Off</output></label>
+              <input id="camera-aperture" type="range" min="0" max="100" step="20" value="0" />
+              <p>Software effects, not face-aware retouching or physical lens aperture. Background blur stays centered.</p>
+            </div>
           </section>
 
 
