@@ -1276,3 +1276,71 @@ body:not([data-active-view="home"]) .ambient-heart{opacity:0!important}
 @media(prefers-reduced-motion:reduce){
   .camera-countdown.tick{animation:none!important}
 }
+
+/* Camera gate branding + temporary preview helper */
+.camera-gate-mark{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  width:82px;
+  height:82px;
+  padding:0 7px;
+}
+.camera-gate-mark strong{
+  font:normal 23px/1 Georgia,serif;
+  letter-spacing:-1.2px;
+  color:#fff7e8;
+  white-space:nowrap;
+}
+.camera-gate-mark small{
+  font-size:5px;
+  line-height:1;
+  letter-spacing:1.25px;
+  color:#d9bf91;
+  white-space:nowrap;
+}
+.camera-preview-helper{
+  margin-top:10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  padding:9px 10px;
+  border:1px dashed #c8b794;
+  border-radius:9px;
+  background:rgba(248,240,222,.62);
+  color:#56685e;
+}
+.camera-preview-helper>span{
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.camera-preview-helper code{
+  font:700 11px/1.2 ui-monospace,SFMono-Regular,Menlo,monospace;
+  color:#294b3e;
+  background:#fffdf7;
+  border:1px solid #ded2b9;
+  border-radius:6px;
+  padding:5px 7px;
+}
+.camera-preview-helper button{
+  margin-left:auto;
+  border:0;
+  border-radius:999px;
+  padding:7px 10px;
+  background:#294b3e;
+  color:#fff8e8;
+  font-size:7px;
+  font-weight:800;
+  letter-spacing:.4px;
+}
+@media(max-width:620px){
+  .camera-gate-mark{width:72px;height:72px}
+  .camera-gate-mark strong{font-size:21px}
+  .camera-preview-helper{justify-content:center}
+  .camera-preview-helper button{margin-left:0}
+}
