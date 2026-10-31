@@ -11,6 +11,7 @@
   <script src="./assets/app.js" defer></script>
   <script type="module" src="./assets/firebase-init.js"></script>
   <script type="module" src="./assets/invitation-access.js"></script>
+  <script type="module" src="./assets/admin.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -67,20 +68,92 @@
     </section>
 
     <section class="view" id="view-planner" aria-labelledby="planner-heading" hidden>
-      <div class="section-heading"><span class="eyebrow">PRIVATE WORKSPACE / IN DEVELOPMENT</span><h1 id="planner-heading">The Planning <em>Studio</em></h1><p>One connected place for the details behind our wedding. Planning data will be accessible only after admin sign-in is configured.</p></div>
-      <div class="studio-preview">
-        <aside class="studio-rail"><div class="rail-logo">AJ<span> / ADMIN</span></div><span class="rail-item active">◈ &nbsp; Overview</span><span class="rail-item">♧ &nbsp; Guest list & RSVPs</span><span class="rail-item">◫ &nbsp; Budget & spending</span><span class="rail-item">▤ &nbsp; Suppliers & contracts</span><span class="rail-item">☷ &nbsp; Wedding checklist</span><span class="rail-item">▦ &nbsp; Seating & timeline</span><div class="rail-bottom">PREVIEW ONLY · NO LIVE DATA</div></aside>
-        <div class="studio-content">
-          <div class="studio-top"><span>YOUR WORKSPACE</span><span class="pill lock">◈ PRIVATE BY DESIGN</span></div>
-          <h2>Everything, in its place.</h2>
-          <p>These are the planned administrative modules. Actual guest names, payment amounts, and private records are never published to this public website.</p>
-          <div class="module-grid">
-            <article class="module"><span class="module-symbol">♧</span><h3>Guest Management</h3><p>Guest groups, invitations, RSVP responses, and seating assignments.</p><span class="module-status">Firebase integration pending</span></article>
-            <article class="module"><span class="module-symbol">₱</span><h3>Budget & Payments</h3><p>Planned spending, vendor quotes, deposits, and balances.</p><span class="module-status">Firebase integration pending</span></article>
-            <article class="module"><span class="module-symbol">▤</span><h3>Vendors & Tasks</h3><p>Book suppliers, store reference links, and track deadlines.</p><span class="module-status">Firebase integration pending</span></article>
-            <article class="module"><span class="module-symbol">↻</span><h3>Google Sheets Mirror</h3><p>Read-only reports written automatically by a secure backend.</p><span class="module-status">Service integration pending</span></article>
+      <div class="section-heading">
+        <span class="eyebrow">PRIVATE WEDDING MANAGEMENT</span>
+        <h1 id="planner-heading">Wedding <em>Studio</em></h1>
+        <p>A peaceful place to manage your guests, invitations, suppliers, and plans—without exposing private details to visitors.</p>
+      </div>
+
+      <div class="admin-shell">
+        <div class="admin-shell-head">
+          <div><span class="eyebrow">ANGELA + JOSEPH / ADMIN</span><h2>Invitation management</h2>
+          <p>Create individual or family invitations. Each link can be regenerated or revoked at any time.</p></div>
+          <span class="admin-status-pill" id="admin-status-pill">SETUP REQUIRED</span>
+        </div>
+
+        <div id="admin-login" class="admin-login">
+          <div class="admin-login-icon" aria-hidden="true">✦</div>
+          <h3>Private access only</h3>
+          <p id="admin-login-info">This workspace requires a verified organizer account, protected Firebase functions, and App Check. Invitation links cannot be issued until those services are deployed.</p>
+          <button type="button" class="button primary" id="admin-login-button" disabled>Sign in as organizer</button>
+          <p class="admin-login-hint">Google sign-in will appear here after the private backend is enabled. No guest list is embedded in this public page.</p>
+        </div>
+
+        <div id="admin-console" class="admin-console" hidden>
+          <div class="admin-userline"><span>Signed in as <strong id="admin-user-name"></strong></span><button type="button" class="admin-text-button" id="admin-signout">Sign out</button></div>
+          <div class="admin-kpis" aria-label="Invitation summary">
+            <div><span>Invitations</span><strong id="admin-total">0</strong></div>
+            <div><span>Active links</span><strong id="admin-active">0</strong></div>
+            <div><span>Confirmed</span><strong id="admin-confirmed">0</strong></div>
+            <div><span>Expected seats</span><strong id="admin-seats">0</strong></div>
           </div>
-          <div class="notice"><strong>Not active yet.</strong> No private logins or database operations are enabled in this preview. Firebase security rules must be deployed before real planning records are used.</div>
+
+          <div class="admin-columns">
+            <div class="admin-list-panel">
+              <div class="admin-panel-head"><div><h3>Guest invitations</h3><p>Choose a guest to edit or rotate their link.</p></div><button type="button" class="button outlined admin-small-button" id="admin-new">+ New</button></div>
+              <label for="admin-search" class="sr-label">Search invitations</label>
+              <input type="search" id="admin-search" placeholder="Search guests or families" autocomplete="off" />
+              <div id="admin-invitation-list" class="admin-invitation-list" role="list">
+                <p>Loading invitations…</p>
+              </div>
+              <button type="button" class="admin-text-button admin-refresh" id="admin-refresh">Refresh invitations ↻</button>
+            </div>
+
+            <div class="admin-edit-panel">
+              <div class="admin-panel-head"><div><span class="eyebrow">INVITATION DETAILS</span><h3 id="admin-editor-title">New invitation</h3></div><span class="admin-id-hint" id="admin-id-hint">Automatic code</span></div>
+              <form id="admin-invitation-form">
+                <label for="admin-party">Guest or family name <span aria-hidden="true">*</span></label>
+                <input id="admin-party" name="partyLabel" type="text" maxlength="120" placeholder="e.g. Maria Cruz or The Cruz Family" required />
+                <div class="admin-field-pair">
+                  <div><label for="admin-side">Invited by</label><select id="admin-side" name="side"><option>Angela</option><option>Joseph</option><option selected>Shared</option></select></div>
+                  <div><label for="admin-seats-input">Estimated seats</label><input id="admin-seats-input" name="invitedSeats" type="number" min="1" max="30" step="1" value="1" required /></div>
+                </div>
+                <div class="admin-field-pair">
+                  <div><label for="admin-rsvp">RSVP status</label><select id="admin-rsvp" name="rsvp"><option>Pending</option><option>Yes</option><option>No</option><option>Maybe</option></select></div>
+                  <div><label for="admin-record-status">Invitation status</label><input id="admin-record-status" type="text" value="New invitation" readonly /></div>
+                </div>
+                <label for="admin-notes">Private planning notes</label>
+                <textarea id="admin-notes" name="notes" rows="3" maxlength="500" placeholder="Optional notes for organizers only"></textarea>
+                <div class="admin-primary-actions">
+                  <button type="submit" class="button primary" id="admin-save">Create invitation</button>
+                  <button type="button" class="button subtle" id="admin-clear">Clear</button>
+                </div>
+              </form>
+              <div id="admin-link-result" class="admin-link-result" hidden aria-live="polite">
+                <strong>New private link—copy it now</strong>
+                <p>For safety, the plain access code is shown only when issued. It cannot be retrieved later; regenerate it if lost.</p>
+                <div class="admin-code-line"><code id="admin-new-code"></code><button type="button" class="button outlined admin-small-button" id="admin-copy-code">Copy code</button></div>
+                <label for="admin-new-link">Personal invitation link</label>
+                <input id="admin-new-link" type="text" readonly />
+                <button type="button" class="button primary" id="admin-copy-link">Copy invitation link</button>
+              </div>
+              <div id="admin-rotation-actions" class="admin-rotation-actions" hidden>
+                <h4>Security & access</h4>
+                <p>Regenerating makes the previous link invalid immediately, including previously redeemed guest sessions. The replacement link is shown only once.</p>
+                <button type="button" class="button outlined" id="admin-rotate">↻ Regenerate link</button>
+                <button type="button" class="button admin-danger" id="admin-revoke">Revoke access</button>
+              </div>
+              <p id="admin-feedback" class="admin-feedback" role="status" aria-live="polite"></p>
+            </div>
+          </div>
+          <p class="admin-footnote">Only organizers with a Firebase admin custom claim can issue or change invitations. All writes happen through server-side callable functions; guests cannot read this register.</p>
+        </div>
+
+        <div class="admin-roadmap">
+          <article><span>01</span><h3>Guests & Invitations</h3><p>Issue codes, regenerate access, track RSVPs and family groups.</p><small>INTERFACE BUILT · BACKEND DEPLOYMENT PENDING</small></article>
+          <article><span>02</span><h3>Budget & Payments</h3><p>Monitor your ₱70,000 spending plan, vendor quotes, and balances.</p><small>PLANNED</small></article>
+          <article><span>03</span><h3>Wedding Checklist</h3><p>Organize the ceremony timeline, documents and assignments.</p><small>PLANNED</small></article>
+          <article><span>04</span><h3>Photo Time Capsule</h3><p>Control upload windows, review photo submissions and gallery release.</p><small>PLANNED</small></article>
         </div>
       </div>
     </section>
