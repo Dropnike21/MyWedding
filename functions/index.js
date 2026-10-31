@@ -178,6 +178,7 @@ exports.createInvitation = onCall(configuration(), async request => {
       codeDigest: digest,
       revision: 1,
       status: "active",
+      confirmedSeats: 0,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
@@ -211,7 +212,14 @@ exports.updateInvitation = onCall(configuration({}, false), async request => {
   await db.runTransaction(async tx => {
     const existing = await tx.get(ref);
     if (!existing.exists) throw new HttpsError("not-found", "Invitation not found.");
-    tx.update(ref, { ...values, updatedAt: FieldValue.serverTimestamp() });
+    const oldSeats = Number(existing.get("confirmedSeats") || 0);
+    tx.update(ref, {
+      ...values,
+      confirmedSeats: values.rsvp === "Yes"
+        ? Math.min(values.invitedSeats, oldSeats || values.invitedSeats)
+        : 0,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   });
   return { saved: true, invitationId: id };
 });
