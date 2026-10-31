@@ -548,6 +548,9 @@
   function applyView(view) {
     document.body.dataset.activeView = view;
     if (view !== "home" && typeof closeHomeMusic === "function") closeHomeMusic();
+    if (view !== "camera") {
+      document.dispatchEvent(new CustomEvent("wedding:camera-exit-request"));
+    }
 
     viewElements.forEach(section => {
       const active = section.id === "view-" + view;
@@ -618,6 +621,9 @@
   camera.retake.addEventListener("click", resetCamera);
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
   window.addEventListener("pagehide", stopStream);
+  document.addEventListener("wedding:camera-mode", event => {
+    if (!event.detail?.active) resetCamera();
+  });
 
   const plannerWorkspace = document.getElementById("planner-workspace");
   if (plannerWorkspace && "MutationObserver" in window) {
