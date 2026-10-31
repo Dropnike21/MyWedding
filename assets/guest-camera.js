@@ -52,7 +52,6 @@ async function uploadBlobToDrive(uploadUrl, blob) {
     method: "PUT",
     headers: {
       "Content-Type": "image/jpeg",
-      "Content-Length": String(blob.size),
     },
     body: blob,
   });
