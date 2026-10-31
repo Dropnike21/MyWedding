@@ -1317,7 +1317,25 @@
     if (note) note.textContent = config.note || "";
     if (mapTitle) mapTitle.textContent = config.name;
     if (immersiveName) immersiveName.textContent = String(config.shortName || config.name).toUpperCase();
-    if (photo && config.heroImage) photo.style.backgroundImage = 'url("' + config.heroImage + '")';
+
+    let venueAssetsLoaded = false;
+    function ensureVenueAssets() {
+      if (venueAssetsLoaded) return;
+      venueAssetsLoaded = true;
+      if (photo && config.heroImage) photo.style.backgroundImage = 'url("' + config.heroImage + '")';
+      if (mapFrame && !mapFrame.src) mapFrame.src = destinationEmbed();
+    }
+
+    if ("IntersectionObserver" in window) {
+      const venueObserver = new IntersectionObserver(entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return;
+        ensureVenueAssets();
+        venueObserver.disconnect();
+      }, { rootMargin: "500px 0px" });
+      venueObserver.observe(section);
+    } else {
+      ensureVenueAssets();
+    }
 
     function modeFlag(mode) {
       return mode === "walking" ? "w" : mode === "transit" ? "r" : "d";
@@ -1351,7 +1369,6 @@
       if (openMaps) openMaps.href = mapsDirectionsUrl();
     }
 
-    if (mapFrame) mapFrame.src = destinationEmbed();
     updateMapsLink();
 
     originInput?.addEventListener("input", () => {
@@ -1386,7 +1403,16 @@
         return;
       }
       routePreviewed = true;
-      if (mapFrame) mapFrame.src = routeEmbed(origin);
+      ensureVenueAssets();
+      const loaderToken = WeddingUI.begin("Building your route…", "Loading the map preview.", { blocking: false, delay: 180 });
+      if (mapFrame) {
+        const done = () => WeddingUI.end(loaderToken);
+        mapFrame.addEventListener("load", done, { once: true });
+        setTimeout(done, 7000);
+        mapFrame.src = routeEmbed(origin);
+      } else {
+        WeddingUI.end(loaderToken);
+      }
       updateMapsLink();
       if (status) {
         status.textContent =
@@ -1402,11 +1428,13 @@
       }
       useLocation.disabled = true;
       if (status) status.textContent = "Requesting your current location…";
+      const locationLoader = WeddingUI.begin("Finding your location…", "Your browser may ask for location permission.", { blocking: false, delay: 180 });
 
       navigator.geolocation.getCurrentPosition(position => {
         geoOrigin = position.coords.latitude.toFixed(6) + "," + position.coords.longitude.toFixed(6);
         if (originInput) originInput.value = "Current location";
         routePreviewed = true;
+        ensureVenueAssets();
         if (mapFrame) mapFrame.src = routeEmbed(geoOrigin);
         updateMapsLink();
         if (status) {
@@ -1414,6 +1442,7 @@
             "Current location added. Open Maps for live traffic and turn-by-turn navigation.";
         }
         useLocation.disabled = false;
+        WeddingUI.end(locationLoader);
       }, error => {
         geoOrigin = "";
         if (status) {
@@ -1422,6 +1451,7 @@
             : "We couldn't get your location. Type your starting point instead.";
         }
         useLocation.disabled = false;
+        WeddingUI.end(locationLoader);
       }, {
         enableHighAccuracy: false,
         timeout: 9000,
