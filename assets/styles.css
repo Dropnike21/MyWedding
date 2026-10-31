@@ -480,7 +480,7 @@ body:not([data-active-view="home"]) .ambient-heart{opacity:0!important}
 .music-orb.is-playing .music-orb-icon{animation:musicPulse 1.6s ease-in-out infinite}
 @keyframes musicPulse{50%{transform:scale(1.16) rotate(8deg);text-shadow:0 0 18px rgba(255,246,220,.55)}}
 .home-music-player{grid-column:1/-1;border-radius:12px;overflow:hidden;animation:musicReveal .4s cubic-bezier(.16,1,.3,1) both}
-.home-music-player iframe{display:block;border:0;border-radius:12px;background:#e8eee8}
+.home-music-player iframe{display:block;width:100%;aspect-ratio:16/9;height:auto;min-height:240px;border:0;border-radius:12px;background:#e8eee8}
 @keyframes musicReveal{from{opacity:0;transform:translateY(-10px);clip-path:inset(0 0 100% 0 round 12px)}to{opacity:1;transform:none;clip-path:inset(0 round 12px)}}
 
 @media(max-width:720px){
