@@ -11,6 +11,7 @@ const cameraButton = document.getElementById("start-camera");
 const changeCodeButton = document.getElementById("camera-change-code");
 const partyLabel = document.getElementById("camera-session-party");
 const quotaLabel = document.getElementById("camera-session-quota");
+const cameraMessage = document.getElementById("camera-message");
 const previewHelper = document.getElementById("camera-preview-helper");
 const previewCode = document.getElementById("camera-preview-code");
 const useTestCodeButton = document.getElementById("camera-use-test-code");
@@ -30,11 +31,125 @@ let authApi = null;
 let pendingLinkCode = null;
 let sessionRestoring = false;
 let cameraAccess = null;
+let photoUploadQueue = Promise.resolve();
 const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
 const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
 const PREVIEW_USAGE_KEY = "mywedding_camera_preview_usage_v1";
 const previewTestCode = normalize(guestAccessConfig.previewTestCode || "AJ27-TEST");
 const previewTestActive = Boolean(!guestAccessConfig.enabled && guestAccessConfig.previewTestEnabled !== false && CODE_PATTERN.test(previewTestCode));
+
+
+function driveUploadsActive() {
+  return Boolean(
+    guestAccessConfig.enabled &&
+    guestAccessConfig.driveUploadsEnabled &&
+    !cameraAccess?.preview
+  );
+}
+
+async function uploadBlobToDrive(uploadUrl, blob) {
+  const response = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "image/jpeg",
+      "Content-Length": String(blob.size),
+    },
+    body: blob,
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error("Drive upload failed (" + response.status + ")" + (detail ? ": " + detail.slice(0,160) : ""));
+  }
+  const data = await response.json();
+  if (!data?.id) throw new Error("Drive did not return the uploaded file ID.");
+  return data;
+}
+
+async function callUploadFunction(name, data) {
+  const fn = callGuestFunction(name);
+  const response = await fn(data);
+  return response.data;
+}
+
+async function uploadCapturedPhoto(detail) {
+  if (!driveUploadsActive()) return null;
+  if (!(detail?.rawBlob instanceof Blob) || !(detail?.blob instanceof Blob)) {
+    throw new Error("Captured photo data is unavailable.");
+  }
+
+  const loader = window.WeddingUI?.begin(
+    "Saving this memory…",
+    "Preparing private Google Drive upload.",
+    { blocking: false, delay: 180 }
+  );
+  let uploadId = "";
+  let rawFileId = "";
+  let watermarkedFileId = "";
+
+  try {
+    const begin = await callUploadFunction(guestAccessConfig.beginPhotoUploadCallable, {
+      rawBytes: detail.rawBlob.size,
+      watermarkedBytes: detail.blob.size,
+      orientation: detail.orientation || "portrait",
+      effect: detail.filter || "natural",
+      camera: detail.facingMode === "user" ? "front" : "back",
+      clientCapturedAt: new Date().toISOString(),
+    });
+    uploadId = begin.uploadId;
+
+    window.WeddingUI?.update(loader, "Uploading clean original…", "RAW copy → private wedding Drive.");
+    const raw = await uploadBlobToDrive(begin.raw.uploadUrl, detail.rawBlob);
+    rawFileId = raw.id;
+
+    window.WeddingUI?.update(loader, "Uploading wedding copy…", "Filtered and watermarked copy → private wedding Drive.");
+    const watermarked = await uploadBlobToDrive(begin.watermarked.uploadUrl, detail.blob);
+    watermarkedFileId = watermarked.id;
+
+    window.WeddingUI?.update(loader, "Finalizing memory…", "Updating the invitation counter and protected photo log.");
+    const finalized = await callUploadFunction(guestAccessConfig.finalizePhotoUploadCallable, {
+      uploadId,
+      rawFileId,
+      watermarkedFileId,
+    });
+
+    if (cameraAccess) {
+      cameraAccess.photosUsed = Number(finalized.photosUsed || cameraAccess.photosUsed || 0);
+      cameraAccess.photosRemaining = Number(finalized.photosRemaining ?? cameraAccess.photosRemaining ?? 0);
+    }
+    if (cameraMessage) {
+      cameraMessage.textContent =
+        "Memory saved privately · " + finalized.photosRemaining + " frames left";
+    }
+    document.dispatchEvent(new CustomEvent("wedding:photo-uploaded", { detail: finalized }));
+    return finalized;
+  } catch (error) {
+    console.error("Wedding photo upload failed", error);
+    if (uploadId) {
+      callUploadFunction(guestAccessConfig.cancelPhotoUploadCallable, {
+        uploadId,
+        rawFileId,
+        watermarkedFileId,
+      }).catch(cancelError => console.warn("Upload cleanup failed", cancelError));
+    }
+    if (cameraMessage) {
+      cameraMessage.textContent =
+        "This memory could not reach the private archive. Keep the camera open and try another shot.";
+    }
+    document.dispatchEvent(new CustomEvent("wedding:photo-upload-failed", {
+      detail: { localSequence: detail?.localSequence || 0, message: error?.message || "Upload failed" }
+    }));
+    throw error;
+  } finally {
+    if (loader) window.WeddingUI?.end(loader);
+  }
+}
+
+function queueCapturedPhoto(detail) {
+  photoUploadQueue = photoUploadQueue
+    .catch(() => {})
+    .then(() => uploadCapturedPhoto(detail));
+  return photoUploadQueue;
+}
 
 function previewUsage() {
   try {
@@ -368,10 +483,13 @@ document.addEventListener("wedding:camera-exit-request", () => {
 });
 
 document.addEventListener("wedding:photo-captured", event => {
-  if (!cameraAccess?.preview || !cameraAccess.accessCode) return;
-  const usedAtOpen = Math.max(0, Number(cameraAccess.photosUsed || 0));
-  const localSequence = Math.max(0, Number(event.detail?.localSequence || 0));
-  savePreviewUsed(cameraAccess.accessCode, usedAtOpen + localSequence);
+  if (cameraAccess?.preview && cameraAccess.accessCode) {
+    const usedAtOpen = Math.max(0, Number(cameraAccess.photosUsed || 0));
+    const localSequence = Math.max(0, Number(event.detail?.localSequence || 0));
+    savePreviewUsed(cameraAccess.accessCode, usedAtOpen + localSequence);
+    return;
+  }
+  if (driveUploadsActive()) queueCapturedPhoto(event.detail).catch(() => {});
 });
 
 window.addEventListener("hashchange", () => {
