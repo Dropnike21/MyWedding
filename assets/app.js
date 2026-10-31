@@ -1598,9 +1598,11 @@
   document.addEventListener("wedding:camera-mode", event => {
     if (!event.detail?.active) {
       resetCamera();
+      document.body.classList.remove("camera-landscape");
       return;
     }
     configureCameraSession(event.detail);
+    updateCameraOrientation();
   });
 
   const plannerWorkspace = document.getElementById("planner-workspace");
