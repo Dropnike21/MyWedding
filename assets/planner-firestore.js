@@ -132,12 +132,24 @@ export class PlannerFirestoreStore {
 
     const collectionSnaps = await Promise.all(
       COLLECTIONS.map(name =>
-        getDocs(collection(this.db,"weddings",WEDDING_ID,name)).then(snap => [name,snap])
+        getDocs(collection(this.db,"weddings",WEDDING_ID,name))
+          .then(snap => [name,snap])
+          .catch(error => {
+            // Expenses is a newly introduced collection. During rollout, let
+            // older published rules keep the rest of Wedding Studio usable.
+            if (name === "expenses" && String(error?.code || "").includes("permission-denied")) {
+              console.warn("Wedding Expenses rules are not published yet.");
+              return [name,null];
+            }
+            throw error;
+          })
       )
     );
     for (const [name,snap] of collectionSnaps) {
-      data[name] = snap.docs.map(x => ({ id:x.id, ...x.data() }))
-        .map(({createdAt,updatedAt,...rest})=>rest);
+      data[name] = snap
+        ? snap.docs.map(x => ({ id:x.id, ...x.data() }))
+            .map(({createdAt,updatedAt,...rest})=>rest)
+        : [];
     }
 
     if (!data.budgetCategories.length) data.budgetCategories = structuredClone(seedData.budgetCategories);
