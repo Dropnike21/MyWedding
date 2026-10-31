@@ -123,3 +123,20 @@ footer small{font-size:9px;color:#aec0b4}
 @media(max-width:800px){.topline span:first-child{display:none}.topline{justify-content:center}.site-header{height:auto;min-height:82px;flex-wrap:wrap;justify-content:center;padding:14px 20px}.brand{min-width:100%;align-items:center}.main-nav{flex-wrap:wrap;gap:1px}.main-nav button{font-size:11px;padding:8px}.home-hero{grid-template-columns:1fr}.hero-copy{padding:70px 7%}.hero-art{min-height:490px}.photo-card{max-width:300px;top:14%;left:29%}.art-seal{right:21%}.facts{padding:25px 3%}.fact{padding:4px 14px}.fact-value{font-size:18px}.intro-strip{padding:45px 7%;grid-template-columns:1fr;gap:15px}.text-link{text-align:left}.studio-preview{grid-template-columns:1fr}.studio-rail{display:none}.camera-layout{grid-template-columns:1fr;max-width:600px}.capsule-info{padding:0 5%}.system-line{grid-template-columns:1fr;gap:10px}.system-arrow{transform:rotate(90deg);text-align:center}.system-details{grid-template-columns:1fr}.project-state{flex-direction:column;align-items:flex-start}footer{flex-wrap:wrap}}
 @media(max-width:520px){.brand-mark{font-size:24px}.main-nav button{font-size:10px}.hero-copy{padding:59px 7%}.hero-copy h1{font-size:70px;letter-spacing:-3px}.hero-intro{font-size:12px}.button{width:100%}.hero-art{min-height:405px}.photo-card{left:23%;width:60%;padding:12px 12px 38px}.photo-caption{font-size:8px;letter-spacing:1px}.art-seal{width:100px;height:100px;right:13%}.art-seal strong{font-size:19px}.art-seal span{font-size:7px}.facts{grid-template-columns:1fr;padding:18px 7%}.fact{border-right:0;border-bottom:1px solid var(--border);padding:18px 0}.fact:last-child{border-bottom:0}.fact-value{font-size:23px}.intro-strip h2{font-size:28px}.section-heading{padding-top:48px}.section-heading h1{letter-spacing:-2.3px}.studio-content{padding:25px 20px}.studio-top{align-items:flex-start}.studio-content h2{font-size:30px}.module-grid{grid-template-columns:1fr}.camera-shell{padding:14px}.camera-idle-title{font-size:28px}.capsule-info h2{font-size:37px}.system-card{padding:26px}.project-state{padding:25px}footer{justify-content:center;text-align:center}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+
+
+/* Invitation-link access, optimized for older guests and small phone screens. */
+.invitation-access{width:min(1130px,92%);margin:0 auto 52px;padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:36px;align-items:center;background:#fffdf9;border:1px solid var(--border);border-radius:12px;box-shadow:0 7px 25px rgba(34,61,50,.04)}
+.invitation-copy h2{font:normal clamp(26px,3.1vw,40px)/1.2 Georgia,serif;letter-spacing:-1.2px;margin:12px 0}
+.invitation-copy>p{font-size:13px;line-height:1.7;color:#656c67;margin:0 0 11px}
+.invitation-copy .invitation-notice{font-size:11px;color:#976d40;padding:9px 12px;background:#fcf3e7;border-left:3px solid #c6a16f;margin:14px 0 0}
+.invitation-form label{display:block;font-size:13px;color:var(--pine);font-weight:750;margin-bottom:9px}
+.invitation-input-row{display:flex;gap:9px;align-items:stretch}
+.invitation-input-row input{width:100%;min-width:0;padding:13px 15px;background:white;border:1px solid #a9bbae;border-radius:5px;font-size:21px;font-weight:750;letter-spacing:3px;text-align:center;color:var(--pine);text-transform:uppercase}
+.invitation-input-row input:focus-visible{outline:3px solid #8aab96;outline-offset:2px}
+.invitation-input-row .button{flex:none;min-width:125px}
+.invitation-help,.invitation-status{font-size:11px;line-height:1.5;color:#687970;margin:9px 0 0}
+.invitation-status{min-height:32px;color:#8e6b3f}
+.invitation-status.is-error{color:#a23e3e}.invitation-status.is-ok{color:#2a7255}
+@media(max-width:800px){.invitation-access{grid-template-columns:1fr;gap:22px}}
+@media(max-width:520px){.invitation-access{padding:23px 19px;margin-bottom:31px}.invitation-input-row{flex-direction:column}.invitation-input-row input{text-align:left;letter-spacing:4px;font-size:23px;min-height:54px}.invitation-input-row .button{width:100%;min-height:51px}.invitation-form label{font-size:14px}.invitation-help,.invitation-status{font-size:12px}}
