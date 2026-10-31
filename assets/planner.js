@@ -469,6 +469,7 @@ function lockPlanner(message="Sign in with your organizer Google account to open
   const shell=document.getElementById("planner-secure-shell");
   const button=document.getElementById("planner-firebase-login");
   const copy=document.getElementById("planner-access-message");
+  document.getElementById("view-planner")?.classList.remove("planner-authenticated");
   if(shell){
     shell.hidden=true;
     shell.setAttribute("aria-hidden","true");
@@ -499,6 +500,7 @@ function unlockPlanner() {
     gate.hidden=true;
     gate.setAttribute("aria-hidden","true");
   }
+  document.getElementById("view-planner")?.classList.add("planner-authenticated");
   if(shell){
     shell.hidden=false;
     shell.removeAttribute("aria-hidden");
