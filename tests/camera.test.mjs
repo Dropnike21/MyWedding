@@ -63,16 +63,16 @@ test("camera pass name precedes the change-code action in both layouts", () => {
 });
 
 test("portrait tools are vertical and landscape tools are horizontal on top", () => {
-  assert.match(styles,/camera-session:not\\(\\.is-landscape\\) \\.camera-action-rail\\{[\\s\\S]*?flex-direction:column!important/);
-  assert.match(styles,/camera-session\\.is-landscape \\.camera-action-rail\\{[\\s\\S]*?flex-direction:row!important/);
-  assert.match(styles,/camera-session\\.is-landscape \\.camera-action-rail\\{[\\s\\S]*?top:8px!important/);
+  assert.match(styles,/camera-session:not\(\.is-landscape\) \.camera-action-rail\{[\s\S]*?flex-direction:column!important/);
+  assert.match(styles,/camera-session\.is-landscape \.camera-action-rail\{[\s\S]*?flex-direction:row!important/);
+  assert.match(styles,/camera-session\.is-landscape \.camera-action-rail\{[\s\S]*?top:8px!important/);
 });
 
 test("landscape film hangs vertically with rotated thumbnails", () => {
-  assert.match(styles,/camera-session\\.is-landscape \\.camera-film-track\\{[\\s\\S]*?flex-direction:column!important/);
-  assert.match(styles,/camera-session\\.is-landscape \\.camera-film-frame \\.camera-film-image\\{[\\s\\S]*?rotate\\(90deg\\)/);
-  assert.match(app,/function isFilmVertical\\(\\)/);
-  assert.match(app,/const vertical=isFilmVertical\\(\\)/);
+  assert.match(styles,/camera-session\.is-landscape \.camera-film-track\{[\s\S]*?flex-direction:column!important/);
+  assert.match(styles,/camera-session\.is-landscape \.camera-film-frame \.camera-film-image\{[\s\S]*?rotate\(90deg\)/);
+  assert.match(app,/function isFilmVertical\(\)/);
+  assert.match(app,/const vertical=isFilmVertical\(\)/);
 });
 
 test("film capacity is measured on the active orientation axis", () => {
