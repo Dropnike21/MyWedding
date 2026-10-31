@@ -10,11 +10,17 @@
   <link rel="stylesheet" href="./assets/styles.css?v=20261031-2115" />
   <script src="./assets/venue-config.js?v=20261031-2115"></script>
   <script src="./assets/app.js?v=20261031-2115" defer></script>
-  <script type="module" src="./assets/firebase-init.js?v=20261031-2115"></script>
-  <script type="module" src="./assets/guest-camera.js?v=20261031-2115"></script>
-  <script type="module" src="./assets/planner.js?v=20261031-2115"></script>
 </head>
 <body>
+  <div class="global-loader" id="global-loader" hidden aria-live="polite" aria-busy="true">
+    <div class="global-loader-card" role="status">
+      <div class="global-loader-emblem" aria-hidden="true"><span>A</span><i>&amp;</i><span>J</span></div>
+      <div class="global-loader-spinner" aria-hidden="true"><i></i><i></i><i></i></div>
+      <strong id="global-loader-title">Preparing your experience…</strong>
+      <small id="global-loader-detail">Just a moment.</small>
+    </div>
+  </div>
+
   <a class="skip" href="#main">Skip to content</a>
   <div class="topline"><span>A LITTLE MORE THAN A DAY. A MEMORY FOR A LIFETIME.</span><span>FEBRUARY 23, 2027 · TENTATIVE</span></div>
 
@@ -181,7 +187,8 @@
             <button type="button" class="planner-nav" data-planner-view="settings"><span>◇</span><b>Event setup</b><small>Date, venue, limits</small></button>
             <button type="button" class="planner-nav" data-planner-view="guests"><span>♧</span><b>Guests</b><small>Invites & RSVPs</small></button>
             <button type="button" class="planner-nav" data-planner-view="vendors"><span>▤</span><b>Suppliers</b><small>Quotes & bookings</small></button>
-            <button type="button" class="planner-nav" data-planner-view="budget"><span>₱</span><b>Budget & payments</b><small>₱70k plan</small></button>
+            <button type="button" class="planner-nav" data-planner-view="expenses"><span>◇</span><b>Wedding expenses</b><small>Rings, attire, favors</small></button>
+            <button type="button" class="planner-nav" data-planner-view="budget"><span>₱</span><b>Budget & payments</b><small>All spending</small></button>
             <button type="button" class="planner-nav" data-planner-view="tasks"><span>☑</span><b>Checklist</b><small>Tasks & deadlines</small></button>
             <button type="button" class="planner-nav" data-planner-view="timeline"><span>◷</span><b>Wedding day</b><small>Run of show</small></button>
             <button type="button" class="planner-nav" data-planner-view="decisions"><span>?</span><b>Decisions</b><small>Open choices</small></button>
