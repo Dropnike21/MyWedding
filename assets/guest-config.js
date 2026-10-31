@@ -10,5 +10,9 @@ export const guestAccessConfig = Object.freeze({
   plannerEnabled: true,
   region: "asia-southeast1",
   callableName: "redeemInvitation",
+  driveUploadsEnabled: false,
+  beginPhotoUploadCallable: "beginGuestPhotoUpload",
+  finalizePhotoUploadCallable: "finalizeGuestPhotoUpload",
+  cancelPhotoUploadCallable: "cancelGuestPhotoUpload",
   appCheckSiteKey: "6LdWTAkuAAAAAHkNSBZn8MTjXd_cFE9B-rEXuOLR",
 });
