@@ -59,6 +59,12 @@ GitHub Pages (public static frontend)
 
 GitHub Pages can host this public static frontend on a free public repository. Google Drive provides the proposed image storage, subject to the owner account’s verified quota and administrator policies. Firebase backend functions may still require Blaze billing; configure budgets, rate limits, and upload size limits. A school-managed Drive account must not be the only irreplaceable archive.
 
+## Wedding Studio local demo
+
+The Planning Studio is now a functional local-demo wedding planner. It stores test records only in the current browser and does not require Firestore access. It includes event setup, guest/RSVP management, suppliers, budget allocations, payments, checklist tasks, wedding-day timeline, decisions, coordinator/team records, archive/restore, and JSON export/import.
+
+Use fictional/test data until Firebase organizer authentication and protected planning APIs are deployed. See **[Wedding Studio testing guide](docs/planner-testing.md)**.
+
 ## Suggested development phases
 
 1. Firestore project created; secure admin Auth setup, custom claims, App Check, and Cloud Functions deployment remain.
