@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./assets/styles.css" />
   <script src="./assets/app.js" defer></script>
   <script type="module" src="./assets/firebase-init.js"></script>
+  <script type="module" src="./assets/invitation-access.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -85,7 +86,27 @@
     </section>
 
     <section class="view" id="view-camera" aria-labelledby="camera-heading" hidden>
-      <div class="section-heading"><span class="eyebrow">GUEST EXPERIENCE / CAMERA PROTOTYPE</span><h1 id="camera-heading">The Photo <em>Time Capsule</em></h1><p>Capture the celebration through everyone's eyes. During the wedding, photographs will be uploaded privately and revealed together later.</p></div>
+      <div class="section-heading"><span class="eyebrow">GUEST EXPERIENCE / INVITATION ACCESS</span><h1 id="camera-heading">The Photo <em>Time Capsule</em></h1><p>Capture the celebration through everyone's eyes. During the wedding, photographs will be uploaded privately and revealed together later.</p></div>
+      <section class="invitation-access" aria-labelledby="invitation-heading">
+        <div class="invitation-copy">
+          <span class="eyebrow">YOUR INVITATION IS YOUR KEY</span>
+          <h2 id="invitation-heading">Have an invitation <em>code?</em></h2>
+          <p>Tap the private link on your invitation, or type your code below. No downloads, email, or account registration.</p>
+          <p class="invitation-notice">Invitation verification is being built. Codes are not yet active, and this preview does not unlock photo uploads.</p>
+        </div>
+        <form class="invitation-form" id="invitation-form" novalidate>
+          <label for="invitation-code">Your invitation code</label>
+          <div class="invitation-input-row">
+            <input type="text" id="invitation-code" name="invitation-code"
+                   inputmode="text" autocomplete="off" autocapitalize="characters"
+                   spellcheck="false" maxlength="9" placeholder="XXXX-XXXX"
+                   aria-describedby="invitation-help invitation-status" required />
+            <button class="button primary" type="submit" id="check-invitation">Continue →</button>
+          </div>
+          <p id="invitation-help" class="invitation-help">Eight letters or numbers. Spaces and the dash don't matter.</p>
+          <p class="invitation-status" id="invitation-status" role="status" aria-live="polite">Invitation verification will activate after the secure Firebase backend is deployed.</p>
+        </form>
+      </section>
       <div class="camera-layout">
         <div class="camera-shell">
           <div class="camera-head"><span>AJ <span class="muted">/ WEDDING CAM</span></span><span class="camera-badge">LOCAL TEST ONLY</span></div>
@@ -106,7 +127,7 @@
         <div class="capsule-info">
           <span class="eyebrow">HOW THE FINAL EXPERIENCE WILL WORK</span>
           <h2>A surprise worth<br /><em>waiting for.</em></h2>
-          <div class="step"><span class="step-number">01</span><div><h3>Scan the QR code</h3><p>Guests open the wedding camera without downloading an app.</p></div></div>
+          <div class="step"><span class="step-number">01</span><div><h3>Open your unique invitation</h3><p>Tap your invitation link to pre-fill your code, or type the short code. No app download or guest account required.</p></div></div>
           <div class="step"><span class="step-number">02</span><div><h3>Capture every little moment</h3><p>Photos upload through a secure backend into a private Google Drive folder during the approved event window.</p></div></div>
           <div class="step"><span class="step-number">03</span><div><h3>Seal the time capsule</h3><p>Uploads are kept private. There is no public gallery to browse before release.</p></div></div>
           <div class="step"><span class="step-number">04</span><div><h3>Reveal after 48 hours</h3><p>Once approved and unlocked by the server, the shared gallery becomes viewable.</p></div></div>
