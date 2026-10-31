@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261101-camera1";
+  const BUILD = "20261101-camera2";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -145,6 +145,15 @@
     preview: document.getElementById("camera-preview"),
     session: document.getElementById("camera-session"),
     video: document.getElementById("camera-video"),
+    frameGuide: document.getElementById("camera-framing-guide"),
+    aspectButtons: [...document.querySelectorAll("[data-camera-aspect]")],
+    temperature: document.getElementById("camera-temperature"),
+    temperatureValue: document.getElementById("camera-temperature-value"),
+    focusControls: document.getElementById("camera-manual-focus-controls"),
+    focusDistance: document.getElementById("camera-focus-distance"),
+    focusDistanceValue: document.getElementById("camera-focus-distance-value"),
+    focusAuto: document.getElementById("camera-focus-auto"),
+    settingsHelp: document.getElementById("camera-setting-help"),
     depthOverlay: document.getElementById("camera-depth-overlay"),
     rotate: document.getElementById("camera-rotate"),
     rotateLabel: document.getElementById("camera-rotate-label"),
@@ -207,6 +216,13 @@
     beautyStrength: 0,
     apertureStrength: 0,
     manualLandscape: false,
+    autoTiltLandscape: null,
+    aspectRatio: "4:3",
+    temperatureOffset: 0,
+    hardwareWhiteBalance: false,
+    whiteBalanceModes: [],
+    manualFocusAvailable: false,
+    focusRange: null,
     pointers: new Map(),
     pinchStartDistance: 0,
     pinchStartZoom: 1,
@@ -280,12 +296,20 @@
     const exposure = camera.hardwareExposure ? 0 : camera.exposureValue;
     const beauty = camera.beautyStrength / 100;
     const brightness = 1 + exposure * .14 + beauty * .025;
-    // Gentle full-frame softening; this deliberately does not detect or reshape faces.
+    // This is whole-frame softening, not facial recognition or skin reconstruction.
     const softening = beauty ? " contrast(" + (1 - beauty * .055).toFixed(3) +
       ") saturate(" + (1 + beauty * .035).toFixed(3) + ") blur(" +
       (beauty * .65).toFixed(2) + "px)" : "";
+    const white = camera.hardwareWhiteBalance ? "" :
+      camera.temperatureOffset < 0
+        ? " sepia(" + (-camera.temperatureOffset * .002).toFixed(3) + ") saturate(" +
+          (1 + -camera.temperatureOffset * .001).toFixed(3) + ")"
+        : camera.temperatureOffset > 0
+          ? " hue-rotate(" + (camera.temperatureOffset * .12).toFixed(1) +
+            "deg) saturate(" + (1 - camera.temperatureOffset * .0005).toFixed(3) + ")"
+          : "";
     return (base === "none" ? "" : base + " ") +
-      "brightness(" + brightness.toFixed(3) + ")" + softening;
+      "brightness(" + brightness.toFixed(3) + ")" + softening + white;
   }
 
   function updateVideoPresentation() {
@@ -301,11 +325,29 @@
     }
   }
 
+  function isCameraLandscape() {
+    return Boolean(window.matchMedia("(orientation: landscape)").matches ||
+      camera.manualLandscape || camera.autoTiltLandscape === true);
+  }
+
+  function updateCameraFrameGuide() {
+    const frame = camera.frameGuide;
+    const stage = camera.preview;
+    if (!frame || !stage || camera.session?.hidden) return;
+    const { width, height } = stage.getBoundingClientRect();
+    if (!width || !height) return;
+    const base = {"4:3":4/3,"1:1":1,"16:9":16/9}[camera.aspectRatio] || 4/3;
+    const ratio = isCameraLandscape() ? base : 1/base;
+    const w = Math.min(width*.94,height*.94*ratio);
+    frame.style.width = Math.round(w) + "px";
+    frame.style.height = Math.round(w/ratio) + "px";
+    frame.dataset.aspect = camera.aspectRatio;
+  }
+
   function updateCameraOrientation() {
-    // The OS may keep the viewport portrait with auto-rotate disabled.
-    // A manual control rotates the camera UI without locking the screen.
     const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
-    const manual = camera.manualLandscape && !viewportLandscape;
+    const manual = !viewportLandscape &&
+      (camera.manualLandscape || camera.autoTiltLandscape === true);
     const landscape = viewportLandscape || manual;
     camera.session?.classList.toggle("is-landscape",landscape);
     camera.session?.classList.toggle("is-manual-landscape",manual);
@@ -316,6 +358,33 @@
     camera.rotate?.setAttribute("aria-label",camera.manualLandscape
       ? "Return camera interface to automatic orientation"
       : "Rotate camera interface into landscape mode");
+    requestAnimationFrame(updateCameraFrameGuide);
+  }
+
+  function selectCameraAspect(aspect) {
+    if (!["4:3","1:1","16:9"].includes(aspect)) return;
+    camera.aspectRatio = aspect;
+    camera.aspectButtons.forEach(button=>{
+      const selected = button.dataset.cameraAspect === aspect;
+      button.classList.toggle("active",selected);
+      button.setAttribute("aria-pressed",String(selected));
+    });
+    updateCameraFrameGuide();
+    if (camera.message) camera.message.textContent = aspect + " photo framing selected.";
+  }
+
+  function handleCameraDeviceTilt(event) {
+    if (!camera.stream || camera.manualLandscape || !Number.isFinite(event?.gamma) ||
+        !Number.isFinite(event?.beta)) return;
+    // Only infer a rotation for a reasonably upright phone; flat-on-table poses
+    // do not have a stable sensor-based orientation.
+    const side = Math.abs(event.gamma);
+    const forward = Math.abs(event.beta);
+    if (forward > 70) return;
+    const landscape = side > 57 ? true : side < 27 ? false : null;
+    if (landscape === null || landscape === camera.autoTiltLandscape) return;
+    camera.autoTiltLandscape = landscape;
+    updateCameraOrientation();
   }
 
   function toggleCameraOrientation() {
@@ -363,6 +432,10 @@
     camera.torchOn = false;
     camera.hardwareZoom = false;
     camera.hardwareExposure = false;
+    camera.hardwareWhiteBalance = false;
+    camera.manualFocusAvailable = false;
+    camera.focusRange = null;
+    if (camera.focusControls) camera.focusControls.hidden = true;
     camera.zoomValue = 1;
     camera.digitalZoom = 1;
     camera.exposureValue = 0;
@@ -394,6 +467,13 @@
     camera.filter = "natural";
     camera.timer = 0;
     camera.manualLandscape = false;
+    camera.autoTiltLandscape = null;
+    camera.aspectRatio = "4:3";
+    selectCameraAspect("4:3");
+    camera.temperatureOffset = 0;
+    if (camera.temperature) camera.temperature.value = "0";
+    if (camera.temperatureValue) camera.temperatureValue.textContent = "Auto";
+    if (camera.focusControls) camera.focusControls.hidden = true;
     updateCameraOrientation();
     if (camera.beauty) camera.beauty.value = "0";
     if (camera.aperture) camera.aperture.value = "0";
@@ -805,9 +885,9 @@
   }
 
   function captureGeometry(video) {
-    const landscape=camera.session?.classList.contains("is-landscape") ||
-      window.matchMedia("(orientation: landscape)").matches;
-    const ratio=landscape?4/3:3/4;
+    const landscape=isCameraLandscape();
+    const base = {"4:3":4/3,"1:1":1,"16:9":16/9}[camera.aspectRatio] || 4/3;
+    const ratio=landscape?base:1/base;
     const vw=video.videoWidth,vh=video.videoHeight;
     let sx=0,sy=0,sw=vw,sh=vh;
     const sourceRatio=vw/vh;
