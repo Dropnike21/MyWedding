@@ -1,6 +1,104 @@
 (() => {
   "use strict";
 
+  const BUILD = "20261031-2230";
+  const assetBase = new URL(".", document.currentScript?.src || location.href);
+  const loaderEl = document.getElementById("global-loader");
+  const loaderTitle = document.getElementById("global-loader-title");
+  const loaderDetail = document.getElementById("global-loader-detail");
+  const loaderTasks = new Map();
+  let loaderSequence = 0;
+
+  function renderLoader() {
+    if (!loaderEl) return;
+    const tasks = [...loaderTasks.values()].filter(task => task.visible);
+    if (!tasks.length) {
+      loaderEl.hidden = true;
+      document.body.classList.remove("global-loading-blocking");
+      return;
+    }
+    const latest = tasks[tasks.length - 1];
+    loaderEl.hidden = false;
+    if (loaderTitle) loaderTitle.textContent = latest.title || "Working on it…";
+    if (loaderDetail) loaderDetail.textContent = latest.detail || "Just a moment.";
+    document.body.classList.toggle(
+      "global-loading-blocking",
+      tasks.some(task => task.blocking)
+    );
+  }
+
+  const WeddingUI = {
+    begin(title, detail = "", options = {}) {
+      const token = ++loaderSequence;
+      const task = {
+        title, detail,
+        blocking: options.blocking !== false,
+        visible: false,
+        timer: null,
+      };
+      loaderTasks.set(token, task);
+      const delay = Number.isFinite(options.delay) ? options.delay : 140;
+      task.timer = setTimeout(() => {
+        if (!loaderTasks.has(token)) return;
+        task.visible = true;
+        renderLoader();
+      }, Math.max(0, delay));
+      return token;
+    },
+    update(token, title, detail = "") {
+      const task = loaderTasks.get(token);
+      if (!task) return;
+      if (title) task.title = title;
+      if (detail !== undefined) task.detail = detail;
+      renderLoader();
+    },
+    end(token) {
+      const task = loaderTasks.get(token);
+      if (!task) return;
+      clearTimeout(task.timer);
+      loaderTasks.delete(token);
+      renderLoader();
+    },
+    async run(work, title, detail = "", options = {}) {
+      const token = this.begin(title, detail, options);
+      try {
+        return await (typeof work === "function" ? work() : work);
+      } finally {
+        this.end(token);
+      }
+    },
+  };
+  window.WeddingUI = WeddingUI;
+
+  const featureModules = new Map();
+  function featureUrl(file) {
+    return new URL(file + "?v=" + BUILD, assetBase).href;
+  }
+  async function ensureViewModule(view) {
+    const files = {
+      planner: "planner.js",
+      camera: "guest-camera.js",
+      system: "firebase-init.js",
+    };
+    const file = files[view];
+    if (!file) return;
+    if (!featureModules.has(view)) {
+      const copy = {
+        planner: ["Opening Wedding Studio…", "Loading secure organizer tools."],
+        camera: ["Preparing Wedding Camera…", "Loading invitation access and camera tools."],
+        system: ["Checking project services…", "Loading Firebase configuration status."],
+      }[view];
+      const token = WeddingUI.begin(copy[0], copy[1], {
+        blocking: view !== "system",
+        delay: 120,
+      });
+      const promise = import(featureUrl(file))
+        .finally(() => WeddingUI.end(token));
+      featureModules.set(view, promise);
+    }
+    return featureModules.get(view);
+  }
+
   const views = new Set(["home", "planner", "camera", "system"]);
   const navButtons = [...document.querySelectorAll("[data-view]")];
   const viewElements = [...document.querySelectorAll(".view")];
