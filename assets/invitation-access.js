@@ -1,4 +1,5 @@
 import { guestAccessConfig } from "./guest-config.js";
+import { getWeddingClient, callWeddingFunction } from "./firebase-services.js";
 
 const form = document.getElementById("invitation-form");
 const input = document.getElementById("invitation-code");
@@ -55,41 +56,13 @@ input.addEventListener("input", () => {
   if (feedback.classList.contains("is-error")) show("");
 });
 
-let appCheckStarted = false;
-
 async function redeem(code) {
-  const { getApp } = await import(
-    "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js"
-  );
-  const { getAuth, signInAnonymously } = await import(
+  const { auth } = getWeddingClient();
+  const { signInAnonymously } = await import(
     "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js"
   );
-  const { initializeAppCheck, ReCaptchaV3Provider } = await import(
-    "https://www.gstatic.com/firebasejs/13.1.0/firebase-app-check.js"
-  );
-  const { getFunctions, httpsCallable } = await import(
-    "https://www.gstatic.com/firebasejs/13.1.0/firebase-functions.js"
-  );
-
-  if (!guestAccessConfig.appCheckSiteKey)
-    throw new Error("The secure invitation service has not been configured.");
-
-  const app = getApp();
-  if (!appCheckStarted) {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(guestAccessConfig.appCheckSiteKey),
-      isTokenAutoRefreshEnabled: true,
-    });
-    appCheckStarted = true;
-  }
-
-  const auth = getAuth(app);
   if (!auth.currentUser) await signInAnonymously(auth);
-
-  const fn = httpsCallable(
-    getFunctions(app, guestAccessConfig.region),
-    guestAccessConfig.callableName
-  );
+  const fn = callWeddingFunction(guestAccessConfig.callableName);
   const response = await fn({ code });
   return response.data;
 }
