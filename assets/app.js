@@ -255,6 +255,153 @@
     return closePlayer;
   }
 
+  function setupDeviceTilt() {
+    const button = document.getElementById("motion-toggle");
+    const supported = motionOK && window.isSecureContext &&
+      typeof window.DeviceOrientationEvent !== "undefined";
+    const mobileLike = window.matchMedia("(pointer: coarse)").matches ||
+      navigator.maxTouchPoints > 0;
+
+    if (!button || !supported || !mobileLike) return;
+
+    button.hidden = false;
+    button.classList.add("is-supported");
+
+    let baseBeta = null;
+    let baseGamma = null;
+    let smoothX = 0;
+    let smoothY = 0;
+    let frame = 0;
+    let enabled = false;
+    let lastBurst = 0;
+
+    const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+
+    function resetBaseline() {
+      baseBeta = null;
+      baseGamma = null;
+      smoothX = 0;
+      smoothY = 0;
+    }
+
+    function burst(direction) {
+      const now = performance.now();
+      if (now - lastBurst < 1800 || document.body.dataset.activeView !== "home") return;
+      lastBurst = now;
+
+      const layer = document.querySelector(".ambient-layer");
+      if (!layer) return;
+
+      for (let i = 0; i < 6; i++) {
+        const spark = document.createElement("span");
+        spark.className = "tilt-spark";
+        spark.textContent = i % 3 === 0 ? "✦" : "♥";
+        spark.style.setProperty("--spark-side", direction > 0 ? "88%" : "12%");
+        spark.style.setProperty("--spark-y", (30 + Math.random() * 45).toFixed(0) + "%");
+        spark.style.setProperty("--spark-x", ((Math.random() - .5) * 90).toFixed(0) + "px");
+        spark.style.setProperty("--spark-rise", (-55 - Math.random() * 110).toFixed(0) + "px");
+        spark.style.setProperty("--spark-delay", (Math.random() * .18).toFixed(2) + "s");
+        layer.appendChild(spark);
+        spark.addEventListener("animationend", () => spark.remove(), { once: true });
+      }
+    }
+
+    function paintTilt(x, y) {
+      document.documentElement.style.setProperty("--device-x", x.toFixed(3));
+      document.documentElement.style.setProperty("--device-y", y.toFixed(3));
+      document.body.classList.toggle("phone-tilting", Math.abs(x) + Math.abs(y) > .12);
+      if (Math.abs(x) > .76) burst(x);
+    }
+
+    function onOrientation(event) {
+      if (!enabled || document.body.dataset.activeView !== "home") return;
+      if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
+
+      if (baseBeta === null || baseGamma === null) {
+        baseBeta = event.beta;
+        baseGamma = event.gamma;
+        return;
+      }
+
+      const angle = Number(screen.orientation?.angle || window.orientation || 0);
+      let rawX;
+      let rawY;
+
+      if (Math.abs(angle) === 90 || Math.abs(angle) === 270) {
+        const direction = angle === 90 || angle === -270 ? 1 : -1;
+        rawX = direction * (event.beta - baseBeta) / 26;
+        rawY = -direction * (event.gamma - baseGamma) / 23;
+      } else {
+        rawX = (event.gamma - baseGamma) / 23;
+        rawY = (event.beta - baseBeta) / 28;
+      }
+
+      const targetX = clamp(rawX, -1, 1);
+      const targetY = clamp(rawY, -1, 1);
+      smoothX += (targetX - smoothX) * .16;
+      smoothY += (targetY - smoothY) * .16;
+
+      if (!frame) {
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          paintTilt(smoothX, smoothY);
+        });
+      }
+    }
+
+    async function enableTilt() {
+      button.disabled = true;
+      const label = button.querySelector("strong");
+      const sub = button.querySelector("small");
+      if (label) label.textContent = "Requesting motion…";
+
+      try {
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+          const permission = await DeviceOrientationEvent.requestPermission();
+          if (permission !== "granted") throw new Error("Motion permission was not granted.");
+        }
+
+        enabled = true;
+        resetBaseline();
+        window.addEventListener("deviceorientation", onOrientation, { passive: true });
+        window.addEventListener("orientationchange", resetBaseline, { passive: true });
+        button.setAttribute("aria-pressed", "true");
+        button.classList.add("is-on");
+        if (label) label.textContent = "Tilt magic is on";
+        if (sub) sub.textContent = "Gently move your phone";
+      } catch (error) {
+        enabled = false;
+        button.setAttribute("aria-pressed", "false");
+        if (label) label.textContent = "Enable tilt magic";
+        if (sub) sub.textContent = "Motion access was not enabled";
+        console.info("Device orientation unavailable:", error);
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    button.addEventListener("click", () => {
+      if (!enabled) {
+        enableTilt();
+        return;
+      }
+      enabled = false;
+      window.removeEventListener("deviceorientation", onOrientation);
+      resetBaseline();
+      paintTilt(0, 0);
+      button.setAttribute("aria-pressed", "false");
+      button.classList.remove("is-on");
+      const label = button.querySelector("strong");
+      const sub = button.querySelector("small");
+      if (label) label.textContent = "Enable tilt magic";
+      if (sub) sub.textContent = "Move your phone to animate the page";
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden && enabled) paintTilt(0, 0);
+    });
+  }
+
   function setupHeroParallax() {
     const art = document.querySelector(".hero-art");
     if (!art || !finePointer || !motionOK) return;
@@ -458,6 +605,7 @@
   createAmbience();
   const closeHomeMusic = setupHomeMusic();
   setupHeroParallax();
+  setupDeviceTilt();
   setupSealSurprise();
   setupHeaderScroll();
   setupRipples();
