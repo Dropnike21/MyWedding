@@ -40,6 +40,7 @@
 
   const camera = {
     preview: document.getElementById("camera-preview"),
+    session: document.getElementById("camera-session"),
     video: document.getElementById("camera-video"),
     canvas: document.getElementById("camera-capture-canvas"),
     flight: document.getElementById("camera-capture-flight"),
@@ -49,37 +50,33 @@
     take: document.getElementById("take-photo"),
     message: document.getElementById("camera-message"),
     quickTools: document.getElementById("camera-quick-tools"),
+    railToggle: document.getElementById("camera-rail-toggle"),
     flip: document.getElementById("camera-flip"),
     torch: document.getElementById("camera-torch"),
+    timerButton: document.getElementById("camera-timer"),
+    timerBadge: document.getElementById("camera-timer-badge"),
     effectsToggle: document.getElementById("camera-effects-toggle"),
     effectsPanel: document.getElementById("camera-effects-panel"),
     effectCategories: document.getElementById("camera-effect-categories"),
     effectsGrid: document.getElementById("camera-effects-grid"),
-    controlsToggle: document.getElementById("camera-controls-toggle"),
-    advancedControls: document.getElementById("camera-advanced-controls"),
-    zoomRow: document.getElementById("camera-zoom-row"),
-    zoom: document.getElementById("camera-zoom"),
-    zoomValue: document.getElementById("camera-zoom-value"),
-    exposureRow: document.getElementById("camera-exposure-row"),
-    exposure: document.getElementById("camera-exposure"),
-    exposureValue: document.getElementById("camera-exposure-value"),
     gridOverlay: document.getElementById("camera-grid-overlay"),
     countdown: document.getElementById("camera-countdown"),
-    gridToggle: document.getElementById("camera-grid-toggle"),
-    timerButtons: [...document.querySelectorAll("[data-timer]")],
-    filterButtons: [],
-    qualityButtons: [...document.querySelectorAll(".camera-quality")],
+    focusPoint: document.getElementById("camera-focus-point"),
+    exposureHud: document.getElementById("camera-exposure-hud"),
+    exposureIndicator: document.getElementById("camera-exposure-indicator"),
     filmTrack: document.getElementById("camera-film-track"),
     filmEmpty: document.getElementById("camera-film-empty"),
     quotaLabel: document.getElementById("camera-session-quota"),
     stream: null,
     track: null,
+    capabilities: {},
+    supportedConstraints: {},
     facingMode: "environment",
     torchOn: false,
     filter: "natural",
-    quality: "balanced",
+    quality: "high",
     timer: 0,
-    gridOn: false,
+    gridOn: true,
     photoLimit: 50,
     photosUsed: 0,
     localTaken: 0,
@@ -87,51 +84,42 @@
     capturing: false,
     effectPreviewData: "",
     activeEffectGroup: "Essentials",
+    railOpen: false,
+    hardwareZoom: false,
+    zoomMin: 1,
+    zoomMax: 3,
+    zoomValue: 1,
+    digitalZoom: 1,
+    exposureMin: -1,
+    exposureMax: 1,
+    exposureValue: 0,
+    hardwareExposure: false,
+    pointers: new Map(),
+    pinchStartDistance: 0,
+    pinchStartZoom: 1,
+    dragStartY: 0,
+    dragStartExposure: 0,
+    gestureMoved: false,
   };
+
+  function clamp(value,min,max) {
+    return Math.min(max,Math.max(min,value));
+  }
 
   function cameraRemaining() {
     return Math.max(0, camera.photoLimit - camera.photosUsed - camera.localTaken);
   }
 
   function updateCameraQuota() {
-    if (!camera.quotaLabel) return;
-    camera.quotaLabel.textContent = cameraRemaining() + " left";
+    if (camera.quotaLabel) camera.quotaLabel.textContent = cameraRemaining() + " left";
     if (camera.take) camera.take.disabled = cameraRemaining() <= 0;
   }
 
-  function configureCameraSession(detail = {}) {
-    camera.photoLimit = Math.max(1, Number(detail.photoLimit || 50));
-    camera.photosUsed = Math.max(0, Number(detail.photosUsed || 0));
-    camera.localTaken = 0;
-    clearFilm();
-    updateCameraQuota();
-  }
-
-  function stopStream({ hideControls = true } = {}) {
-    if (camera.stream) {
-      camera.stream.getTracks().forEach(track => track.stop());
-      camera.stream = null;
-    }
-    camera.track = null;
-    camera.torchOn = false;
-    if (camera.video) {
-      camera.video.pause();
-      camera.video.srcObject = null;
-      camera.video.hidden = true;
-      camera.video.classList.remove("is-selfie");
-    }
-    if (camera.torch) {
-      camera.torch.classList.remove("active");
-      camera.torch.hidden = true;
-    }
-    if (camera.zoomRow) camera.zoomRow.hidden = true;
-    if (camera.exposureRow) camera.exposureRow.hidden = true;
-    if (hideControls) {
-      if (camera.quickTools) camera.quickTools.hidden = true;
-      closeCameraSheet();
-      if (camera.effectsToggle) camera.effectsToggle.setAttribute("aria-expanded", "false");
-      if (camera.controlsToggle) camera.controlsToggle.setAttribute("aria-expanded", "false");
-    }
+  function maxVisibleFilmFrames(sampleWidth = 36) {
+    if (!camera.filmTrack || !camera.filmEmpty) return 3;
+    const trackWidth = camera.filmTrack.clientWidth || 180;
+    const emptyWidth = camera.filmEmpty.getBoundingClientRect().width || 34;
+    return Math.max(1, Math.floor((trackWidth - emptyWidth - 4) / (sampleWidth + 4)));
   }
 
   function clearFilm() {
@@ -143,31 +131,119 @@
     camera.filmTrack?.querySelectorAll(".camera-film-frame").forEach(node => node.remove());
   }
 
+  function addHistoryFrame(number) {
+    if (!camera.filmTrack || !camera.filmEmpty) return;
+    const frame = document.createElement("div");
+    frame.className = "camera-film-frame is-history";
+    frame.setAttribute("aria-hidden","true");
+    const count = document.createElement("span");
+    count.textContent = String(number).padStart(2,"0");
+    frame.appendChild(count);
+    camera.filmTrack.insertBefore(frame,camera.filmEmpty);
+    camera.frames.push({ url:null,node:frame,history:true });
+  }
+
+  function hydrateFilmHistory(used) {
+    clearFilm();
+    const count = Math.max(0,Number(used||0));
+    if (!count) return;
+    requestAnimationFrame(() => {
+      const visible = maxVisibleFilmFrames(34);
+      const start = Math.max(1,count-visible+1);
+      for (let n=start;n<=count;n+=1) addHistoryFrame(n);
+    });
+  }
+
+  function configureCameraSession(detail = {}) {
+    camera.photoLimit = Math.max(1, Number(detail.photoLimit || 50));
+    camera.photosUsed = Math.max(0, Number(detail.photosUsed || 0));
+    camera.localTaken = 0;
+    hydrateFilmHistory(camera.photosUsed);
+    updateCameraQuota();
+  }
+
+  function combinedPreviewFilter() {
+    const base = CAMERA_FILTERS[camera.filter]?.css || "none";
+    const exposure = camera.hardwareExposure ? 0 : camera.exposureValue;
+    const brightness = 1 + exposure * .14;
+    return (base === "none" ? "" : base + " ") + "brightness(" + brightness.toFixed(3) + ")";
+  }
+
+  function updateVideoPresentation() {
+    if (!camera.video) return;
+    camera.video.style.filter = combinedPreviewFilter();
+    const zoom = camera.hardwareZoom ? 1 : camera.digitalZoom;
+    const mirror = camera.facingMode === "user" ? " scaleX(-1)" : "";
+    camera.video.style.transform = "scale(" + zoom.toFixed(3) + ")" + mirror;
+  }
+
+  function updateCameraOrientation() {
+    const landscape = window.matchMedia("(orientation: landscape)").matches;
+    camera.session?.classList.toggle("is-landscape",landscape);
+    document.body.classList.toggle("camera-landscape",landscape && document.body.classList.contains("camera-session-active"));
+  }
+
+  function closeCameraSheet() {
+    if (camera.effectsPanel) camera.effectsPanel.hidden = true;
+    camera.effectsToggle?.setAttribute("aria-expanded","false");
+  }
+
+  function setRail(open) {
+    camera.railOpen = Boolean(open);
+    camera.quickTools?.classList.toggle("is-open",camera.railOpen);
+    camera.railToggle?.classList.toggle("is-open",camera.railOpen);
+    camera.railToggle?.setAttribute("aria-expanded",String(camera.railOpen));
+    const icon = camera.railToggle?.querySelector("span");
+    if (icon) icon.textContent = camera.railOpen ? "›" : "‹";
+    if (!camera.railOpen) closeCameraSheet();
+  }
+
+  function stopStream({ hideControls = true } = {}) {
+    if (camera.stream) {
+      camera.stream.getTracks().forEach(track => track.stop());
+      camera.stream = null;
+    }
+    camera.track = null;
+    camera.capabilities = {};
+    camera.torchOn = false;
+    camera.hardwareZoom = false;
+    camera.hardwareExposure = false;
+    camera.zoomValue = 1;
+    camera.digitalZoom = 1;
+    camera.exposureValue = 0;
+    camera.pointers.clear();
+    if (camera.video) {
+      camera.video.pause();
+      camera.video.srcObject = null;
+      camera.video.hidden = true;
+      camera.video.style.transform = "";
+      camera.video.style.filter = "";
+    }
+    if (camera.torch) {
+      camera.torch.classList.remove("active");
+      camera.torch.hidden = true;
+    }
+    if (hideControls) {
+      if (camera.quickTools) camera.quickTools.hidden = true;
+      if (camera.railToggle) camera.railToggle.hidden = true;
+      setRail(false);
+      closeCameraSheet();
+    }
+  }
+
   function resetCamera() {
     stopStream();
     clearFilm();
     camera.localTaken = 0;
     camera.filter = "natural";
-    camera.quality = "balanced";
     camera.timer = 0;
-    camera.gridOn = false;
+    camera.gridOn = true;
     camera.capturing = false;
-    camera.filterButtons.forEach(button =>
-      button.classList.toggle("active", button.dataset.filter === "natural")
-    );
-    camera.qualityButtons.forEach(button =>
-      button.classList.toggle("active", button.dataset.quality === "balanced")
-    );
-    camera.timerButtons.forEach(button =>
-      button.classList.toggle("active", button.dataset.timer === "0")
-    );
-    if (camera.gridToggle) {
-      camera.gridToggle.classList.remove("active");
-      camera.gridToggle.setAttribute("aria-pressed", "false");
-    }
+    camera.effectPreviewData = "";
     if (camera.gridOverlay) camera.gridOverlay.hidden = true;
     if (camera.countdown) camera.countdown.hidden = true;
-    if (camera.video) camera.video.style.filter = "none";
+    if (camera.focusPoint) camera.focusPoint.hidden = true;
+    if (camera.exposureHud) camera.exposureHud.hidden = true;
     if (camera.idle) camera.idle.hidden = false;
     if (camera.start) {
       camera.start.hidden = false;
@@ -177,256 +253,352 @@
       camera.take.hidden = true;
       camera.take.disabled = false;
     }
+    if (camera.timerBadge) camera.timerBadge.textContent = "Off";
     if (camera.flight) {
       camera.flight.hidden = true;
       camera.flight.style.backgroundImage = "";
     }
     if (camera.flash) camera.flash.hidden = true;
     updateCameraQuota();
-    if (camera.message) {
-      camera.message.textContent =
-        "Your invitation has been verified. Open the camera when you're ready.";
-    }
+    if (camera.message) camera.message.textContent =
+      "Your invitation has been verified. Open the camera when you're ready.";
   }
 
   function cameraConstraints() {
-    const high = camera.quality === "high";
     return {
       video: {
         facingMode: { ideal: camera.facingMode },
-        width: { ideal: high ? 2560 : 1920 },
-        height: { ideal: high ? 1440 : 1080 },
+        width: { ideal: 2560 },
+        height: { ideal: 1920 },
         frameRate: { ideal: 30, max: 60 },
       },
-      audio: false,
+      audio:false,
     };
-  }
-
-  function setRangeControl(input, output, capability, current, suffix = "") {
-    if (!input || !capability || typeof capability !== "object") return false;
-    if (!Number.isFinite(capability.min) || !Number.isFinite(capability.max)) return false;
-    input.min = String(capability.min);
-    input.max = String(capability.max);
-    input.step = String(capability.step || Math.max((capability.max - capability.min) / 40, .01));
-    const value = Number.isFinite(current)
-      ? Math.min(capability.max, Math.max(capability.min, current))
-      : capability.min;
-    input.value = String(value);
-    if (output) output.textContent = Number(value.toFixed(2)) + suffix;
-    return true;
   }
 
   async function configureTrackCapabilities() {
     const track = camera.track;
     if (!track) return;
-
-    const capabilities = typeof track.getCapabilities === "function"
-      ? track.getCapabilities()
-      : {};
-    const settings = typeof track.getSettings === "function"
-      ? track.getSettings()
-      : {};
+    camera.supportedConstraints = navigator.mediaDevices?.getSupportedConstraints?.() || {};
+    camera.capabilities = typeof track.getCapabilities === "function" ? track.getCapabilities() : {};
+    const settings = typeof track.getSettings === "function" ? track.getSettings() : {};
 
     if (camera.torch) {
-      const torchSupported = Boolean(capabilities.torch);
-      camera.torch.hidden = !torchSupported;
-      camera.torch.disabled = !torchSupported;
+      const supported = Boolean(camera.capabilities.torch);
+      camera.torch.hidden = !supported;
+      camera.torch.disabled = !supported;
     }
 
-    if (camera.zoomRow) {
-      camera.zoomRow.hidden = !setRangeControl(
-        camera.zoom, camera.zoomValue, capabilities.zoom, settings.zoom, "×"
-      );
+    const zoom = camera.capabilities.zoom;
+    camera.hardwareZoom = Boolean(zoom && Number.isFinite(zoom.min) && Number.isFinite(zoom.max));
+    if (camera.hardwareZoom) {
+      camera.zoomMin = zoom.min;
+      camera.zoomMax = zoom.max;
+      camera.zoomValue = clamp(Number(settings.zoom || zoom.min || 1),camera.zoomMin,camera.zoomMax);
+      camera.digitalZoom = 1;
+    } else {
+      camera.zoomMin = 1;
+      camera.zoomMax = 3;
+      camera.zoomValue = 1;
+      camera.digitalZoom = 1;
     }
 
-    if (camera.exposureRow) {
-      camera.exposureRow.hidden = !setRangeControl(
-        camera.exposure, camera.exposureValue,
-        capabilities.exposureCompensation, settings.exposureCompensation, ""
-      );
+    const exposure = camera.capabilities.exposureCompensation;
+    camera.hardwareExposure = Boolean(exposure && Number.isFinite(exposure.min) && Number.isFinite(exposure.max));
+    if (camera.hardwareExposure) {
+      camera.exposureMin = exposure.min;
+      camera.exposureMax = exposure.max;
+      camera.exposureValue = clamp(Number(settings.exposureCompensation || 0),camera.exposureMin,camera.exposureMax);
+    } else {
+      camera.exposureMin = -1;
+      camera.exposureMax = 1;
+      camera.exposureValue = 0;
     }
 
-    if (Array.isArray(capabilities.focusMode) &&
-        capabilities.focusMode.includes("continuous")) {
+    if (Array.isArray(camera.capabilities.focusMode) &&
+        camera.capabilities.focusMode.includes("continuous")) {
+      try { await track.applyConstraints({ advanced:[{ focusMode:"continuous" }] }); } catch {}
+    }
+    updateVideoPresentation();
+  }
+
+  async function setCameraZoom(value) {
+    const next = clamp(value,camera.zoomMin,camera.zoomMax);
+    camera.zoomValue = next;
+    if (camera.hardwareZoom && camera.track) {
       try {
-        await track.applyConstraints({ advanced: [{ focusMode: "continuous" }] });
+        await camera.track.applyConstraints({ advanced:[{ zoom:next }] });
+      } catch {
+        camera.hardwareZoom = false;
+        camera.zoomMin = 1;
+        camera.zoomMax = 3;
+        camera.digitalZoom = clamp(next,1,3);
+      }
+    } else {
+      camera.digitalZoom = clamp(next,1,3);
+    }
+    updateVideoPresentation();
+  }
+
+  async function setCameraExposure(value) {
+    const next = clamp(value,camera.exposureMin,camera.exposureMax);
+    camera.exposureValue = next;
+    if (camera.hardwareExposure && camera.track) {
+      try {
+        await camera.track.applyConstraints({ advanced:[{ exposureCompensation:next }] });
+      } catch {
+        camera.hardwareExposure = false;
+        camera.exposureMin = -1;
+        camera.exposureMax = 1;
+        camera.exposureValue = clamp(next,-1,1);
+      }
+    }
+    updateVideoPresentation();
+    const span = camera.exposureMax-camera.exposureMin || 1;
+    const pct = (camera.exposureValue-camera.exposureMin)/span;
+    if (camera.exposureIndicator) camera.exposureIndicator.style.top = (100-pct*100).toFixed(1)+"%";
+  }
+
+  function showFocusUi(clientX,clientY) {
+    if (!camera.preview || !camera.focusPoint || !camera.exposureHud) return;
+    const rect = camera.preview.getBoundingClientRect();
+    const x = clamp(clientX-rect.left,18,rect.width-18);
+    const y = clamp(clientY-rect.top,18,rect.height-18);
+    camera.focusPoint.hidden = false;
+    camera.focusPoint.style.left = x+"px";
+    camera.focusPoint.style.top = y+"px";
+    camera.focusPoint.classList.remove("pulse");
+    void camera.focusPoint.offsetWidth;
+    camera.focusPoint.classList.add("pulse");
+    camera.exposureHud.hidden = false;
+    camera.exposureHud.style.left = clamp(x+34,24,rect.width-34)+"px";
+    camera.exposureHud.style.top = clamp(y-46,40,rect.height-120)+"px";
+  }
+
+  async function focusAt(clientX,clientY) {
+    if (!camera.preview || !camera.track || !camera.video) return;
+    showFocusUi(clientX,clientY);
+    const rect = camera.preview.getBoundingClientRect();
+    let nx = clamp((clientX-rect.left)/rect.width,0,1);
+    const ny = clamp((clientY-rect.top)/rect.height,0,1);
+    if (camera.facingMode === "user") nx = 1-nx;
+    const point = {
+      x:Math.round(nx*Math.max(1,camera.video.videoWidth)),
+      y:Math.round(ny*Math.max(1,camera.video.videoHeight)),
+    };
+    const focusModes = Array.isArray(camera.capabilities.focusMode) ? camera.capabilities.focusMode : [];
+    if (camera.supportedConstraints.pointsOfInterest && focusModes.includes("single-shot")) {
+      try {
+        await camera.track.applyConstraints({
+          advanced:[{ pointsOfInterest:[point],focusMode:"single-shot" }]
+        });
+        setTimeout(() => {
+          if (camera.track && focusModes.includes("continuous")) {
+            camera.track.applyConstraints({ advanced:[{ focusMode:"continuous" }] }).catch(()=>{});
+          }
+        },900);
       } catch {}
     }
   }
 
-  async function startCamera({ restarting = false } = {}) {
-    stopStream({ hideControls: false });
-    camera.message.textContent = restarting
-      ? "Switching camera…"
-      : "Requesting permission to use your camera…";
-    camera.start.disabled = true;
+  function pointerDistance(values) {
+    if (values.length<2) return 0;
+    return Math.hypot(values[0].x-values[1].x,values[0].y-values[1].y);
+  }
 
+  function setupCameraGestures() {
+    if (!camera.preview) return;
+    camera.preview.addEventListener("pointerdown",event => {
+      if (!camera.stream || event.target.closest("button,.camera-sheet")) return;
+      camera.preview.setPointerCapture?.(event.pointerId);
+      camera.pointers.set(event.pointerId,{x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY});
+      camera.gestureMoved = false;
+      if (camera.pointers.size===1) {
+        camera.dragStartY = event.clientY;
+        camera.dragStartExposure = camera.exposureValue;
+        showFocusUi(event.clientX,event.clientY);
+      } else if (camera.pointers.size===2) {
+        const values=[...camera.pointers.values()];
+        camera.pinchStartDistance = pointerDistance(values);
+        camera.pinchStartZoom = camera.hardwareZoom ? camera.zoomValue : camera.digitalZoom;
+        if (camera.exposureHud) camera.exposureHud.hidden = true;
+      }
+    });
+
+    camera.preview.addEventListener("pointermove",event => {
+      const pointer=camera.pointers.get(event.pointerId);
+      if (!pointer || !camera.stream) return;
+      pointer.x=event.clientX; pointer.y=event.clientY;
+      camera.pointers.set(event.pointerId,pointer);
+
+      if (camera.pointers.size>=2) {
+        const values=[...camera.pointers.values()].slice(0,2);
+        const distance=pointerDistance(values);
+        if (camera.pinchStartDistance>0) {
+          camera.gestureMoved=true;
+          setCameraZoom(camera.pinchStartZoom*(distance/camera.pinchStartDistance));
+        }
+        return;
+      }
+
+      const dy=event.clientY-camera.dragStartY;
+      if (Math.abs(dy)>8) {
+        camera.gestureMoved=true;
+        const span=camera.exposureMax-camera.exposureMin || 2;
+        const next=camera.dragStartExposure-(dy/Math.max(140,camera.preview.clientHeight*.45))*span;
+        setCameraExposure(next);
+      }
+    });
+
+    const finishPointer=event => {
+      const pointer=camera.pointers.get(event.pointerId);
+      const wasSingle=camera.pointers.size===1;
+      camera.pointers.delete(event.pointerId);
+      if (wasSingle && pointer && !camera.gestureMoved) focusAt(event.clientX,event.clientY);
+      if (camera.pointers.size<2) camera.pinchStartDistance=0;
+    };
+    camera.preview.addEventListener("pointerup",finishPointer);
+    camera.preview.addEventListener("pointercancel",finishPointer);
+  }
+
+  async function startCamera({ restarting=false }={}) {
+    stopStream({ hideControls:false });
+    camera.message.textContent = restarting ? "Switching camera…" : "Requesting permission to use your camera…";
+    camera.start.disabled=true;
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      camera.message.textContent =
-        "This browser cannot open a camera here. Use HTTPS on a compatible device.";
-      camera.start.disabled = false;
+      camera.message.textContent="This browser cannot open a camera here. Use HTTPS on a compatible device.";
+      camera.start.disabled=false;
       return;
     }
-
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(cameraConstraints());
-      camera.stream = stream;
-      camera.track = stream.getVideoTracks()[0] || null;
-      camera.video.srcObject = stream;
-      camera.video.hidden = false;
-      camera.video.classList.toggle("is-selfie", camera.facingMode === "user");
-      camera.video.style.filter = CAMERA_FILTERS[camera.filter].css;
-      camera.idle.hidden = true;
+      const stream=await navigator.mediaDevices.getUserMedia(cameraConstraints());
+      camera.stream=stream;
+      camera.track=stream.getVideoTracks()[0]||null;
+      camera.video.srcObject=stream;
+      camera.video.hidden=false;
+      camera.idle.hidden=true;
       await camera.video.play();
       await configureTrackCapabilities();
-
-      camera.message.textContent =
-        CAMERA_FILTERS[camera.filter].label + " · " +
-        (camera.facingMode === "user" ? "Front camera" : "Back camera");
-      camera.start.hidden = true;
-      camera.take.hidden = false;
-      camera.quickTools.hidden = false;
+      if (camera.gridOverlay) camera.gridOverlay.hidden=false;
+      camera.message.textContent="Tap to focus · slide up/down for exposure · pinch to zoom";
+      camera.start.hidden=true;
+      camera.take.hidden=false;
+      camera.quickTools.hidden=false;
+      camera.railToggle.hidden=false;
+      setRail(false);
+      updateCameraOrientation();
       updateCameraQuota();
-    } catch (error) {
+    } catch(error) {
       stopStream();
-      const name = error && error.name;
+      const name=error&&error.name;
       camera.message.textContent =
-        name === "NotAllowedError" || name === "PermissionDeniedError"
+        name==="NotAllowedError"||name==="PermissionDeniedError"
           ? "Camera access was denied. Allow camera permission in your browser settings."
-          : name === "NotFoundError"
+          : name==="NotFoundError"
             ? "No camera was detected on this device."
             : "The camera could not start. Another app may be using it.";
     } finally {
-      camera.start.disabled = false;
+      camera.start.disabled=false;
     }
   }
 
   async function switchCamera() {
     if (camera.capturing) return;
-    camera.facingMode = camera.facingMode === "environment" ? "user" : "environment";
-    await startCamera({ restarting: true });
+    camera.facingMode=camera.facingMode==="environment"?"user":"environment";
+    await startCamera({restarting:true});
   }
 
   async function toggleTorch() {
     if (!camera.track || camera.torch.hidden) return;
-    camera.torchOn = !camera.torchOn;
+    camera.torchOn=!camera.torchOn;
     try {
-      await camera.track.applyConstraints({ advanced: [{ torch: camera.torchOn }] });
-      camera.torch.classList.toggle("active", camera.torchOn);
+      await camera.track.applyConstraints({ advanced:[{torch:camera.torchOn}] });
+      camera.torch.classList.toggle("active",camera.torchOn);
     } catch {
-      camera.torchOn = false;
+      camera.torchOn=false;
       camera.torch.classList.remove("active");
-      camera.message.textContent = "This phone couldn't switch the camera light.";
+      camera.message.textContent="This phone couldn't switch the camera light.";
     }
   }
 
-  async function applyTrackValue(name, value, output, suffix = "") {
-    if (!camera.track) return;
-    const number = Number(value);
-    try {
-      await camera.track.applyConstraints({ advanced: [{ [name]: number }] });
-      if (output) output.textContent = Number(number.toFixed(2)) + suffix;
-    } catch {
-      camera.message.textContent = "That camera control isn't available on this device.";
-    }
+  function cycleTimer() {
+    camera.timer=camera.timer===0?3:camera.timer===3?10:0;
+    if (camera.timerBadge) camera.timerBadge.textContent=camera.timer?camera.timer+"s":"Off";
+    camera.timerButton?.classList.toggle("active",camera.timer>0);
+    camera.message.textContent=camera.timer?camera.timer+" second self timer":"Self timer off";
   }
 
-  function closeCameraSheet() {
-    if (camera.effectsPanel) camera.effectsPanel.hidden = true;
-    if (camera.advancedControls) camera.advancedControls.hidden = true;
-    camera.effectsToggle?.setAttribute("aria-expanded","false");
-    camera.controlsToggle?.setAttribute("aria-expanded","false");
-  }
-
-  function openCameraSheet(which) {
-    const effects = which === "effects";
-    if (camera.effectsPanel) camera.effectsPanel.hidden = !effects;
-    if (camera.advancedControls) camera.advancedControls.hidden = effects;
-    camera.effectsToggle?.setAttribute("aria-expanded",String(effects));
-    camera.controlsToggle?.setAttribute("aria-expanded",String(!effects));
-    if (effects) refreshEffectPreviews();
+  function openCameraSheet() {
+    if (camera.effectsPanel) camera.effectsPanel.hidden=false;
+    camera.effectsToggle?.setAttribute("aria-expanded","true");
+    refreshEffectPreviews();
   }
 
   function selectFilter(name) {
     if (!CAMERA_FILTERS[name]) return;
-    camera.filter = name;
+    camera.filter=name;
     camera.filterButtons.forEach(button =>
-      button.classList.toggle("active", button.dataset.filter === name)
+      button.classList.toggle("active",button.dataset.filter===name)
     );
-    camera.video.style.filter = CAMERA_FILTERS[name].css;
-    if (camera.stream) {
-      camera.message.textContent =
-        CAMERA_FILTERS[name].label + " · " +
-        (camera.facingMode === "user" ? "Front camera" : "Back camera");
-    }
+    updateVideoPresentation();
+    if (camera.stream) camera.message.textContent=CAMERA_FILTERS[name].label+" look selected";
   }
 
   function refreshEffectPreviews() {
     if (!camera.video || !camera.video.videoWidth || !camera.video.videoHeight) return;
     try {
-      const canvas = document.createElement("canvas");
-      const size = 120;
-      canvas.width = size;
-      canvas.height = size;
-      const context = canvas.getContext("2d");
+      const canvas=document.createElement("canvas");
+      const size=120;
+      canvas.width=size;canvas.height=size;
+      const context=canvas.getContext("2d");
       if (!context) return;
-      const vw = camera.video.videoWidth;
-      const vh = camera.video.videoHeight;
-      const side = Math.min(vw,vh);
-      const sx = (vw-side)/2;
-      const sy = (vh-side)/2;
-      if (camera.facingMode === "user") {
-        context.translate(size,0);
-        context.scale(-1,1);
-      }
+      const vw=camera.video.videoWidth,vh=camera.video.videoHeight,side=Math.min(vw,vh);
+      const sx=(vw-side)/2,sy=(vh-side)/2;
+      if (camera.facingMode==="user") { context.translate(size,0);context.scale(-1,1); }
       context.drawImage(camera.video,sx,sy,side,side,0,0,size,size);
-      camera.effectPreviewData = canvas.toDataURL("image/jpeg",.66);
+      camera.effectPreviewData=canvas.toDataURL("image/jpeg",.66);
       camera.effectsGrid?.querySelectorAll(".camera-effect-preview").forEach(preview => {
-        preview.style.backgroundImage = 'url("' + camera.effectPreviewData + '")';
-        const filter = preview.closest(".camera-effect")?.dataset.filter;
-        if (filter && CAMERA_FILTERS[filter]) preview.style.filter = CAMERA_FILTERS[filter].css;
+        preview.style.backgroundImage='url("'+camera.effectPreviewData+'")';
+        const filter=preview.closest(".camera-effect")?.dataset.filter;
+        if (filter&&CAMERA_FILTERS[filter]) preview.style.filter=CAMERA_FILTERS[filter].css;
       });
     } catch {}
   }
 
   function renderEffectCatalog() {
     if (!camera.effectCategories || !camera.effectsGrid) return;
-    const groups = [...new Set(Object.values(CAMERA_FILTERS).map(item => item.group))];
+    const groups=[...new Set(Object.values(CAMERA_FILTERS).map(item=>item.group))];
     camera.effectCategories.replaceChildren();
     camera.effectsGrid.replaceChildren();
-
-    const renderGroup = group => {
-      camera.activeEffectGroup = group;
+    const renderGroup=group => {
+      camera.activeEffectGroup=group;
       camera.effectsGrid.replaceChildren();
-      const entries = Object.entries(CAMERA_FILTERS).filter(([,item]) => item.group === group);
+      const entries=Object.entries(CAMERA_FILTERS).filter(([,item])=>item.group===group);
       for (const [key,item] of entries) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "camera-effect";
-        button.dataset.filter = key;
-        const previewStyle = camera.effectPreviewData
+        const button=document.createElement("button");
+        button.type="button";
+        button.className="camera-effect";
+        button.dataset.filter=key;
+        const previewStyle=camera.effectPreviewData
           ? 'background-image:url(&quot;'+camera.effectPreviewData+'&quot;);filter:'+item.css
           : 'background:'+item.swatch;
-        button.innerHTML =
-          '<span class="camera-effect-preview" style="'+previewStyle+'"></span>'+
-          '<strong>'+item.label+'</strong>';
+        button.innerHTML='<span class="camera-effect-preview" style="'+previewStyle+'"></span><strong>'+item.label+'</strong>';
         button.addEventListener("click",()=>selectFilter(key));
         camera.effectsGrid.appendChild(button);
       }
-      camera.filterButtons = [...camera.effectsGrid.querySelectorAll(".camera-effect")];
+      camera.filterButtons=[...camera.effectsGrid.querySelectorAll(".camera-effect")];
       camera.filterButtons.forEach(button =>
-        button.classList.toggle("active",button.dataset.filter === camera.filter)
+        button.classList.toggle("active",button.dataset.filter===camera.filter)
       );
     };
-
-    groups.forEach((group,index) => {
-      const tab = document.createElement("button");
-      tab.type = "button";
-      tab.className = "camera-effect-category" + (index === 0 ? " active" : "");
-      tab.textContent = group;
+    groups.forEach((group,index)=>{
+      const tab=document.createElement("button");
+      tab.type="button";
+      tab.className="camera-effect-category"+(index===0?" active":"");
+      tab.textContent=group;
       tab.addEventListener("click",()=>{
         camera.effectCategories.querySelectorAll(".camera-effect-category").forEach(node =>
-          node.classList.toggle("active",node === tab)
+          node.classList.toggle("active",node===tab)
         );
         renderGroup(group);
       });
@@ -435,287 +607,263 @@
     renderGroup(groups[0]);
   }
 
-  function selectQuality(name) {
-    if (!["balanced", "high"].includes(name)) return;
-    camera.quality = name;
-    camera.qualityButtons.forEach(button =>
-      button.classList.toggle("active", button.dataset.quality === name)
-    );
-  }
-
-  function toggleGrid() {
-    camera.gridOn = !camera.gridOn;
-    camera.gridToggle?.classList.toggle("active", camera.gridOn);
-    camera.gridToggle?.setAttribute("aria-pressed", String(camera.gridOn));
-    if (camera.gridOverlay) camera.gridOverlay.hidden = !camera.gridOn;
-  }
-
-  function selectTimer(seconds) {
-    camera.timer = Math.max(0, Number(seconds) || 0);
-    camera.timerButtons.forEach(button =>
-      button.classList.toggle("active", Number(button.dataset.timer) === camera.timer)
-    );
-  }
-
   async function runCaptureTimer() {
     if (!camera.timer || !camera.countdown) return true;
-    camera.countdown.hidden = false;
-    for (let remaining = camera.timer; remaining > 0; remaining -= 1) {
-      camera.countdown.textContent = String(remaining);
+    camera.countdown.hidden=false;
+    for (let remaining=camera.timer;remaining>0;remaining-=1) {
+      camera.countdown.textContent=String(remaining);
       camera.countdown.classList.remove("tick");
       void camera.countdown.offsetWidth;
       camera.countdown.classList.add("tick");
-      navigator.vibrate?.(remaining === 1 ? 45 : 12);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      if (!camera.stream) {
-        camera.countdown.hidden = true;
-        return false;
-      }
+      navigator.vibrate?.(remaining===1?45:12);
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      if (!camera.stream) { camera.countdown.hidden=true;return false; }
     }
-    camera.countdown.hidden = true;
+    camera.countdown.hidden=true;
     return true;
   }
 
   function flashCamera() {
     if (!camera.flash) return;
-    camera.flash.hidden = false;
+    camera.flash.hidden=false;
     camera.flash.classList.remove("fire");
     void camera.flash.offsetWidth;
     camera.flash.classList.add("fire");
-    camera.flash.addEventListener("animationend", () => {
-      camera.flash.hidden = true;
+    camera.flash.addEventListener("animationend",()=>{
+      camera.flash.hidden=true;
       camera.flash.classList.remove("fire");
-    }, { once: true });
+    },{once:true});
   }
 
-  async function thumbnailFromCanvas(source) {
-    const thumb = document.createElement("canvas");
-    const targetW = 90;
-    const targetH = 116;
-    thumb.width = targetW;
-    thumb.height = targetH;
-    const context = thumb.getContext("2d");
-    if (!context) return null;
+  function captureGeometry(video) {
+    const landscape=window.matchMedia("(orientation: landscape)").matches;
+    const ratio=landscape?4/3:3/4;
+    const vw=video.videoWidth,vh=video.videoHeight;
+    let sx=0,sy=0,sw=vw,sh=vh;
+    const sourceRatio=vw/vh;
+    if (sourceRatio>ratio) { sw=vh*ratio;sx=(vw-sw)/2; }
+    else { sh=vw/ratio;sy=(vh-sh)/2; }
 
-    const sourceRatio = source.width / source.height;
-    const targetRatio = targetW / targetH;
-    let sx = 0, sy = 0, sw = source.width, sh = source.height;
-    if (sourceRatio > targetRatio) {
-      sw = source.height * targetRatio;
-      sx = (source.width - sw) / 2;
-    } else {
-      sh = source.width / targetRatio;
-      sy = (source.height - sh) / 2;
+    const digital=camera.hardwareZoom?1:camera.digitalZoom;
+    if (digital>1) {
+      const zoomW=sw/digital,zoomH=sh/digital;
+      sx+=(sw-zoomW)/2; sy+=(sh-zoomH)/2; sw=zoomW;sh=zoomH;
     }
-    context.drawImage(source, sx, sy, sw, sh, 0, 0, targetW, targetH);
-    const blob = await new Promise(resolve => thumb.toBlob(resolve, "image/jpeg", .68));
-    return blob ? URL.createObjectURL(blob) : null;
+
+    let width,height;
+    if (landscape) {
+      width=Math.min(2400,Math.max(1200,Math.round(sw)));
+      height=Math.round(width/ratio);
+    } else {
+      height=Math.min(2400,Math.max(1600,Math.round(sh)));
+      width=Math.round(height*ratio);
+    }
+    return {sx,sy,sw,sh,width,height,orientation:landscape?"landscape":"portrait"};
+  }
+
+  function drawWatermark(context,canvas) {
+    const pad=Math.max(18,canvas.width*.022);
+    const fontSize=Math.max(18,canvas.width*.022);
+    context.save();
+    context.textAlign="right";
+    context.textBaseline="bottom";
+    context.shadowColor="rgba(0,0,0,.35)";
+    context.shadowBlur=Math.max(3,fontSize*.25);
+    context.fillStyle="rgba(255,248,238,.62)";
+    context.font="italic "+fontSize+"px Georgia,serif";
+    context.fillText("A&J · 02.23.27",canvas.width-pad,canvas.height-pad);
+    context.restore();
+  }
+
+  function renderCaptureCanvas(video,{look=true,watermark=false}={}) {
+    const geometry=captureGeometry(video);
+    const canvas=document.createElement("canvas");
+    canvas.width=geometry.width;canvas.height=geometry.height;
+    const context=canvas.getContext("2d");
+    if (!context) return {canvas:null,orientation:geometry.orientation};
+
+    context.save();
+    if (look) context.filter=combinedPreviewFilter();
+    if (camera.facingMode==="user") {
+      context.translate(canvas.width,0);
+      context.scale(-1,1);
+    }
+    context.drawImage(video,geometry.sx,geometry.sy,geometry.sw,geometry.sh,0,0,canvas.width,canvas.height);
+    context.restore();
+    if (watermark) drawWatermark(context,canvas);
+    return {canvas,orientation:geometry.orientation};
+  }
+
+  async function thumbnailFromCanvas(source,orientation) {
+    const thumb=document.createElement("canvas");
+    const landscape=orientation==="landscape";
+    thumb.width=landscape?116:80;
+    thumb.height=landscape?78:106;
+    const context=thumb.getContext("2d");
+    if (!context) return null;
+    context.drawImage(source,0,0,thumb.width,thumb.height);
+    const blob=await new Promise(resolve=>thumb.toBlob(resolve,"image/jpeg",.68));
+    return blob?{url:URL.createObjectURL(blob),orientation}:null;
   }
 
   function animateFilmAdvance(existing) {
-    requestAnimationFrame(() => {
-      existing.forEach(({ node, left }) => {
+    requestAnimationFrame(()=>{
+      existing.forEach(({node,left})=>{
         if (!node.isConnected) return;
-        const dx = left - node.getBoundingClientRect().left;
-        if (Math.abs(dx) < 1 || typeof node.animate !== "function") return;
+        const dx=left-node.getBoundingClientRect().left;
+        if (Math.abs(dx)<1 || typeof node.animate!=="function") return;
         node.animate(
-          [{ transform: "translateX(" + dx + "px)" }, { transform: "translateX(0)" }],
-          { duration: 360, easing: "cubic-bezier(.16,1,.3,1)" }
+          [{transform:"translateX("+dx+"px)"},{transform:"translateX(0)"}],
+          {duration:360,easing:"cubic-bezier(.16,1,.3,1)"}
         );
       });
     });
   }
 
-  function addFilmFrame(url) {
-    if (!url || !camera.filmTrack || !camera.filmEmpty) return;
-    const existingNodes = [...camera.filmTrack.querySelectorAll(".camera-film-frame")];
-    const existing = existingNodes.map(node => ({
-      node,
-      left: node.getBoundingClientRect().left,
+  function trimFilmFrames() {
+    if (!camera.filmTrack || !camera.filmEmpty) return;
+    const frames=[...camera.filmTrack.querySelectorAll(".camera-film-frame")];
+    let total=camera.filmEmpty.getBoundingClientRect().width||34;
+    const gap=4;
+    const available=camera.filmTrack.clientWidth||180;
+    const keep=[];
+    for (let i=frames.length-1;i>=0;i-=1) {
+      const width=frames[i].getBoundingClientRect().width||34;
+      if (total+gap+width>available) break;
+      keep.unshift(frames[i]);
+      total+=gap+width;
+    }
+    frames.forEach(frame=>{
+      if (!keep.includes(frame)) {
+        const record=camera.frames.find(item=>item.node===frame);
+        if (record?.url) URL.revokeObjectURL(record.url);
+        camera.frames=camera.frames.filter(item=>item.node!==frame);
+        frame.remove();
+      }
+    });
+  }
+
+  function addFilmFrame(thumbnail,number) {
+    if (!camera.filmTrack || !camera.filmEmpty || !thumbnail?.url) return;
+    const existing=[...camera.filmTrack.querySelectorAll(".camera-film-frame")].map(node=>({
+      node,left:node.getBoundingClientRect().left
     }));
-
-    const frame = document.createElement("div");
-    frame.className = "camera-film-frame";
-    frame.setAttribute("aria-hidden", "true");
-    frame.style.backgroundImage = 'url("' + url + '")';
-    const number = document.createElement("span");
-    number.textContent = String(camera.photosUsed + camera.localTaken).padStart(2, "0");
-    frame.appendChild(number);
-    camera.filmTrack.insertBefore(frame, camera.filmEmpty);
-    camera.frames.push({ url, node: frame });
-
+    const frame=document.createElement("div");
+    frame.className="camera-film-frame "+thumbnail.orientation;
+    frame.setAttribute("aria-hidden","true");
+    frame.style.backgroundImage='url("'+thumbnail.url+'")';
+    const count=document.createElement("span");
+    count.textContent=String(number).padStart(2,"0");
+    frame.appendChild(count);
+    camera.filmTrack.insertBefore(frame,camera.filmEmpty);
+    camera.frames.push({url:thumbnail.url,node:frame,orientation:thumbnail.orientation});
     animateFilmAdvance(existing);
     frame.classList.add("is-new");
-    frame.addEventListener("animationend", () => frame.classList.remove("is-new"), { once: true });
-
-    const trackWidth = camera.filmTrack.clientWidth || 180;
-    const sampleWidth = frame.getBoundingClientRect().width || 38;
-    const emptyWidth = camera.filmEmpty.getBoundingClientRect().width || sampleWidth;
-    const gap = 4;
-    const maxVisible = Math.max(1, Math.floor((trackWidth - emptyWidth - gap) / (sampleWidth + gap)));
-    while (camera.frames.length > maxVisible) {
-      const old = camera.frames.shift();
-      if (!old) break;
-      old.node?.classList.add("is-leaving");
-      setTimeout(() => {
-        old.node?.remove();
-        if (old.url) URL.revokeObjectURL(old.url);
-      }, 280);
-    }
-
+    frame.addEventListener("animationend",()=>frame.classList.remove("is-new"),{once:true});
+    requestAnimationFrame(trimFilmFrames);
     camera.filmEmpty.classList.remove("pulse");
     void camera.filmEmpty.offsetWidth;
     camera.filmEmpty.classList.add("pulse");
   }
 
-  async function animateCaptureToFilm(thumbnailUrl) {
-    if (!thumbnailUrl || !camera.flight || !camera.filmEmpty || !camera.preview) {
-      addFilmFrame(thumbnailUrl);
+  async function animateCaptureToFilm(thumbnail,number) {
+    if (!thumbnail?.url || !camera.flight || !camera.filmEmpty || !camera.preview) {
+      addFilmFrame(thumbnail,number);
       return;
     }
-
-    const source = camera.preview.getBoundingClientRect();
-    const target = camera.filmEmpty.getBoundingClientRect();
-    const startW = Math.min(150, source.width * .34);
-    const startH = startW * 1.28;
-    const startX = source.left + source.width / 2 - startW / 2;
-    const startY = source.top + source.height / 2 - startH / 2;
-
-    camera.flight.style.backgroundImage = 'url("' + thumbnailUrl + '")';
-    camera.flight.hidden = false;
-
-    if (typeof camera.flight.animate === "function") {
-      const animation = camera.flight.animate([
-        {
-          left: startX + "px", top: startY + "px",
-          width: startW + "px", height: startH + "px",
-          opacity: 1, transform: "rotate(-2deg) scale(1)"
-        },
-        {
-          left: target.left + "px", top: target.top + "px",
-          width: target.width + "px", height: target.height + "px",
-          opacity: .9, transform: "rotate(1deg) scale(.96)"
-        }
-      ], {
-        duration: 540,
-        easing: "cubic-bezier(.18,.82,.22,1)",
-        fill: "forwards"
-      });
+    const source=camera.preview.getBoundingClientRect();
+    const target=camera.filmEmpty.getBoundingClientRect();
+    const landscape=thumbnail.orientation==="landscape";
+    const startW=Math.min(landscape?175:135,source.width*.34);
+    const startH=landscape?startW*.67:startW*1.32;
+    const startX=source.left+source.width/2-startW/2;
+    const startY=source.top+source.height/2-startH/2;
+    camera.flight.style.backgroundImage='url("'+thumbnail.url+'")';
+    camera.flight.hidden=false;
+    if (typeof camera.flight.animate==="function") {
+      const animation=camera.flight.animate([
+        {left:startX+"px",top:startY+"px",width:startW+"px",height:startH+"px",opacity:1,transform:"rotate(-2deg) scale(1)"},
+        {left:target.left+"px",top:target.top+"px",width:target.width+"px",height:target.height+"px",opacity:.9,transform:"rotate(1deg) scale(.96)"}
+      ],{duration:540,easing:"cubic-bezier(.18,.82,.22,1)",fill:"forwards"});
       try { await animation.finished; } catch {}
       animation.cancel();
     }
-
-    camera.flight.hidden = true;
-    camera.flight.style.backgroundImage = "";
-    addFilmFrame(thumbnailUrl);
+    camera.flight.hidden=true;
+    camera.flight.style.backgroundImage="";
+    addFilmFrame(thumbnail,number);
   }
 
   async function capturePhoto() {
-    const video = camera.video;
-    if (camera.capturing || !camera.stream || !video.videoWidth || !video.videoHeight) {
+    const video=camera.video;
+    if (camera.capturing || !camera.stream || !video.videoWidth || !video.videoHeight) return;
+    if (cameraRemaining()<=0) {
+      camera.message.textContent="This invitation's 50-photo film roll is full.";
+      camera.take.disabled=true;
       return;
     }
-    if (cameraRemaining() <= 0) {
-      camera.message.textContent = "This invitation's 50-photo film roll is full.";
-      camera.take.disabled = true;
-      return;
+    camera.capturing=true;
+    camera.take.disabled=true;
+    if (camera.timer>0) {
+      const done=await runCaptureTimer();
+      if (!done) { camera.capturing=false;camera.take.disabled=cameraRemaining()<=0;return; }
     }
-
-    camera.capturing = true;
-    camera.take.disabled = true;
-
-    if (camera.timer > 0) {
-      const timerFinished = await runCaptureTimer();
-      if (!timerFinished) {
-        camera.capturing = false;
-        camera.take.disabled = cameraRemaining() <= 0;
-        return;
-      }
-    }
-
     flashCamera();
     navigator.vibrate?.(18);
-
     try {
-      const maxWidth = camera.quality === "high" ? 2400 : 1600;
-      const factor = Math.min(1, maxWidth / video.videoWidth);
-      const canvas = camera.canvas;
-      canvas.width = Math.max(1, Math.round(video.videoWidth * factor));
-      canvas.height = Math.max(1, Math.round(video.videoHeight * factor));
-      const context = canvas.getContext("2d");
-      if (!context) throw new Error("Canvas unavailable");
-
-      context.save();
-      context.filter = CAMERA_FILTERS[camera.filter].css;
-      if (camera.facingMode === "user") {
-        context.translate(canvas.width, 0);
-        context.scale(-1, 1);
-      }
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      context.restore();
-
-      const quality = camera.quality === "high" ? .92 : .86;
-      const photo = await new Promise(resolve =>
-        canvas.toBlob(resolve, "image/jpeg", quality)
-      );
-      if (!photo) throw new Error("Photo capture failed");
-
-      const thumbnailUrl = await thumbnailFromCanvas(canvas);
-      camera.localTaken += 1;
+      const raw=renderCaptureCanvas(video,{look:false,watermark:false});
+      const final=renderCaptureCanvas(video,{look:true,watermark:true});
+      if (!raw.canvas || !final.canvas) throw new Error("Canvas unavailable");
+      const rawBlob=await new Promise(resolve=>raw.canvas.toBlob(resolve,"image/jpeg",.94));
+      const photo=await new Promise(resolve=>final.canvas.toBlob(resolve,"image/jpeg",.93));
+      if (!photo || !rawBlob) throw new Error("Photo capture failed");
+      const thumbnail=await thumbnailFromCanvas(final.canvas,final.orientation);
+      camera.localTaken+=1;
+      const number=camera.photosUsed+camera.localTaken;
       updateCameraQuota();
-
-      await animateCaptureToFilm(thumbnailUrl);
-      camera.message.textContent =
-        "Moment sealed · " + cameraRemaining() + " frames left on this invitation";
-
-      document.dispatchEvent(new CustomEvent("wedding:photo-captured", {
-        detail: {
-          blob: photo,
-          filter: camera.filter,
-          quality: camera.quality,
-          facingMode: camera.facingMode,
-          localSequence: camera.localTaken,
+      await animateCaptureToFilm(thumbnail,number);
+      camera.message.textContent="Moment sealed · "+cameraRemaining()+" frames left";
+      document.dispatchEvent(new CustomEvent("wedding:photo-captured",{
+        detail:{
+          blob:photo,
+          rawBlob,
+          filter:camera.filter,
+          quality:"high",
+          facingMode:camera.facingMode,
+          orientation:final.orientation,
+          watermarked:true,
+          localSequence:camera.localTaken,
         }
       }));
-    } catch (error) {
-      camera.message.textContent = "That photo couldn't be captured. Please try again.";
-      console.error("Wedding camera capture failed:", error);
+    } catch(error) {
+      camera.message.textContent="That photo couldn't be captured. Please try again.";
+      console.error("Wedding camera capture failed:",error);
     } finally {
-      camera.capturing = false;
-      camera.take.disabled = cameraRemaining() <= 0;
+      camera.capturing=false;
+      camera.take.disabled=cameraRemaining()<=0;
     }
   }
 
-  camera.start?.addEventListener("click", () => startCamera());
-  camera.take?.addEventListener("click", capturePhoto);
-  camera.flip?.addEventListener("click", switchCamera);
-  camera.torch?.addEventListener("click", toggleTorch);
-  camera.effectsToggle?.addEventListener("click", () => {
-    const open = camera.effectsToggle.getAttribute("aria-expanded") === "true";
-    if (open) closeCameraSheet(); else openCameraSheet("effects");
-  });
-  camera.controlsToggle?.addEventListener("click", () => {
-    const open = camera.controlsToggle.getAttribute("aria-expanded") === "true";
-    if (open) closeCameraSheet(); else openCameraSheet("controls");
+  camera.start?.addEventListener("click",()=>startCamera());
+  camera.take?.addEventListener("click",capturePhoto);
+  camera.flip?.addEventListener("click",switchCamera);
+  camera.torch?.addEventListener("click",toggleTorch);
+  camera.timerButton?.addEventListener("click",cycleTimer);
+  camera.railToggle?.addEventListener("click",()=>setRail(!camera.railOpen));
+  camera.effectsToggle?.addEventListener("click",()=>{
+    const open=camera.effectsToggle.getAttribute("aria-expanded")==="true";
+    if (open) closeCameraSheet(); else openCameraSheet();
   });
   document.querySelectorAll("[data-close-camera-sheet]").forEach(button =>
-    button.addEventListener("click", closeCameraSheet)
-  );
-  camera.zoom?.addEventListener("input", event =>
-    applyTrackValue("zoom", event.target.value, camera.zoomValue, "×")
-  );
-  camera.exposure?.addEventListener("input", event =>
-    applyTrackValue("exposureCompensation", event.target.value, camera.exposureValue)
-  );
-  camera.qualityButtons.forEach(button =>
-    button.addEventListener("click", () => selectQuality(button.dataset.quality))
-  );
-  camera.gridToggle?.addEventListener("click", toggleGrid);
-  camera.timerButtons.forEach(button =>
-    button.addEventListener("click", () => selectTimer(button.dataset.timer))
+    button.addEventListener("click",closeCameraSheet)
   );
 
+  setupCameraGestures();
   renderEffectCatalog();
+  updateCameraOrientation();
+  if (screen.orientation?.addEventListener) {
+    screen.orientation.addEventListener("change",updateCameraOrientation);
+  }
+  window.addEventListener("resize",updateCameraOrientation,{passive:true});
 
   const revealObserver = motionOK && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
