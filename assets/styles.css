@@ -1,5 +1,6 @@
 :root{--bg:#f7f4ec;--paper:#fffdfa;--ink:#282b32;--quiet:#74757b;--pine:#28463e;--sage:#8ba79a;--cream:#e8dfce;--border:#dedacf;--gold:#b49468;--rose:#f2e7df;--shadow:0 28px 65px rgba(36,38,34,.10)}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html{scroll-behavior:smooth}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
 button,input{font:inherit}
