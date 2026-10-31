@@ -82,7 +82,8 @@ function load() {
     return seed();
   }
 }
-let db = load();
+let db = plannerFirestore.enabled ? seed() : load();
+if (plannerFirestore.enabled) localStorage.removeItem(STORAGE_KEY);
 let currentView = "overview";
 let selectedId = null;
 let search = "";
@@ -105,7 +106,7 @@ function setSyncState(label,bad=false) {
 }
 
 function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+  if(!plannerFirestore.enabled) localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
   if(remoteActive){
     setSyncState("SYNCING");
     plannerFirestore.queue(db)
@@ -245,7 +246,7 @@ function renderOverview() {
   const recentTasks=active(db.tasks).filter(t=>t.status!=="Done").sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999")).slice(0,5);
   const decisions=active(db.decisions).filter(d=>d.status!=="Decided").slice(0,4);
   root.innerHTML =
-    header("Wedding Overview","A consolidated view of the plans stored in this browser.","<button class='button primary planner-compact' data-jump='guests'>+ Add guest</button>")+
+    header("Wedding Overview",remoteActive?"A consolidated view of your live Firebase wedding plan.":"A consolidated view of the plans stored in this browser.","<button class='button primary planner-compact' data-jump='guests'>+ Add guest</button>")+
     '<div class="planner-metrics">'+
       metric("Days to wedding",daysToWedding(),dateLabel(db.settings.date))+
       metric("Estimated seats",guestSeats(),active(db.guests).length+" guest entries")+
@@ -546,7 +547,7 @@ async function initializePlanner(){
 
   plannerFirestore.onAuth(async user=>{
     if(!user){
-      organizerProfile=null;organizerRole="local";
+      organizerProfile=null;organizerRole="local";db=seed();localStorage.removeItem(STORAGE_KEY);
       document.getElementById("planner-signout")?.remove();
       setSyncState("SIGN-IN REQUIRED");
       lockPlanner("Sign in with an authorized organizer Google account to open the wedding workspace.",true);
@@ -555,7 +556,7 @@ async function initializePlanner(){
     try{
       organizerProfile=await plannerFirestore.organizerProfile(user);
       db=await plannerFirestore.load(seed());
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(db));
+      localStorage.removeItem(STORAGE_KEY);
       remoteActive=true;
       applyRoleUI(organizerProfile.role);
       selectedId=null;search="";showArchived=false;
