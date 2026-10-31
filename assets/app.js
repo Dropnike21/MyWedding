@@ -994,51 +994,75 @@
     const ambient = document.createElement("div");
     ambient.className = "ambient-layer";
     ambient.setAttribute("aria-hidden", "true");
-    const glow = document.createElement("i");
-    glow.className = "pointer-glow";
-    ambient.appendChild(glow);
+
+    let glow = null;
+    if (finePointer) {
+      glow = document.createElement("i");
+      glow.className = "pointer-glow";
+      ambient.appendChild(glow);
+    }
+
     const progress = document.createElement("i");
     progress.className = "experience-progress";
     document.body.appendChild(progress);
+    let progressFrame = 0;
     const updateProgress = () => {
-      const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
-      progress.style.setProperty("--scroll", Math.min(1, Math.max(0, scrollY / max)));
+      if (progressFrame) return;
+      progressFrame = requestAnimationFrame(() => {
+        progressFrame = 0;
+        const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+        progress.style.setProperty("--scroll", Math.min(1, Math.max(0, scrollY / max)));
+      });
     };
     updateProgress();
     addEventListener("scroll", updateProgress, { passive: true });
 
+    const mobileAmbient =
+      window.matchMedia("(pointer: coarse)").matches ||
+      window.matchMedia("(max-width: 820px)").matches;
+
     if (motionOK) {
-      for (let i = 0; i < 24; i++) {
+      const petalCount = mobileAmbient ? 10 : 24;
+      const heartCount = mobileAmbient ? 3 : 9;
+
+      for (let i = 0; i < petalCount; i++) {
         const petal = document.createElement("span");
         petal.className = "ambient-petal";
         petal.style.setProperty("--x", (2 + Math.random() * 96).toFixed(1) + "%");
         petal.style.setProperty("--delay", (-Math.random() * 22).toFixed(2) + "s");
-        petal.style.setProperty("--duration", (14 + Math.random() * 16).toFixed(2) + "s");
-        petal.style.setProperty("--drift", ((Math.random() - .5) * 220).toFixed(0) + "px");
-        petal.style.setProperty("--scale", (.35 + Math.random() * 1.0).toFixed(2));
-        petal.style.setProperty("--blur", (Math.random() * 1.8).toFixed(1) + "px");
+        petal.style.setProperty("--duration", (15 + Math.random() * 17).toFixed(2) + "s");
+        petal.style.setProperty("--drift", ((Math.random() - .5) * 180).toFixed(0) + "px");
+        petal.style.setProperty("--scale", (.35 + Math.random() * .85).toFixed(2));
+        petal.style.setProperty("--blur", (Math.random() * 1.4).toFixed(1) + "px");
         ambient.appendChild(petal);
       }
 
-      for (let i = 0; i < 9; i++) {
+      for (let i = 0; i < heartCount; i++) {
         const heart = document.createElement("span");
         heart.className = "ambient-heart";
         heart.textContent = "♥";
         heart.style.setProperty("--hx", (4 + Math.random() * 92).toFixed(1) + "%");
         heart.style.setProperty("--hy", (7 + Math.random() * 82).toFixed(1) + "%");
-        heart.style.setProperty("--hsize", (28 + Math.random() * 88).toFixed(0) + "px");
-        heart.style.setProperty("--hblur", (5 + Math.random() * 12).toFixed(0) + "px");
-        heart.style.setProperty("--hopacity", (.025 + Math.random() * .055).toFixed(3));
+        heart.style.setProperty("--hsize", (mobileAmbient ? 28 + Math.random() * 46 : 28 + Math.random() * 88).toFixed(0) + "px");
+        heart.style.setProperty("--hblur", (5 + Math.random() * 9).toFixed(0) + "px");
+        heart.style.setProperty("--hopacity", (.025 + Math.random() * .05).toFixed(3));
         heart.style.setProperty("--hdelay", (-Math.random() * 14).toFixed(2) + "s");
         ambient.appendChild(heart);
       }
     }
     document.body.appendChild(ambient);
 
-    if (finePointer) {
+    if (finePointer && glow) {
+      let pointerFrame = 0;
+      let px = -1000, py = -1000;
       window.addEventListener("pointermove", event => {
-        glow.style.setProperty("--gx", event.clientX + "px");
-        glow.style.setProperty("--gy", event.clientY + "px");
+        px = event.clientX; py = event.clientY;
+        if (pointerFrame) return;
+        pointerFrame = requestAnimationFrame(() => {
+          pointerFrame = 0;
+          glow.style.setProperty("--gx", px + "px");
+          glow.style.setProperty("--gy", py + "px");
+        });
       }, { passive: true });
     }
   }
