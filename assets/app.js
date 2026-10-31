@@ -168,6 +168,15 @@
     const glow = document.createElement("i");
     glow.className = "pointer-glow";
     ambient.appendChild(glow);
+    const progress = document.createElement("i");
+    progress.className = "experience-progress";
+    document.body.appendChild(progress);
+    const updateProgress = () => {
+      const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+      progress.style.setProperty("--scroll", Math.min(1, Math.max(0, scrollY / max)));
+    };
+    updateProgress();
+    addEventListener("scroll", updateProgress, { passive: true });
 
     if (motionOK) {
       for (let i = 0; i < 12; i++) {
@@ -381,6 +390,12 @@
   camera.retake.addEventListener("click", resetCamera);
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
   window.addEventListener("pagehide", stopStream);
+
+  const plannerWorkspace = document.getElementById("planner-workspace");
+  if (plannerWorkspace && "MutationObserver" in window) {
+    new MutationObserver(() => requestAnimationFrame(() => refreshInteractions(plannerWorkspace)))
+      .observe(plannerWorkspace, { childList: true, subtree: true });
+  }
 
   createAmbience();
   setupHeroParallax();
