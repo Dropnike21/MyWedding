@@ -87,6 +87,7 @@ function publicInvitation(snapshot) {
     side: v.side || "Shared",
     invitedSeats: v.invitedSeats || 1,
     rsvp: v.rsvp || "Pending",
+    confirmedSeats: Number(v.confirmedSeats || 0),
     notes: v.notes || "",
     status: v.status,
     revision: Number(v.revision || 1),
@@ -311,12 +312,18 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
       validUntil: window.end,
       redeemedAt: FieldValue.serverTimestamp(),
     });
-    return { partyLabel: activeSnap.get("partyLabel") };
+    return {
+      partyLabel: activeSnap.get("partyLabel"),
+      invitedSeats: Number(activeSnap.get("invitedSeats") || 1),
+      rsvp: activeSnap.get("rsvp") || "Pending",
+      confirmedSeats: Number(activeSnap.get("confirmedSeats") || 0),
+    };
   });
   return {
     verified: true,
     cameraOpen: window.cameraOpen,
-    // No private guest details are returned to browsers.
+    invitation: result,
+    // Only the matching invited party's own details are returned after code verification.
     openAt: window.start.toDate().toISOString(),
     closeAt: window.end.toDate().toISOString(),
   };
@@ -351,3 +358,44 @@ exports.checkGuestSession = onCall(configuration({}, false), async request => {
 
 // Important: no upload function exists yet. Drive OAuth, content validation,
 // anti-abuse quotas, and server-side gallery release are separate work.
+
+
+/**
+ * RSVP by invitation holder, without registration.
+ * The transaction reads the session and CURRENT invitation revision, so old
+ * sessions cannot edit RSVPs after a code is rotated or revoked.
+ */
+exports.respondToInvitation = onCall(configuration({}, false), async request => {
+  requireUser(request);
+  const rsvp = enumField(request.data?.rsvp, ["Yes", "No", "Maybe"], "RSVP", "");
+  const sessionRef = db.collection("guestSessions").doc(request.auth.uid);
+  const result = await db.runTransaction(async tx => {
+    const session = await tx.get(sessionRef);
+    if (!session.exists)
+      throw new HttpsError("permission-denied", "Please verify the invitation first.");
+    const { invitationId, revision, validUntil } = session.data();
+    if (!validUntil?.toMillis || Date.now() >= validUntil.toMillis())
+      throw new HttpsError("permission-denied", "This invitation session has expired.");
+    const invitationRef = db.collection("invitationRegistry").doc(invitationId);
+    const invitation = await tx.get(invitationRef);
+    if (!invitation.exists || invitation.get("status") !== "active" ||
+        Number(invitation.get("revision")) !== Number(revision))
+      throw new HttpsError("permission-denied", "This code was replaced or revoked. Open the latest invitation link.");
+
+    const maxSeats = Number(invitation.get("invitedSeats") || 1);
+    const attending = rsvp === "Yes" ? Number(request.data?.attendingSeats) : 0;
+    if (rsvp === "Yes" &&
+        (!Number.isInteger(attending) || attending < 1 || attending > maxSeats))
+      throw new HttpsError("invalid-argument", "Choose 1 to " + maxSeats + " attending.");
+    // One guest/family response is stored on the invitation, not per device.
+    // A family may submit a later correction from any device with its code.
+    tx.update(invitationRef, {
+      rsvp,
+      confirmedSeats: attending,
+      respondedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    return { rsvp, confirmedSeats: attending };
+  });
+  return { saved: true, ...result };
+});
