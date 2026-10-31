@@ -9,6 +9,7 @@
   <link rel="icon" type="image/svg+xml" href="./assets/heart.svg" />
   <link rel="stylesheet" href="./assets/styles.css" />
   <script src="./assets/app.js" defer></script>
+  <script type="module" src="./assets/firebase-init.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -106,7 +107,7 @@
           <span class="eyebrow">HOW THE FINAL EXPERIENCE WILL WORK</span>
           <h2>A surprise worth<br /><em>waiting for.</em></h2>
           <div class="step"><span class="step-number">01</span><div><h3>Scan the QR code</h3><p>Guests open the wedding camera without downloading an app.</p></div></div>
-          <div class="step"><span class="step-number">02</span><div><h3>Capture every little moment</h3><p>Photos upload directly to protected Firebase storage during the approved event window.</p></div></div>
+          <div class="step"><span class="step-number">02</span><div><h3>Capture every little moment</h3><p>Photos upload through a secure backend into a private Google Drive folder during the approved event window.</p></div></div>
           <div class="step"><span class="step-number">03</span><div><h3>Seal the time capsule</h3><p>Uploads are kept private. There is no public gallery to browse before release.</p></div></div>
           <div class="step"><span class="step-number">04</span><div><h3>Reveal after 48 hours</h3><p>Once approved and unlocked by the server, the shared gallery becomes viewable.</p></div></div>
           <div class="capsule-note"><span class="note-icon">✦</span><div><strong>Privacy first</strong><p>The 48-hour restriction must be enforced on the server, not simply hidden by a visual countdown.</p></div></div>
@@ -115,12 +116,12 @@
     </section>
 
     <section class="view" id="view-system" aria-labelledby="system-heading" hidden>
-      <div class="section-heading"><span class="eyebrow">PROJECT BLUEPRINT</span><h1 id="system-heading">Simple to use.<br /><em>Built with care.</em></h1><p>GitHub Pages handles the public site; Firebase will securely handle live information. Google Sheets will provide a read-only, automatically synchronized view.</p></div>
+      <div class="section-heading"><span class="eyebrow">PROJECT BLUEPRINT</span><h1 id="system-heading">Simple to use.<br /><em>Built with care.</em></h1><p>GitHub Pages handles the public site; Firebase will securely handle live planning data. A server-side connection will store photos in private Google Drive storage and mirror reports to read-only Google Sheets.</p></div>
       <div class="system-card">
-        <div class="system-line"><div class="system-node"><span>01</span><strong>GitHub Pages</strong><small>Static website & guest interface</small></div><span class="system-arrow">→</span><div class="system-node"><span>02</span><strong>Firebase</strong><small>Authentication, database & photos</small></div><span class="system-arrow">→</span><div class="system-node"><span>03</span><strong>Google Sheets</strong><small>Read-only reporting mirror</small></div></div>
+        <div class="system-line"><div class="system-node"><span>01</span><strong>GitHub Pages</strong><small>Static website & guest interface</small></div><span class="system-arrow">→</span><div class="system-node"><span>02</span><strong>Firebase</strong><small>Admin login, database & upload API</small></div><span class="system-arrow">→</span><div class="system-node"><span>03</span><strong>Google Workspace</strong><small>Private Drive photos · read-only Sheets</small></div></div>
         <div class="system-details"><div><strong>One source of truth</strong><p>All changes begin in the website and are written to Firestore first.</p></div><div><strong>Private by default</strong><p>Admin records and pre-release photos are protected by server-side rules.</p></div><div><strong>Reliable synchronization</strong><p>Backend jobs will retry failed Sheet updates and maintain an audit trail.</p></div></div>
       </div>
-      <div class="project-state"><div><span class="eyebrow">PROJECT STATUS</span><h2>We're building the foundation.</h2><p>This GitHub Pages version is a frontend prototype. Firebase, private administration, Google Sheets synchronization, live RSVP links, and QR uploads are future implementation phases.</p></div><a class="button outlined dark" href="https://github.com/Dropnike21/MyWedding" target="_blank" rel="noopener noreferrer">View repository <span>↗</span></a></div>
+      <div class="project-state"><div><span class="eyebrow">PROJECT STATUS</span><h2>We're building the foundation.</h2><p>This GitHub Pages version is a frontend prototype. Firebase web configuration has been added, but private administration, Firestore rules, Drive uploads, Sheets synchronization, live RSVPs, and QR access are not active. <span id="firebase-status">Checking Firebase client configuration…</span></p></div><a class="button outlined dark" href="https://github.com/Dropnike21/MyWedding" target="_blank" rel="noopener noreferrer">View repository <span>↗</span></a></div>
     </section>
   </main>
 
