@@ -143,6 +143,12 @@ service cloud.firestore {
     match /invitationAttemptLimits/{document=**} {
       allow read, write: if false;
     }
+    match /pendingPhotoUploads/{document=**} {
+      allow read, write: if false;
+    }
+    match /photoUploads/{document=**} {
+      allow read, write: if false;
+    }
     match /weddingSettings/{document=**} {
       allow read, write: if false;
     }
