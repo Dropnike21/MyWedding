@@ -1,0 +1,11 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Browser access to private records is denied by default.
+    // Trusted Cloud Functions use Admin SDK and server-side IAM.
+    // Add narrow admin-user rules only after authentication and roles are implemented.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
