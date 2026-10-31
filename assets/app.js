@@ -1,8 +1,15 @@
 (() => {
   "use strict";
+
   const views = new Set(["home", "planner", "camera", "system"]);
   const navButtons = [...document.querySelectorAll("[data-view]")];
   const viewElements = [...document.querySelectorAll(".view")];
+  const motionOK = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const finePointer = window.matchMedia("(pointer: fine)").matches;
+  let activeView = null;
+
+  document.documentElement.classList.add("motion-ready");
+
   const camera = {
     video: document.getElementById("camera-video"),
     image: document.getElementById("camera-capture"),
@@ -91,6 +98,7 @@
       camera.message.textContent = "The camera is not ready yet. Try again.";
       return;
     }
+
     const maxWidth = 1600;
     const factor = Math.min(1, maxWidth / video.videoWidth);
     const canvas = document.createElement("canvas");
@@ -101,14 +109,16 @@
       camera.message.textContent = "Photo capture is unavailable in this browser.";
       return;
     }
+
     context.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const photo = await new Promise((resolve) =>
+    const photo = await new Promise(resolve =>
       canvas.toBlob(resolve, "image/jpeg", 0.86)
     );
     if (!photo) {
       camera.message.textContent = "Photo capture failed. Try again.";
       return;
     }
+
     if (camera.url) URL.revokeObjectURL(camera.url);
     camera.url = URL.createObjectURL(photo);
     stopStream();
@@ -124,24 +134,220 @@
       "Test photo captured! It remains on this device. Download it or retake.";
   }
 
-  function switchView(next) {
-    const requested = next.startsWith("camera/") ? "camera" : next;
-    const view = views.has(requested) ? requested : "home";
-    viewElements.forEach((section) => {
+  const revealObserver = motionOK && "IntersectionObserver" in window
+    ? new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-revealed");
+          revealObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" })
+    : null;
+
+  function registerReveals(scope = document) {
+    const selectors = [
+      ".section-heading", ".hero-copy > *", ".facts .fact", ".intro-strip > *",
+      ".invitation-access", ".guest-rsvp-card", ".camera-shell", ".capsule-info > *",
+      ".system-node", ".system-details > div", ".project-state", ".planner-access-gate"
+    ];
+    const nodes = [...scope.querySelectorAll(selectors.join(","))];
+    nodes.forEach((node, index) => {
+      if (node.dataset.revealReady) return;
+      node.dataset.revealReady = "1";
+      node.classList.add("reveal");
+      node.style.setProperty("--reveal-delay", Math.min(index % 7, 6) * 55 + "ms");
+      if (revealObserver) revealObserver.observe(node);
+      else node.classList.add("is-revealed");
+    });
+  }
+
+  function createAmbience() {
+    const ambient = document.createElement("div");
+    ambient.className = "ambient-layer";
+    ambient.setAttribute("aria-hidden", "true");
+    const glow = document.createElement("i");
+    glow.className = "pointer-glow";
+    ambient.appendChild(glow);
+
+    if (motionOK) {
+      for (let i = 0; i < 12; i++) {
+        const petal = document.createElement("span");
+        petal.className = "ambient-petal";
+        petal.style.setProperty("--x", (6 + Math.random() * 88).toFixed(1) + "%");
+        petal.style.setProperty("--delay", (-Math.random() * 18).toFixed(2) + "s");
+        petal.style.setProperty("--duration", (15 + Math.random() * 12).toFixed(2) + "s");
+        petal.style.setProperty("--drift", ((Math.random() - .5) * 150).toFixed(0) + "px");
+        petal.style.setProperty("--scale", (.45 + Math.random() * .8).toFixed(2));
+        ambient.appendChild(petal);
+      }
+    }
+    document.body.appendChild(ambient);
+
+    if (finePointer) {
+      window.addEventListener("pointermove", event => {
+        glow.style.setProperty("--gx", event.clientX + "px");
+        glow.style.setProperty("--gy", event.clientY + "px");
+      }, { passive: true });
+    }
+  }
+
+  function setupHeroParallax() {
+    const art = document.querySelector(".hero-art");
+    if (!art || !finePointer || !motionOK) return;
+    art.addEventListener("pointermove", event => {
+      const r = art.getBoundingClientRect();
+      const x = (event.clientX - r.left) / r.width - .5;
+      const y = (event.clientY - r.top) / r.height - .5;
+      art.style.setProperty("--hero-x", x.toFixed(3));
+      art.style.setProperty("--hero-y", y.toFixed(3));
+    });
+    art.addEventListener("pointerleave", () => {
+      art.style.setProperty("--hero-x", "0");
+      art.style.setProperty("--hero-y", "0");
+    });
+  }
+
+  function setupTilt() {
+    if (!finePointer || !motionOK) return;
+    const selector = [
+      ".fact", ".system-node", ".camera-shell", ".invitation-access",
+      ".planner-metric", ".planner-card", ".project-state"
+    ].join(",");
+    document.querySelectorAll(selector).forEach(card => {
+      if (card.dataset.tiltReady) return;
+      card.dataset.tiltReady = "1";
+      card.classList.add("tilt-card");
+      card.addEventListener("pointermove", event => {
+        const r = card.getBoundingClientRect();
+        const dx = (event.clientX - r.left) / r.width - .5;
+        const dy = (event.clientY - r.top) / r.height - .5;
+        card.style.setProperty("--tilt-y", (dx * 4.5).toFixed(2) + "deg");
+        card.style.setProperty("--tilt-x", (-dy * 4.5).toFixed(2) + "deg");
+        card.style.setProperty("--shine-x", ((dx + .5) * 100).toFixed(0) + "%");
+        card.style.setProperty("--shine-y", ((dy + .5) * 100).toFixed(0) + "%");
+      });
+      card.addEventListener("pointerleave", () => {
+        card.style.setProperty("--tilt-x", "0deg");
+        card.style.setProperty("--tilt-y", "0deg");
+      });
+    });
+  }
+
+  function setupMagneticButtons() {
+    if (!finePointer || !motionOK) return;
+    document.querySelectorAll(".button,.text-link,.main-nav button").forEach(button => {
+      if (button.dataset.magneticReady) return;
+      button.dataset.magneticReady = "1";
+      button.classList.add("magnetic");
+      button.addEventListener("pointermove", event => {
+        if (button.disabled) return;
+        const r = button.getBoundingClientRect();
+        const x = (event.clientX - (r.left + r.width / 2)) * .11;
+        const y = (event.clientY - (r.top + r.height / 2)) * .16;
+        button.style.setProperty("--mag-x", x.toFixed(1) + "px");
+        button.style.setProperty("--mag-y", y.toFixed(1) + "px");
+      });
+      button.addEventListener("pointerleave", () => {
+        button.style.setProperty("--mag-x", "0px");
+        button.style.setProperty("--mag-y", "0px");
+      });
+    });
+  }
+
+  function setupRipples() {
+    document.addEventListener("pointerdown", event => {
+      const target = event.target.closest(".button,.planner-nav,.main-nav button,.invitation-row");
+      if (!target || target.disabled) return;
+      const r = target.getBoundingClientRect();
+      const ripple = document.createElement("span");
+      ripple.className = "tap-ripple";
+      ripple.style.left = event.clientX - r.left + "px";
+      ripple.style.top = event.clientY - r.top + "px";
+      target.appendChild(ripple);
+      ripple.addEventListener("animationend", () => ripple.remove(), { once: true });
+    });
+  }
+
+  function setupSealSurprise() {
+    const seal = document.querySelector(".art-seal");
+    if (!seal) return;
+    seal.setAttribute("role", "button");
+    seal.setAttribute("tabindex", "0");
+    seal.setAttribute("aria-label", "Send a little love");
+    const celebrate = () => {
+      seal.classList.remove("seal-pop");
+      void seal.offsetWidth;
+      seal.classList.add("seal-pop");
+      for (let i = 0; i < 9; i++) {
+        const heart = document.createElement("span");
+        heart.className = "floating-heart";
+        heart.textContent = i % 3 === 0 ? "✦" : "♥";
+        heart.style.setProperty("--hx", ((Math.random() - .5) * 160).toFixed(0) + "px");
+        heart.style.setProperty("--hy", (-70 - Math.random() * 110).toFixed(0) + "px");
+        heart.style.left = "50%";
+        heart.style.top = "50%";
+        seal.appendChild(heart);
+        heart.addEventListener("animationend", () => heart.remove(), { once: true });
+      }
+    };
+    seal.addEventListener("click", celebrate);
+    seal.addEventListener("keydown", event => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        celebrate();
+      }
+    });
+  }
+
+  function setupHeaderScroll() {
+    const apply = () => document.body.classList.toggle("page-scrolled", window.scrollY > 26);
+    apply();
+    window.addEventListener("scroll", apply, { passive: true });
+  }
+
+  function refreshInteractions(scope = document) {
+    registerReveals(scope);
+    setupTilt();
+    setupMagneticButtons();
+  }
+
+  function applyView(view) {
+    viewElements.forEach(section => {
       const active = section.id === "view-" + view;
       section.hidden = !active;
       section.classList.toggle("is-active", active);
     });
-    navButtons.forEach((button) => {
+    navButtons.forEach(button => {
       if (button.dataset.view === view) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
     if (view !== "camera") resetCamera();
+
     const title = view === "home" ? "Angela & Joseph" :
       view === "planner" ? "Planning Studio" :
       view === "camera" ? "Photo Time Capsule" : "Project Blueprint";
     document.title = title + " | Wedding";
     window.scrollTo(0, 0);
+
+    const activeSection = document.getElementById("view-" + view);
+    if (activeSection) {
+      activeSection.querySelectorAll(".reveal").forEach(node => {
+        if (!node.classList.contains("is-revealed") && revealObserver) revealObserver.observe(node);
+      });
+      requestAnimationFrame(() => refreshInteractions(activeSection));
+    }
+  }
+
+  function switchView(next) {
+    const requested = next.startsWith("camera/") ? "camera" : next;
+    const view = views.has(requested) ? requested : "home";
+
+    if (activeView !== null && view !== activeView && motionOK && document.startViewTransition) {
+      document.startViewTransition(() => applyView(view));
+    } else {
+      applyView(view);
+    }
+    activeView = view;
   }
 
   function navigate(view) {
@@ -163,20 +369,28 @@
     }
   }
 
-  document.querySelectorAll("[data-view]").forEach((button) => {
+  document.querySelectorAll("[data-view]").forEach(button => {
     button.addEventListener("click", () => navigate(button.dataset.view));
   });
-  document.querySelectorAll("[data-go]").forEach((button) => {
+  document.querySelectorAll("[data-go]").forEach(button => {
     button.addEventListener("click", () => navigate(button.dataset.go));
   });
+
   camera.start.addEventListener("click", startCamera);
   camera.take.addEventListener("click", captureTestPhoto);
   camera.retake.addEventListener("click", resetCamera);
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
   window.addEventListener("pagehide", stopStream);
 
-  // This prototype intentionally performs no remote writes or photo uploads.
-  // Real wedding-day restrictions must be enforced by Firebase server-side checks.
+  createAmbience();
+  setupHeroParallax();
+  setupSealSurprise();
+  setupHeaderScroll();
+  setupRipples();
+  refreshInteractions();
+
+  // The camera is still a local device demonstration until the protected
+  // invitation + Google Drive upload backend is deployed.
   countdown();
   setInterval(countdown, 60 * 1000);
   switchView(location.hash.slice(1));
