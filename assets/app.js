@@ -85,6 +85,8 @@
     localTaken: 0,
     frames: [],
     capturing: false,
+    effectPreviewData: "",
+    activeEffectGroup: "Essentials",
   };
 
   function cameraRemaining() {
@@ -342,6 +344,7 @@
     if (camera.advancedControls) camera.advancedControls.hidden = effects;
     camera.effectsToggle?.setAttribute("aria-expanded",String(effects));
     camera.controlsToggle?.setAttribute("aria-expanded",String(!effects));
+    if (effects) refreshEffectPreviews();
   }
 
   function selectFilter(name) {
@@ -358,6 +361,34 @@
     }
   }
 
+  function refreshEffectPreviews() {
+    if (!camera.video || !camera.video.videoWidth || !camera.video.videoHeight) return;
+    try {
+      const canvas = document.createElement("canvas");
+      const size = 120;
+      canvas.width = size;
+      canvas.height = size;
+      const context = canvas.getContext("2d");
+      if (!context) return;
+      const vw = camera.video.videoWidth;
+      const vh = camera.video.videoHeight;
+      const side = Math.min(vw,vh);
+      const sx = (vw-side)/2;
+      const sy = (vh-side)/2;
+      if (camera.facingMode === "user") {
+        context.translate(size,0);
+        context.scale(-1,1);
+      }
+      context.drawImage(camera.video,sx,sy,side,side,0,0,size,size);
+      camera.effectPreviewData = canvas.toDataURL("image/jpeg",.66);
+      camera.effectsGrid?.querySelectorAll(".camera-effect-preview").forEach(preview => {
+        preview.style.backgroundImage = 'url("' + camera.effectPreviewData + '")';
+        const filter = preview.closest(".camera-effect")?.dataset.filter;
+        if (filter && CAMERA_FILTERS[filter]) preview.style.filter = CAMERA_FILTERS[filter].css;
+      });
+    } catch {}
+  }
+
   function renderEffectCatalog() {
     if (!camera.effectCategories || !camera.effectsGrid) return;
     const groups = [...new Set(Object.values(CAMERA_FILTERS).map(item => item.group))];
@@ -365,6 +396,7 @@
     camera.effectsGrid.replaceChildren();
 
     const renderGroup = group => {
+      camera.activeEffectGroup = group;
       camera.effectsGrid.replaceChildren();
       const entries = Object.entries(CAMERA_FILTERS).filter(([,item]) => item.group === group);
       for (const [key,item] of entries) {
@@ -372,8 +404,11 @@
         button.type = "button";
         button.className = "camera-effect";
         button.dataset.filter = key;
+        const previewStyle = camera.effectPreviewData
+          ? 'background-image:url(&quot;'+camera.effectPreviewData+'&quot;);filter:'+item.css
+          : 'background:'+item.swatch;
         button.innerHTML =
-          '<span class="camera-effect-preview" style="background:'+item.swatch+'"></span>'+
+          '<span class="camera-effect-preview" style="'+previewStyle+'"></span>'+
           '<strong>'+item.label+'</strong>';
         button.addEventListener("click",()=>selectFilter(key));
         camera.effectsGrid.appendChild(button);
