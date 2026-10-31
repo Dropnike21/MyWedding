@@ -40,6 +40,10 @@
     exposureRow: document.getElementById("camera-exposure-row"),
     exposure: document.getElementById("camera-exposure"),
     exposureValue: document.getElementById("camera-exposure-value"),
+    gridOverlay: document.getElementById("camera-grid-overlay"),
+    countdown: document.getElementById("camera-countdown"),
+    gridToggle: document.getElementById("camera-grid-toggle"),
+    timerButtons: [...document.querySelectorAll("[data-timer]")],
     filterBar: document.getElementById("camera-filter-bar"),
     filterButtons: [...document.querySelectorAll(".camera-filter")],
     qualityButtons: [...document.querySelectorAll(".camera-quality")],
@@ -52,6 +56,8 @@
     torchOn: false,
     filter: "natural",
     quality: "balanced",
+    timer: 0,
+    gridOn: false,
     photoLimit: 50,
     photosUsed: 0,
     localTaken: 0,
@@ -120,6 +126,8 @@
     camera.localTaken = 0;
     camera.filter = "natural";
     camera.quality = "balanced";
+    camera.timer = 0;
+    camera.gridOn = false;
     camera.capturing = false;
     camera.filterButtons.forEach(button =>
       button.classList.toggle("active", button.dataset.filter === "natural")
@@ -127,6 +135,15 @@
     camera.qualityButtons.forEach(button =>
       button.classList.toggle("active", button.dataset.quality === "balanced")
     );
+    camera.timerButtons.forEach(button =>
+      button.classList.toggle("active", button.dataset.timer === "0")
+    );
+    if (camera.gridToggle) {
+      camera.gridToggle.classList.remove("active");
+      camera.gridToggle.setAttribute("aria-pressed", "false");
+    }
+    if (camera.gridOverlay) camera.gridOverlay.hidden = true;
+    if (camera.countdown) camera.countdown.hidden = true;
     if (camera.video) camera.video.style.filter = "none";
     if (camera.idle) camera.idle.hidden = false;
     if (camera.start) {
@@ -314,6 +331,39 @@
     );
   }
 
+  function toggleGrid() {
+    camera.gridOn = !camera.gridOn;
+    camera.gridToggle?.classList.toggle("active", camera.gridOn);
+    camera.gridToggle?.setAttribute("aria-pressed", String(camera.gridOn));
+    if (camera.gridOverlay) camera.gridOverlay.hidden = !camera.gridOn;
+  }
+
+  function selectTimer(seconds) {
+    camera.timer = Math.max(0, Number(seconds) || 0);
+    camera.timerButtons.forEach(button =>
+      button.classList.toggle("active", Number(button.dataset.timer) === camera.timer)
+    );
+  }
+
+  async function runCaptureTimer() {
+    if (!camera.timer || !camera.countdown) return true;
+    camera.countdown.hidden = false;
+    for (let remaining = camera.timer; remaining > 0; remaining -= 1) {
+      camera.countdown.textContent = String(remaining);
+      camera.countdown.classList.remove("tick");
+      void camera.countdown.offsetWidth;
+      camera.countdown.classList.add("tick");
+      navigator.vibrate?.(remaining === 1 ? 45 : 12);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!camera.stream) {
+        camera.countdown.hidden = true;
+        return false;
+      }
+    }
+    camera.countdown.hidden = true;
+    return true;
+  }
+
   function flashCamera() {
     if (!camera.flash) return;
     camera.flash.hidden = false;
@@ -457,6 +507,16 @@
 
     camera.capturing = true;
     camera.take.disabled = true;
+
+    if (camera.timer > 0) {
+      const timerFinished = await runCaptureTimer();
+      if (!timerFinished) {
+        camera.capturing = false;
+        camera.take.disabled = cameraRemaining() <= 0;
+        return;
+      }
+    }
+
     flashCamera();
     navigator.vibrate?.(18);
 
@@ -530,6 +590,10 @@
   );
   camera.qualityButtons.forEach(button =>
     button.addEventListener("click", () => selectQuality(button.dataset.quality))
+  );
+  camera.gridToggle?.addEventListener("click", toggleGrid);
+  camera.timerButtons.forEach(button =>
+    button.addEventListener("click", () => selectTimer(button.dataset.timer))
   );
 
   const revealObserver = motionOK && "IntersectionObserver" in window
