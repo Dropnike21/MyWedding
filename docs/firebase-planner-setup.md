@@ -224,3 +224,10 @@ Keep:
 in `assets/guest-config.js`.
 
 Guest invitation code validation and Drive photo uploads require the secure Cloud Functions deployment and separate testing.
+
+
+## Wedding Expenses collection
+
+`weddings/main/expenses/{expenseId}` stores non-supplier spending such as attire, rings, souvenirs/favors, gifts, legal/document costs, transport, accessories, and other direct purchases.
+
+Owners, coordinators, and finance organizers can manage expense records. Budget-category allocation remains owner/finance controlled.
