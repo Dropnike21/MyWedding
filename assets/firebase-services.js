@@ -25,8 +25,8 @@ export function getWeddingClient() {
 }
 
 export function enableAppCheck() {
-  if (!guestAccessConfig.enabled || !guestAccessConfig.appCheckSiteKey) {
-    throw new Error("The secure backend and App Check are not activated yet.");
+  if (!guestAccessConfig.appCheckSiteKey) {
+    throw new Error("The Firebase App Check site key has not been configured yet.");
   }
   const { app } = getWeddingClient();
   if (!appCheckInitialized) {
