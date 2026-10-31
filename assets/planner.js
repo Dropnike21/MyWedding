@@ -244,7 +244,7 @@ const schemas = {
       ["link","Product / reference link","url",false],
       ["notes","Notes","textarea",false]
     ],
-    columns:[["name","Item"],["category","Category"],["forWho","For"],["expectedCost","Expected"],["actualCost","Actual"],["paid","Paid"],["status","Status"]]
+    columns:[["name","Item"],["category","Category"],["forWho","For"],["expectedCost","Expected"],["actualCost","Actual"],["paid","Paid"],["balance","Balance"],["status","Status"]]
   },
   tasks:{
     title:"Wedding Checklist",singular:"task",collection:"tasks",
@@ -381,7 +381,8 @@ function recordValue(view,field,val){
   if(["seats","confirmed","quote","agreed","quantity","unitCost","expectedCost","actualCost","paid"].includes(field)) return num(val);
   return String(val??"").trim();
 }
-function cellValue(field,val){
+function cellValue(field,val,record=null){
+  if(field==="balance") return money.format(expenseBalance(record||{}));
   if(["quote","agreed","amount","unitCost","expectedCost","actualCost","paid"].includes(field)) return money.format(num(val));
   if(["dueDate","reserveBy","pickupDate"].includes(field)) return dateLabel(val);
   if(["status","rsvp","priority"].includes(field)) return statusBadge(val);
@@ -400,7 +401,7 @@ function renderEntity(view) {
     '<div class="planner-split">'+
       '<section class="planner-list-card"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr>'+schema.columns.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+
-        filtered.map(r=>'<tr data-record="'+esc(r.id)+'" class="'+(selectedId===r.id?'selected':'')+'">'+schema.columns.map(c=>'<td>'+cellValue(c[0],r[c[0]])+'</td>').join("")+'</tr>').join("")+
+        filtered.map(r=>'<tr data-record="'+esc(r.id)+'" class="'+(selectedId===r.id?'selected':'')+'">'+schema.columns.map(c=>'<td>'+cellValue(c[0],r[c[0]],r)+'</td>').join("")+'</tr>').join("")+
       '</tbody></table></div>':empty("Create the first "+schema.singular+" using the form."))+
       '</section>'+
       '<section class="planner-editor-card"><div class="planner-editor-head"><div><span class="eyebrow">'+(selected?'EDIT RECORD':'NEW RECORD')+'</span><h3>'+(selected?esc((selected.name||selected.title||selected.role||schema.singular)):"Add "+esc(schema.singular))+'</h3></div>'+(selected?(selected.archived?'<button type="button" class="planner-link-restore" id="planner-restore">Restore</button>':'<button type="button" class="planner-link-danger" id="planner-archive">Archive</button>'):'')+'</div>'+
