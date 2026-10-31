@@ -307,8 +307,31 @@
     }
 
     function paintTilt(x, y) {
-      document.documentElement.style.setProperty("--device-x", x.toFixed(3));
-      document.documentElement.style.setProperty("--device-y", y.toFixed(3));
+      const root = document.documentElement;
+      root.style.setProperty("--device-x", x.toFixed(3));
+      root.style.setProperty("--device-y", y.toFixed(3));
+      root.style.setProperty("--phone-photo-transform",
+        "translate3d(" + (x*24).toFixed(1) + "px," + (y*17).toFixed(1) + "px,36px) " +
+        "rotate(" + (-11+x*3).toFixed(2) + "deg) rotateX(" + (y*-4).toFixed(2) +
+        "deg) rotateY(" + (x*5).toFixed(2) + "deg)");
+      root.style.setProperty("--phone-seal-transform",
+        "translate3d(" + (x*-19).toFixed(1) + "px," + (y*-13).toFixed(1) + "px,46px) " +
+        "rotate(" + (12-x*4).toFixed(2) + "deg)");
+      root.style.setProperty("--phone-flower-one-transform",
+        "translate3d(" + (x*-13).toFixed(1) + "px," + (y*-10).toFixed(1) + "px,18px) rotate(20deg)");
+      root.style.setProperty("--phone-flower-two-transform",
+        "translate3d(" + (x*15).toFixed(1) + "px," + (y*10).toFixed(1) + "px,18px) rotate(-25deg)");
+      root.style.setProperty("--phone-script-transform",
+        "translate3d(" + (x*11).toFixed(1) + "px," + (y*8).toFixed(1) + "px,22px) rotate(-10deg)");
+      root.style.setProperty("--phone-light-transform",
+        "translate3d(" + (x*18).toFixed(1) + "px," + (y*14).toFixed(1) + "px,0)");
+      root.style.setProperty("--phone-heart-translate",
+        (x*-24).toFixed(1) + "px " + (y*-18).toFixed(1) + "px");
+      root.style.setProperty("--phone-petal-margin", (x*13).toFixed(1) + "px");
+      root.style.setProperty("--phone-music-transform",
+        "perspective(900px) rotateY(" + (x*1.8).toFixed(2) + "deg) rotateX(" +
+        (y*-1.3).toFixed(2) + "deg)");
+
       document.body.classList.toggle("phone-tilting", Math.abs(x) + Math.abs(y) > .12);
       if (Math.abs(x) > .76) burst(x);
     }
