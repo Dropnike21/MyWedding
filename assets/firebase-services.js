@@ -14,8 +14,8 @@ import {
 import {
   getAuth
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
-import { firebaseConfig } from "./firebase-config.js?v=20261031-1810";
-import { guestAccessConfig } from "./guest-config.js?v=20261031-1810";
+import { firebaseConfig } from "./firebase-config.js?v=20261031-1815";
+import { guestAccessConfig } from "./guest-config.js?v=20261031-1815";
 
 let appCheckInitialized = false;
 
