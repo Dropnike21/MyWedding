@@ -13,10 +13,16 @@ const { defineSecret } = require("firebase-functions/params");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
 const { createHmac, randomBytes } = require("node:crypto");
+const { google } = require("googleapis");
 
 if (!getApps().length) initializeApp();
 const db = getFirestore();
 const CODE_SECRET = defineSecret("INVITATION_CODE_HMAC_KEY");
+const DRIVE_OAUTH_SECRET = defineSecret("GOOGLE_DRIVE_OAUTH");
+const DRIVE_PARENT_FOLDER_ID = "1ynfDsAZjs4Nf-_NQOYR8k8T_UbVtkvYj";
+const DRIVE_RAW_FOLDER_ID = "1zug2sW_wvAooJH84gjHu2zqxUUVk2XtN";
+const DRIVE_WATERMARKED_FOLDER_ID = "1ExaPGWwiyOSxp8KI0XMgH78opWH6vmH5";
+const PHOTO_LOG_SPREADSHEET_ID = "1UJaF7Cquad43ppfuO1zMJcRBZOtnmZQItbFQoxFng5c";
 const REGION = "asia-southeast1";
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
@@ -151,6 +157,140 @@ function configuration(options = {}, withSecret = true) {
     ...options,
   };
 }
+
+function driveConfiguration(options = {}) {
+  return configuration({
+    timeoutSeconds: 60,
+    maxInstances: 10,
+    secrets: [DRIVE_OAUTH_SECRET],
+    ...options,
+  }, false);
+}
+
+function driveOAuthClient() {
+  let config;
+  try {
+    config = JSON.parse(DRIVE_OAUTH_SECRET.value());
+  } catch {
+    throw new HttpsError("failed-precondition", "Google Drive OAuth is not configured.");
+  }
+  const { clientId, clientSecret, refreshToken } = config || {};
+  if (!clientId || !clientSecret || !refreshToken)
+    throw new HttpsError("failed-precondition", "Google Drive OAuth is incomplete.");
+  const auth = new google.auth.OAuth2(clientId, clientSecret);
+  auth.setCredentials({ refresh_token: refreshToken });
+  return auth;
+}
+
+function driveServices() {
+  const auth = driveOAuthClient();
+  return {
+    auth,
+    drive: google.drive({ version: "v3", auth }),
+    sheets: google.sheets({ version: "v4", auth }),
+  };
+}
+
+function positiveInt(value, label, max = 20 * 1024 * 1024) {
+  const number = Number(value);
+  if (!Number.isInteger(number) || number < 1 || number > max)
+    throw new HttpsError("invalid-argument", "Choose a valid " + label + ".");
+  return number;
+}
+
+function captureMeta(data = {}) {
+  return {
+    orientation: enumField(data.orientation, ["portrait","landscape"], "orientation", "portrait"),
+    effect: optionalText(data.effect || "natural", 40) || "natural",
+    camera: enumField(data.camera, ["front","back"], "camera", "back"),
+    clientCapturedAt: optionalText(data.clientCapturedAt, 50),
+  };
+}
+
+async function oauthAccessToken(auth) {
+  const tokenResult = await auth.getAccessToken();
+  const token = typeof tokenResult === "string" ? tokenResult : tokenResult?.token;
+  if (!token) throw new HttpsError("internal", "Google Drive authorization could not be refreshed.");
+  return token;
+}
+
+async function createResumableDriveUpload(auth, {
+  folderId, fileName, bytes, uploadId, invitationId, sessionUid, variant
+}) {
+  const token = await oauthAccessToken(auth);
+  const fields = encodeURIComponent("id,name,size,parents,appProperties,webViewLink,mimeType,trashed");
+  const response = await fetch(
+    "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=" + fields,
+    {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + token,
+        "Content-Type": "application/json; charset=UTF-8",
+        "X-Upload-Content-Type": "image/jpeg",
+        "X-Upload-Content-Length": String(bytes),
+      },
+      body: JSON.stringify({
+        name: fileName,
+        parents: [folderId],
+        mimeType: "image/jpeg",
+        appProperties: {
+          wedding: "Angela-Joseph-2027",
+          uploadId,
+          invitationId,
+          sessionUid,
+          variant,
+        },
+      }),
+    }
+  );
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    console.error("Drive resumable initiation failed", response.status, detail);
+    throw new HttpsError("internal", "Could not prepare Google Drive upload.");
+  }
+  const uploadUrl = response.headers.get("location");
+  if (!uploadUrl) throw new HttpsError("internal", "Google Drive did not return an upload session.");
+  return uploadUrl;
+}
+
+async function verifiedDriveFile(drive, fileId, expected) {
+  const response = await drive.files.get({
+    fileId,
+    fields: "id,name,size,parents,appProperties,webViewLink,mimeType,trashed",
+  });
+  const file = response.data;
+  const props = file.appProperties || {};
+  if (
+    file.trashed ||
+    file.mimeType !== "image/jpeg" ||
+    !Array.isArray(file.parents) ||
+    !file.parents.includes(expected.folderId) ||
+    props.uploadId !== expected.uploadId ||
+    props.invitationId !== expected.invitationId ||
+    props.sessionUid !== expected.sessionUid ||
+    props.variant !== expected.variant
+  ) {
+    throw new HttpsError("permission-denied", "Uploaded file verification failed.");
+  }
+  return file;
+}
+
+async function safeDeleteDriveFile(drive, fileId) {
+  if (!fileId) return;
+  try { await drive.files.delete({ fileId }); }
+  catch (error) { console.warn("Could not clean up Drive file", fileId, error?.message); }
+}
+
+async function appendPhotoLog(sheets, row) {
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: PHOTO_LOG_SPREADSHEET_ID,
+    range: "'Photo Log'!A:S",
+    valueInputOption: "RAW",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [row] },
+  });
+}
+
 function isDuplicate(error) {
   return error.code === 6 || error.code === "already-exists";
 }
@@ -393,8 +533,318 @@ exports.checkGuestSession = onCall(configuration({}, false), async request => {
   };
 });
 
-// Important: no upload function exists yet. Drive OAuth, content validation,
-// anti-abuse quotas, and server-side gallery release are separate work.
+
+/**
+ * Prepare two direct-to-Drive resumable uploads. The guest never receives the
+ * Google OAuth access token; only short-lived resumable session URLs.
+ */
+exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
+  requireGuest(request);
+  const session = await activeGuestSession(request.auth.uid);
+  const window = await eventWindow();
+  if (!window.cameraOpen)
+    throw new HttpsError("failed-precondition", "The wedding camera is closed.");
+
+  if (session.photosRemaining <= 0)
+    throw new HttpsError("resource-exhausted", "This invitation's 50-photo film roll is full.");
+
+  const rawBytes = positiveInt(request.data?.rawBytes, "RAW photo size");
+  const watermarkedBytes = positiveInt(request.data?.watermarkedBytes, "watermarked photo size");
+  const meta = captureMeta(request.data || {});
+  const uploadId = randomBytes(12).toString("hex");
+  const suffix = uploadId.slice(-10);
+  const rawName = "AJ_" + session.invitationId + "_" + suffix + "_RAW.jpg";
+  const watermarkedName = "AJ_" + session.invitationId + "_" + suffix + "_WATERMARKED.jpg";
+  const capturedAtIso = meta.clientCapturedAt && !Number.isNaN(Date.parse(meta.clientCapturedAt))
+    ? new Date(meta.clientCapturedAt).toISOString()
+    : new Date().toISOString();
+
+  const pendingRef = db.collection("pendingPhotoUploads").doc(uploadId);
+  await pendingRef.create({
+    uploadId,
+    sessionUid: request.auth.uid,
+    invitationId: session.invitationId,
+    revision: session.revision,
+    partyLabel: session.partyLabel,
+    rawBytes,
+    watermarkedBytes,
+    ...meta,
+    capturedAtIso,
+    status: "uploading",
+    createdAt: FieldValue.serverTimestamp(),
+    expireAt: Timestamp.fromMillis(Date.now() + 60 * 60 * 1000),
+  });
+
+  try {
+    const { auth } = driveServices();
+    const rawUploadUrl = await createResumableDriveUpload(auth, {
+      folderId: DRIVE_RAW_FOLDER_ID,
+      fileName: rawName,
+      bytes: rawBytes,
+      uploadId,
+      invitationId: session.invitationId,
+      sessionUid: request.auth.uid,
+      variant: "raw",
+    });
+    const watermarkedUploadUrl = await createResumableDriveUpload(auth, {
+      folderId: DRIVE_WATERMARKED_FOLDER_ID,
+      fileName: watermarkedName,
+      bytes: watermarkedBytes,
+      uploadId,
+      invitationId: session.invitationId,
+      sessionUid: request.auth.uid,
+      variant: "watermarked",
+    });
+
+    return {
+      uploadId,
+      raw: { uploadUrl: rawUploadUrl, fileName: rawName },
+      watermarked: { uploadUrl: watermarkedUploadUrl, fileName: watermarkedName },
+      photosRemaining: session.photosRemaining,
+    };
+  } catch (error) {
+    await pendingRef.delete().catch(() => {});
+    throw error;
+  }
+});
+
+/**
+ * Verify the uploaded Drive files, atomically consume one invitation frame,
+ * then append a read-only audit row to the Google Sheet.
+ */
+exports.finalizeGuestPhotoUpload = onCall(driveConfiguration(), async request => {
+  requireGuest(request);
+  const uploadId = String(request.data?.uploadId || "").trim();
+  if (!/^[a-f0-9]{24}$/.test(uploadId))
+    throw new HttpsError("invalid-argument", "Invalid photo upload.");
+
+  const rawFileId = idField(request.data?.rawFileId, "RAW file");
+  const watermarkedFileId = idField(request.data?.watermarkedFileId, "watermarked file");
+  const pendingRef = db.collection("pendingPhotoUploads").doc(uploadId);
+  const pendingSnap = await pendingRef.get();
+  if (!pendingSnap.exists)
+    throw new HttpsError("not-found", "This photo upload session is no longer available.");
+  const pending = pendingSnap.data();
+
+  if (pending.sessionUid !== request.auth.uid)
+    throw new HttpsError("permission-denied", "This photo upload belongs to another session.");
+
+  const session = await activeGuestSession(request.auth.uid);
+  if (session.invitationId !== pending.invitationId || session.revision !== Number(pending.revision))
+    throw new HttpsError("permission-denied", "The invitation changed before this photo finished uploading.");
+
+  const { drive, sheets } = driveServices();
+  const [rawFile, watermarkedFile] = await Promise.all([
+    verifiedDriveFile(drive, rawFileId, {
+      folderId: DRIVE_RAW_FOLDER_ID,
+      uploadId,
+      invitationId: pending.invitationId,
+      sessionUid: request.auth.uid,
+      variant: "raw",
+    }),
+    verifiedDriveFile(drive, watermarkedFileId, {
+      folderId: DRIVE_WATERMARKED_FOLDER_ID,
+      uploadId,
+      invitationId: pending.invitationId,
+      sessionUid: request.auth.uid,
+      variant: "watermarked",
+    }),
+  ]);
+
+  const uploadRef = db.collection("photoUploads").doc(uploadId);
+  let result;
+  try {
+    result = await db.runTransaction(async tx => {
+      const existing = await tx.get(uploadRef);
+      if (existing.exists) {
+        const data = existing.data();
+        if (data.sessionUid !== request.auth.uid)
+          throw new HttpsError("permission-denied", "This upload belongs to another guest session.");
+        return {
+          frameNumber: Number(data.frameNumber || 0),
+          photosUsed: Number(data.photosUsedAfter || 0),
+          photoLimit: Number(data.photoLimit || 50),
+          alreadyFinalized: true,
+        };
+      }
+
+      const invitationRef = db.collection("invitationRegistry").doc(pending.invitationId);
+      const invitation = await tx.get(invitationRef);
+      if (
+        !invitation.exists ||
+        invitation.get("status") !== "active" ||
+        Number(invitation.get("revision")) !== Number(pending.revision)
+      ) {
+        throw new HttpsError("permission-denied", "This invitation was replaced or revoked.");
+      }
+
+      const photoLimit = Number(invitation.get("photoLimit") || 50);
+      const photosUsed = Number(invitation.get("photosUsed") || 0);
+      if (photosUsed >= photoLimit)
+        throw new HttpsError("resource-exhausted", "This invitation's photo limit has been reached.");
+
+      const frameNumber = photosUsed + 1;
+      tx.update(invitationRef, {
+        photosUsed: frameNumber,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      tx.set(uploadRef, {
+        uploadId,
+        invitationId: pending.invitationId,
+        revision: Number(pending.revision),
+        sessionUid: request.auth.uid,
+        partyLabel: pending.partyLabel || "",
+        frameNumber,
+        orientation: pending.orientation || "portrait",
+        effect: pending.effect || "natural",
+        camera: pending.camera || "back",
+        capturedAtIso: pending.capturedAtIso || new Date().toISOString(),
+        rawFileId,
+        rawFileUrl: rawFile.webViewLink || "",
+        rawBytes: Number(rawFile.size || pending.rawBytes || 0),
+        watermarkedFileId,
+        watermarkedFileUrl: watermarkedFile.webViewLink || "",
+        watermarkedBytes: Number(watermarkedFile.size || pending.watermarkedBytes || 0),
+        photoLimit,
+        photosUsedAfter: frameNumber,
+        sheetLogged: false,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+      tx.set(pendingRef, {
+        status: "finalized",
+        finalizedAt: FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      return { frameNumber, photosUsed: frameNumber, photoLimit, alreadyFinalized: false };
+    });
+  } catch (error) {
+    if (error?.code === "resource-exhausted") {
+      await Promise.all([
+        safeDeleteDriveFile(drive, rawFileId),
+        safeDeleteDriveFile(drive, watermarkedFileId),
+      ]);
+    }
+    throw error;
+  }
+
+  const photosRemaining = Math.max(0, result.photoLimit - result.photosUsed);
+  if (!result.alreadyFinalized) {
+    const row = [
+      pending.capturedAtIso || new Date().toISOString(),
+      uploadId,
+      pending.invitationId,
+      pending.partyLabel || "",
+      result.frameNumber,
+      pending.orientation || "portrait",
+      pending.effect || "natural",
+      pending.camera || "back",
+      request.auth.uid,
+      rawFileId,
+      rawFile.webViewLink || "",
+      Number(rawFile.size || pending.rawBytes || 0),
+      "Uploaded",
+      "Uploaded",
+      watermarkedFileId,
+      watermarkedFile.webViewLink || "",
+      Number(watermarkedFile.size || pending.watermarkedBytes || 0),
+      "Uploaded",
+      "",
+    ];
+
+    try {
+      await appendPhotoLog(sheets, row);
+      await uploadRef.set({ sheetLogged: true, sheetLoggedAt: FieldValue.serverTimestamp() }, { merge: true });
+    } catch (error) {
+      console.error("Photo uploaded but Sheet log append failed", uploadId, error);
+      await uploadRef.set({
+        sheetLogged: false,
+        sheetLogError: optionalText(error?.message || "Sheet log failed", 500),
+      }, { merge: true });
+    }
+  }
+
+  return {
+    ok: true,
+    uploadId,
+    frameNumber: result.frameNumber,
+    photosUsed: result.photosUsed,
+    photosRemaining,
+    photoLimit: result.photoLimit,
+    rawFileId,
+    watermarkedFileId,
+  };
+});
+
+/**
+ * Best-effort cleanup when one of the browser-to-Drive PUTs fails.
+ */
+exports.cancelGuestPhotoUpload = onCall(driveConfiguration(), async request => {
+  requireGuest(request);
+  const uploadId = String(request.data?.uploadId || "").trim();
+  if (!/^[a-f0-9]{24}$/.test(uploadId))
+    throw new HttpsError("invalid-argument", "Invalid photo upload.");
+
+  const pendingRef = db.collection("pendingPhotoUploads").doc(uploadId);
+  const pendingSnap = await pendingRef.get();
+  if (!pendingSnap.exists) return { ok: true };
+  const pending = pendingSnap.data();
+  if (pending.sessionUid !== request.auth.uid)
+    throw new HttpsError("permission-denied", "This upload belongs to another session.");
+
+  const { drive } = driveServices();
+  const candidates = [
+    { id: optionalText(request.data?.rawFileId, 150), folderId: DRIVE_RAW_FOLDER_ID, variant: "raw" },
+    { id: optionalText(request.data?.watermarkedFileId, 150), folderId: DRIVE_WATERMARKED_FOLDER_ID, variant: "watermarked" },
+  ];
+
+  for (const item of candidates) {
+    if (!item.id) continue;
+    try {
+      await verifiedDriveFile(drive, item.id, {
+        folderId: item.folderId,
+        uploadId,
+        invitationId: pending.invitationId,
+        sessionUid: request.auth.uid,
+        variant: item.variant,
+      });
+      await safeDeleteDriveFile(drive, item.id);
+    } catch (error) {
+      console.warn("Skipped upload cleanup", item.id, error?.message);
+    }
+  }
+
+  await pendingRef.set({
+    status: "cancelled",
+    cancelledAt: FieldValue.serverTimestamp(),
+  }, { merge: true });
+  return { ok: true };
+});
+
+/**
+ * Organizer diagnostic used by Wedding Studio to confirm that the OAuth token,
+ * Drive folders, and tracking Sheet are reachable.
+ */
+exports.driveStorageStatus = onCall(driveConfiguration({ maxInstances: 3 }), async request => {
+  requireAdmin(request);
+  const { drive, sheets } = driveServices();
+  const [parent, raw, watermarked, sheet] = await Promise.all([
+    drive.files.get({ fileId: DRIVE_PARENT_FOLDER_ID, fields: "id,name,webViewLink,mimeType,trashed" }),
+    drive.files.get({ fileId: DRIVE_RAW_FOLDER_ID, fields: "id,name,webViewLink,mimeType,trashed" }),
+    drive.files.get({ fileId: DRIVE_WATERMARKED_FOLDER_ID, fields: "id,name,webViewLink,mimeType,trashed" }),
+    sheets.spreadsheets.get({
+      spreadsheetId: PHOTO_LOG_SPREADSHEET_ID,
+      fields: "spreadsheetId,spreadsheetUrl,properties.title",
+    }),
+  ]);
+
+  return {
+    connected: true,
+    parent: parent.data,
+    raw: raw.data,
+    watermarked: watermarked.data,
+    sheet: sheet.data,
+  };
+});
 
 
 /**
