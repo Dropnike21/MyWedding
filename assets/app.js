@@ -357,8 +357,12 @@
           ? " hue-rotate(" + (camera.temperatureOffset * .12).toFixed(1) +
             "deg) saturate(" + (1 - camera.temperatureOffset * .0005).toFixed(3) + ")"
           : "";
-    return (base === "none" ? "" : base + " ") +
-      "brightness(" + brightness.toFixed(3) + ")" + softening + white;
+    // The default natural preview must use filter:none. Even a visually
+    // neutral brightness(1) creates a costly filtered video layer on phones.
+    const luminance=Math.abs(brightness-1)<.001 ? "" :
+      "brightness(" + brightness.toFixed(3) + ")";
+    return [base === "none" ? "" : base,luminance,softening.trim(),white.trim()]
+      .filter(Boolean).join(" ") || "none";
   }
 
   function updateVideoPresentation() {
