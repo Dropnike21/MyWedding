@@ -112,7 +112,7 @@
   // enabled the system's reduced-motion accessibility setting.
   const mobilePerformance = window.matchMedia("(pointer: coarse)").matches ||
     window.matchMedia("(max-width: 820px)").matches;
-  const viewTransitionsOK = motionOK && finePointer;
+  const viewTransitionsOK = motionOK && finePointer && !mobilePerformance;
   let activeView = null;
 
   document.documentElement.classList.add("motion-ready");
@@ -1367,7 +1367,7 @@
   window.visualViewport?.addEventListener("resize",updateCameraOrientation,{passive:true});
   window.addEventListener("deviceorientation",handleCameraDeviceTilt,{passive:true});
 
-  const revealObserver = motionOK && "IntersectionObserver" in window
+  const revealObserver = motionOK && !mobilePerformance && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
         entries.forEach(entry => {
           if (!entry.isIntersecting) return;
@@ -1411,7 +1411,7 @@
     document.body.appendChild(progress);
     let progressFrame = 0;
     const updateProgress = () => {
-      if (progressFrame) return;
+      if (document.hidden || document.body.dataset.activeView !== "home" || progressFrame) return;
       progressFrame = requestAnimationFrame(() => {
         progressFrame = 0;
         const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
@@ -1426,8 +1426,9 @@
       window.matchMedia("(max-width: 820px)").matches;
 
     if (motionOK) {
-      const petalCount = mobileAmbient ? 10 : 24;
-      const heartCount = mobileAmbient ? 3 : 9;
+      // The mobile scene needs fewer layers to retain the same visual motif.
+      const petalCount = mobileAmbient ? 4 : 24;
+      const heartCount = mobileAmbient ? 1 : 9;
 
       for (let i = 0; i < petalCount; i++) {
         const petal = document.createElement("span");
@@ -1594,7 +1595,7 @@
     }
 
     function onOrientation(event) {
-      if (!enabled || document.body.dataset.activeView !== "home") return;
+      if (!enabled || document.hidden || document.body.dataset.activeView !== "home") return;
       if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
 
       if (baseBeta === null || baseGamma === null) {
@@ -1735,7 +1736,7 @@
         if (!entries.some(entry => entry.isIntersecting)) return;
         ensureVenueAssets();
         venueObserver.disconnect();
-      }, { rootMargin: "500px 0px" });
+      }, { rootMargin: mobilePerformance ? "80px 0px" : "300px 0px" });
       venueObserver.observe(section);
     } else {
       ensureVenueAssets();
@@ -1899,7 +1900,7 @@
     }
 
     function onVenueOrientation(event) {
-      if (!tiltEnabled || document.body.dataset.activeView !== "home") return;
+      if (!tiltEnabled || document.hidden || document.body.dataset.activeView !== "home") return;
       if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
       if (baseBeta === null || baseGamma === null) {
         baseBeta = event.beta;
@@ -2163,6 +2164,9 @@
 
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
   window.addEventListener("pagehide", stopStream);
+  document.addEventListener("visibilitychange",()=>{
+    document.body.classList.toggle("page-in-background",document.hidden);
+  });
   document.addEventListener("wedding:camera-mode", event => {
     if (!event.detail?.active) {
       resetCamera();
