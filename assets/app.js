@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261101-camera3";
+  const BUILD = "20261101-perf1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -108,7 +108,11 @@
   const viewElements = [...document.querySelectorAll(".view")];
   const motionOK = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const finePointer = window.matchMedia("(pointer: fine)").matches;
-  const viewTransitionsOK = motionOK && finePointer;
+  // Prefer a low-cost rendering path on mobile even when the user has not
+  // enabled the system's reduced-motion accessibility setting.
+  const mobilePerformance = window.matchMedia("(pointer: coarse)").matches ||
+    window.matchMedia("(max-width: 820px)").matches;
+  const viewTransitionsOK = motionOK && finePointer && !mobilePerformance;
   let activeView = null;
 
   document.documentElement.classList.add("motion-ready");
@@ -230,7 +234,45 @@
     dragStartExposure: 0,
     gestureMoved: false,
     focusUiTimeout: null,
+    lastSensorAt: 0,
   };
+
+  // Keep the latest gesture value, never pile up dozens of hardware
+  // applyConstraints calls faster than a phone camera track can process them.
+  const cameraGestures = {
+    zoom: {pending:null, busy:false, timer:null, last:0},
+    exposure: {pending:null, busy:false, timer:null, last:0}
+  };
+  function queueCameraGesture(kind,value) {
+    const slot=cameraGestures[kind];
+    if (!slot || !camera.stream) return;
+    slot.pending=value;
+    if (slot.busy || slot.timer!==null) return;
+    const delay=Math.max(0,80-(performance.now()-slot.last));
+    slot.timer=setTimeout(async()=>{
+      slot.timer=null;
+      if (!camera.stream) {slot.pending=null;return;}
+      const next=slot.pending;
+      slot.pending=null;
+      slot.busy=true;
+      slot.last=performance.now();
+      try {
+        if (kind==="zoom") await setCameraZoom(next);
+        else await setCameraExposure(next);
+      } finally {
+        slot.busy=false;
+        if (slot.pending!==null && camera.stream) queueCameraGesture(kind,slot.pending);
+      }
+    },delay);
+  }
+
+  function clearCameraGestureQueue() {
+    for (const slot of Object.values(cameraGestures)) {
+      if (slot.timer!==null) clearTimeout(slot.timer);
+      slot.timer=null;slot.pending=null;
+    }
+  }
+
 
   function clamp(value,min,max) {
     return Math.min(max,Math.max(min,value));
@@ -297,15 +339,16 @@
     updateCameraQuota();
   }
 
-  function combinedPreviewFilter() {
+  function combinedPreviewFilter({preview=false}={}) {
     const base = CAMERA_FILTERS[camera.filter]?.css || "none";
     const exposure = camera.hardwareExposure ? 0 : camera.exposureValue;
     const beauty = camera.beautyStrength / 100;
     const brightness = 1 + exposure * .14 + beauty * .025;
     // This is whole-frame softening, not facial recognition or skin reconstruction.
+    const softenBlur = preview && mobilePerformance ? "" :
+      " blur(" + (beauty * .65).toFixed(2) + "px)";
     const softening = beauty ? " contrast(" + (1 - beauty * .055).toFixed(3) +
-      ") saturate(" + (1 + beauty * .035).toFixed(3) + ") blur(" +
-      (beauty * .65).toFixed(2) + "px)" : "";
+      ") saturate(" + (1 + beauty * .035).toFixed(3) + ")" + softenBlur : "";
     const white = camera.hardwareWhiteBalance ? "" :
       camera.temperatureOffset < 0
         ? " sepia(" + (-camera.temperatureOffset * .002).toFixed(3) + ") saturate(" +
@@ -314,17 +357,24 @@
           ? " hue-rotate(" + (camera.temperatureOffset * .12).toFixed(1) +
             "deg) saturate(" + (1 - camera.temperatureOffset * .0005).toFixed(3) + ")"
           : "";
-    return (base === "none" ? "" : base + " ") +
-      "brightness(" + brightness.toFixed(3) + ")" + softening + white;
+    // The default natural preview must use filter:none. Even a visually
+    // neutral brightness(1) creates a costly filtered video layer on phones.
+    const luminance=Math.abs(brightness-1)<.001 ? "" :
+      "brightness(" + brightness.toFixed(3) + ")";
+    return [base === "none" ? "" : base,luminance,softening.trim(),white.trim()]
+      .filter(Boolean).join(" ") || "none";
   }
 
   function updateVideoPresentation() {
     if (!camera.video) return;
     if (camera.frameGuide) camera.frameGuide.hidden = !camera.stream;
-    camera.video.style.filter = combinedPreviewFilter();
+    // Avoid redundant video style writes on every pinch/exposure event.
+    const filter=combinedPreviewFilter({preview:true});
+    if (camera.video.style.filter!==filter) camera.video.style.filter=filter;
     const zoom = camera.hardwareZoom ? 1 : camera.digitalZoom;
     const mirror = camera.facingMode === "user" ? " scaleX(-1)" : "";
-    camera.video.style.transform = "scale(" + zoom.toFixed(3) + ")" + mirror;
+    const transform="scale(" + zoom.toFixed(3) + ")" + mirror;
+    if (camera.video.style.transform!==transform) camera.video.style.transform=transform;
     if (camera.depthOverlay) {
       const depth = camera.apertureStrength / 100;
       camera.depthOverlay.hidden = !camera.stream || depth === 0;
@@ -373,12 +423,16 @@
 
   function updateCameraOrientation() {
     const wasLandscape=camera.session?.classList.contains("is-landscape");
+    const wasManual=camera.session?.classList.contains("is-manual-landscape");
     const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
     const manual = !viewportLandscape &&
       (camera.manualLandscape || camera.autoTiltLandscape === true);
     const landscape = viewportLandscape || manual;
-    camera.session?.classList.toggle("is-landscape",landscape);
-    camera.session?.classList.toggle("is-manual-landscape",manual);
+    const layoutChanged=wasLandscape!==landscape || wasManual!==manual;
+    if (layoutChanged) {
+      camera.session?.classList.toggle("is-landscape",landscape);
+      camera.session?.classList.toggle("is-manual-landscape",manual);
+    }
     if (wasLandscape !== landscape) setRail(false);
     if (!camera.railOpen) {
       const icon=camera.railToggle?.querySelector("span");
@@ -391,7 +445,7 @@
     camera.rotate?.setAttribute("aria-label",camera.manualLandscape
       ? "Return camera interface to automatic orientation"
       : "Rotate camera interface into landscape mode");
-    requestAnimationFrame(()=>{
+    if (layoutChanged) requestAnimationFrame(()=>{
       updateCameraFrameGuide();
       if (wasLandscape !== landscape) trimFilmFrames();
     });
@@ -410,8 +464,11 @@
   }
 
   function handleCameraDeviceTilt(event) {
-    if (!camera.stream || camera.manualLandscape || !Number.isFinite(event?.gamma) ||
-        !Number.isFinite(event?.beta)) return;
+    if (!camera.stream || camera.manualLandscape || document.hidden ||
+        !Number.isFinite(event?.gamma) || !Number.isFinite(event?.beta)) return;
+    const now=performance.now();
+    if (now-camera.lastSensorAt < 140) return;
+    camera.lastSensorAt=now;
     // Only infer a rotation for a reasonably upright phone; flat-on-table poses
     // do not have a stable sensor-based orientation.
     const side = Math.abs(event.gamma);
@@ -491,6 +548,7 @@
     camera.digitalZoom = 1;
     camera.exposureValue = 0;
     camera.pointers.clear();
+    clearCameraGestureQueue();
     if (camera.focusUiTimeout) clearTimeout(camera.focusUiTimeout);
     camera.focusUiTimeout=null;
     if (camera.focusPoint) camera.focusPoint.hidden=true;
@@ -571,12 +629,14 @@
   }
 
   function cameraConstraints() {
+    // A 2.5K 60-fps live stream is expensive on mobile, especially while
+    // the browser composites filters and the rest of the website.
     return {
       video: {
         facingMode: { ideal: camera.facingMode },
-        width: { ideal: 2560 },
-        height: { ideal: 1920 },
-        frameRate: { ideal: 30, max: 60 },
+        width: { ideal: mobilePerformance ? 1280 : 1920 },
+        height: { ideal: mobilePerformance ? 960 : 1440 },
+        frameRate: { ideal: mobilePerformance ? 24 : 30, max: 30 },
       },
       audio:false,
     };
@@ -810,7 +870,7 @@
         const distance=pointerDistance(values);
         if (camera.pinchStartDistance>0) {
           camera.gestureMoved=true;
-          setCameraZoom(camera.pinchStartZoom*(distance/camera.pinchStartDistance));
+          queueCameraGesture("zoom",camera.pinchStartZoom*(distance/camera.pinchStartDistance));
         }
         return;
       }
@@ -820,7 +880,7 @@
         camera.gestureMoved=true;
         const span=camera.exposureMax-camera.exposureMin || 2;
         const next=camera.dragStartExposure-(dy/Math.max(140,camera.preview.clientHeight*.45))*span;
-        setCameraExposure(next);
+        queueCameraGesture("exposure",next);
       }
     });
 
@@ -927,7 +987,8 @@
   }
 
   function refreshEffectPreviews() {
-    if (!camera.video || !camera.video.videoWidth || !camera.video.videoHeight) return;
+    if (mobilePerformance || !camera.video || !camera.video.videoWidth ||
+        !camera.video.videoHeight) return;
     try {
       const canvas=document.createElement("canvas");
       const size=120;
@@ -1249,7 +1310,9 @@
       camera.localTaken+=1;
       const number=camera.photosUsed+camera.localTaken;
       updateCameraQuota();
-      await animateCaptureToFilm(thumbnail,number);
+      // On mobile, avoid animating a large image layer across the live video.
+      if (mobilePerformance) addFilmFrame(thumbnail,number);
+      else await animateCaptureToFilm(thumbnail,number);
       camera.message.textContent="Moment sealed · "+cameraRemaining()+" frames left";
       document.dispatchEvent(new CustomEvent("wedding:photo-captured",{
         detail:{
@@ -1307,12 +1370,20 @@
   if (screen.orientation?.addEventListener) {
     screen.orientation.addEventListener("change",updateCameraOrientation);
   }
-  window.addEventListener("resize",updateCameraOrientation,{passive:true});
-  window.addEventListener("orientationchange",updateCameraOrientation,{passive:true});
-  window.visualViewport?.addEventListener("resize",updateCameraOrientation,{passive:true});
+  let resizeFrame=0;
+  const onCameraViewportChange=()=>{
+    updateCameraOrientation();
+    if (!resizeFrame && camera.stream) resizeFrame=requestAnimationFrame(()=>{
+      resizeFrame=0;
+      updateCameraFrameGuide();
+    });
+  };
+  window.addEventListener("resize",onCameraViewportChange,{passive:true});
+  window.addEventListener("orientationchange",onCameraViewportChange,{passive:true});
+  window.visualViewport?.addEventListener("resize",onCameraViewportChange,{passive:true});
   window.addEventListener("deviceorientation",handleCameraDeviceTilt,{passive:true});
 
-  const revealObserver = motionOK && "IntersectionObserver" in window
+  const revealObserver = motionOK && !mobilePerformance && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
         entries.forEach(entry => {
           if (!entry.isIntersecting) return;
@@ -1356,7 +1427,7 @@
     document.body.appendChild(progress);
     let progressFrame = 0;
     const updateProgress = () => {
-      if (progressFrame) return;
+      if (document.hidden || document.body.dataset.activeView !== "home" || progressFrame) return;
       progressFrame = requestAnimationFrame(() => {
         progressFrame = 0;
         const max = Math.max(1, document.documentElement.scrollHeight - innerHeight);
@@ -1371,8 +1442,9 @@
       window.matchMedia("(max-width: 820px)").matches;
 
     if (motionOK) {
-      const petalCount = mobileAmbient ? 10 : 24;
-      const heartCount = mobileAmbient ? 3 : 9;
+      // The mobile scene needs fewer layers to retain the same visual motif.
+      const petalCount = mobileAmbient ? 4 : 24;
+      const heartCount = mobileAmbient ? 1 : 9;
 
       for (let i = 0; i < petalCount; i++) {
         const petal = document.createElement("span");
@@ -1476,6 +1548,7 @@
     let frame = 0;
     let enabled = false;
     let lastBurst = 0;
+    let lastTiltPaint=0;
 
     const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
@@ -1539,7 +1612,10 @@
     }
 
     function onOrientation(event) {
-      if (!enabled || document.body.dataset.activeView !== "home") return;
+      if (!enabled || document.hidden || document.body.dataset.activeView !== "home") return;
+      const now=performance.now();
+      if (now-lastTiltPaint<55) return;
+      lastTiltPaint=now;
       if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
 
       if (baseBeta === null || baseGamma === null) {
@@ -1657,6 +1733,7 @@
     let smoothX = 0;
     let smoothY = 0;
     let tiltFrame = 0;
+    let lastVenueTilt=0;
 
     const destination = config.mapsQuery || config.address || config.name;
     const encodedDestination = encodeURIComponent(destination);
@@ -1680,7 +1757,7 @@
         if (!entries.some(entry => entry.isIntersecting)) return;
         ensureVenueAssets();
         venueObserver.disconnect();
-      }, { rootMargin: "500px 0px" });
+      }, { rootMargin: mobilePerformance ? "80px 0px" : "300px 0px" });
       venueObserver.observe(section);
     } else {
       ensureVenueAssets();
@@ -1844,7 +1921,10 @@
     }
 
     function onVenueOrientation(event) {
-      if (!tiltEnabled || document.body.dataset.activeView !== "home") return;
+      if (!tiltEnabled || document.hidden || document.body.dataset.activeView !== "home") return;
+      const now=performance.now();
+      if (now-lastVenueTilt<55) return;
+      lastVenueTilt=now;
       if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
       if (baseBeta === null || baseGamma === null) {
         baseBeta = event.beta;
@@ -2108,6 +2188,9 @@
 
   window.addEventListener("hashchange", () => switchView(location.hash.slice(1)));
   window.addEventListener("pagehide", stopStream);
+  document.addEventListener("visibilitychange",()=>{
+    document.body.classList.toggle("page-in-background",document.hidden);
+  });
   document.addEventListener("wedding:camera-mode", event => {
     if (!event.detail?.active) {
       resetCamera();

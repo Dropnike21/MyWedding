@@ -3708,3 +3708,101 @@ body.camera-session-active .camera-action-rail .camera-rail-button{
   body.camera-session-active .camera-session.is-landscape .camera-film-label{gap:0}
   body.camera-session-active .camera-session.is-landscape .camera-capture-deck{gap:7px!important}
 }
+
+/* =========================================================
+   MOBILE PERFORMANCE PATH — lightweight home and guest camera.
+   This intentionally favors low-latency touch and a stable preview over
+   continuous decorative motion and GPU-expensive backdrop blurs.
+   ========================================================= */
+
+/* A hidden or inactive home must not keep painting its fixed decorations. */
+body:not([data-active-view="home"]) .ambient-layer,
+body.page-in-background .ambient-layer{
+  display:none!important;
+}
+body.page-in-background .home-hero:before,
+body.page-in-background .art-ring,
+body.page-in-background .moon,
+body.page-in-background .camera-preview:after{
+  animation-play-state:paused!important;
+}
+
+@media(pointer:coarse),(max-width:820px){
+  /* Continuous decorative animation does not improve mobile navigation. */
+  .ambient-layer{display:none!important}
+  .home-hero:before,
+  .camera-preview:after{
+    display:none!important;
+    animation:none!important;
+  }
+  .art-ring,
+  .moon,
+  .system-arrow,
+  .ambient-petal,
+  .ambient-heart,
+  .venue-tilt-button.is-on>span{
+    animation:none!important;
+  }
+  .moon{box-shadow:0 0 24px rgba(255,248,219,.22)!important}
+  .motion-ready .reveal,
+  .motion-ready .reveal.is-revealed{
+    opacity:1!important;
+    transform:none!important;
+    transition:none!important;
+    filter:none!important;
+  }
+  /* Fixed and sticky glass panels incur expensive repaints while scrolling. */
+  .site-header,
+  .main-nav,
+  .global-loader,
+  .camera-sheet,
+  .camera-rail-toggle,
+  .camera-rail-button,
+  .camera-code-modal,
+  .camera-tool{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  .site-header{
+    background:#f5ede5!important;
+    transition:none!important;
+  }
+  .page-scrolled .site-header{background:#f5ede5!important}
+  .main-nav{background:rgba(247,239,231,.97)!important}
+  .camera-sheet{background:rgba(35,47,39,.97)!important;animation:none!important}
+  .camera-rail-button,
+  .camera-rail-toggle{background:rgba(17,27,22,.88)!important}
+  .camera-code-modal{background:rgba(8,13,10,.84)!important}
+  .global-loader{background:rgba(244,236,227,.96)!important}
+  /* Video blur, transitions and a giant 100vmax shadow compete for GPU budget. */
+  .camera-live-stage video{
+    transition:none!important;
+    will-change:auto!important;
+  }
+  .camera-framing-guide{
+    box-shadow:0 0 0 1px rgba(0,0,0,.18)!important;
+  }
+  /* The saved JPEG still receives the selected portrait background blur;
+     the live mobile preview uses a low-cost vignette instead. */
+  .camera-depth-overlay{
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    background:radial-gradient(ellipse 45% 46% at 50% 50%,transparent 50%,rgba(12,17,14,.17) 100%);
+    mask-image:none!important;
+    -webkit-mask-image:none!important;
+  }
+  .camera-film-frame.is-new,
+  .camera-film-empty.pulse,
+  .camera-flight,
+  .camera-focus-point.pulse{
+    animation:none!important;
+  }
+  .camera-film-frame.is-new{opacity:1!important}
+  .camera-capture-flight{display:none!important}
+  .tap-ripple{display:none!important}
+  .venue-immersive-photo{transition:none!important}
+  .venue-immersive-floral,
+  .venue-immersive-photo{will-change:auto!important}
+  .camera-action-rail{transition:opacity .12s ease,transform .12s ease!important}
+  .camera-rail-button{transition:none!important}
+}
