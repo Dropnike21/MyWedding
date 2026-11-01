@@ -30,8 +30,8 @@ test("natural mobile camera preview does not use a video filter layer",()=>{
   const fn=get(camera,{natural:{css:"none"}},true);
   assert.equal(fn({preview:true}),"none");
   camera.beautyStrength=50;
-  assert.doesNotMatch(fn({preview:true}),/blur\\(/);
-  assert.match(fn({preview:false}),/blur\\(/);
+  assert.doesNotMatch(fn({preview:true}),/blur\(/);
+  assert.match(fn({preview:false}),/blur\(/);
 });
 
 test("mobile camera requests a lower frame-rate and 1280 px stream",()=>{
@@ -77,18 +77,18 @@ test("gesture queue coalesces rapid pointer updates and can cancel work",async()
 });
 
 test("homepage reduces ambient work and does not animate offscreen views on mobile",()=>{
-  assert.match(app,/petalCount = mobileAmbient \\? 4 : 24/);
-  assert.match(app,/heartCount = mobileAmbient \\? 1 : 9/);
+  assert.match(app,/petalCount = mobileAmbient \? 4 : 24/);
+  assert.match(app,/heartCount = mobileAmbient \? 1 : 9/);
   assert.match(app,/revealObserver = motionOK && !mobilePerformance/);
-  assert.match(app,/rootMargin: mobilePerformance \\? "80px 0px"/);
-  assert.match(css,/body:not\\(\\[data-active-view="home"\\]\\) \\.ambient-layer/);
-  assert.match(css,/\\.ambient-layer\\{display:none!important\\}/);
+  assert.match(app,/rootMargin: mobilePerformance \? "80px 0px"/);
+  assert.match(css,/body:not\(\[data-active-view="home"\]\) \.ambient-layer/);
+  assert.match(css,/\.ambient-layer\{display:none!important\}/);
 });
 
 test("mobile preview disables costly compositing but retains photo effects",()=>{
-  assert.match(css,/\\.camera-depth-overlay\\{[\\s\\S]*?backdrop-filter:none!important/);
-  assert.match(css,/\\.camera-framing-guide\\{[\\s\\S]*?box-shadow:0 0 0 1px/);
-  assert.match(app,/if \\(mobilePerformance\\) addFilmFrame\\(thumbnail,number\\)/);
-  assert.match(app,/combinedPreviewFilter\\(\\{preview:true\\}\\)/);
-  assert.match(app,/context\\.filter=combinedPreviewFilter\\(\\)/);
+  assert.match(css,/\.camera-depth-overlay\{[\s\S]*?backdrop-filter:none!important/);
+  assert.match(css,/\.camera-framing-guide\{[\s\S]*?box-shadow:0 0 0 1px/);
+  assert.match(app,/if \(mobilePerformance\) addFilmFrame\(thumbnail,number\)/);
+  assert.match(app,/combinedPreviewFilter\(\{preview:true\}\)/);
+  assert.match(app,/context\.filter=combinedPreviewFilter\(\)/);
 });
