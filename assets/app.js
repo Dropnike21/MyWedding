@@ -419,12 +419,16 @@
 
   function updateCameraOrientation() {
     const wasLandscape=camera.session?.classList.contains("is-landscape");
+    const wasManual=camera.session?.classList.contains("is-manual-landscape");
     const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
     const manual = !viewportLandscape &&
       (camera.manualLandscape || camera.autoTiltLandscape === true);
     const landscape = viewportLandscape || manual;
-    camera.session?.classList.toggle("is-landscape",landscape);
-    camera.session?.classList.toggle("is-manual-landscape",manual);
+    const layoutChanged=wasLandscape!==landscape || wasManual!==manual;
+    if (layoutChanged) {
+      camera.session?.classList.toggle("is-landscape",landscape);
+      camera.session?.classList.toggle("is-manual-landscape",manual);
+    }
     if (wasLandscape !== landscape) setRail(false);
     if (!camera.railOpen) {
       const icon=camera.railToggle?.querySelector("span");
@@ -437,7 +441,7 @@
     camera.rotate?.setAttribute("aria-label",camera.manualLandscape
       ? "Return camera interface to automatic orientation"
       : "Rotate camera interface into landscape mode");
-    requestAnimationFrame(()=>{
+    if (layoutChanged) requestAnimationFrame(()=>{
       updateCameraFrameGuide();
       if (wasLandscape !== landscape) trimFilmFrames();
     });
@@ -1362,9 +1366,17 @@
   if (screen.orientation?.addEventListener) {
     screen.orientation.addEventListener("change",updateCameraOrientation);
   }
-  window.addEventListener("resize",updateCameraOrientation,{passive:true});
-  window.addEventListener("orientationchange",updateCameraOrientation,{passive:true});
-  window.visualViewport?.addEventListener("resize",updateCameraOrientation,{passive:true});
+  let resizeFrame=0;
+  const onCameraViewportChange=()=>{
+    updateCameraOrientation();
+    if (!resizeFrame && camera.stream) resizeFrame=requestAnimationFrame(()=>{
+      resizeFrame=0;
+      updateCameraFrameGuide();
+    });
+  };
+  window.addEventListener("resize",onCameraViewportChange,{passive:true});
+  window.addEventListener("orientationchange",onCameraViewportChange,{passive:true});
+  window.visualViewport?.addEventListener("resize",onCameraViewportChange,{passive:true});
   window.addEventListener("deviceorientation",handleCameraDeviceTilt,{passive:true});
 
   const revealObserver = motionOK && !mobilePerformance && "IntersectionObserver" in window
@@ -1532,6 +1544,7 @@
     let frame = 0;
     let enabled = false;
     let lastBurst = 0;
+    let lastTiltPaint=0;
 
     const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
 
@@ -1596,6 +1609,9 @@
 
     function onOrientation(event) {
       if (!enabled || document.hidden || document.body.dataset.activeView !== "home") return;
+      const now=performance.now();
+      if (now-lastTiltPaint<55) return;
+      lastTiltPaint=now;
       if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
 
       if (baseBeta === null || baseGamma === null) {
@@ -1713,6 +1729,7 @@
     let smoothX = 0;
     let smoothY = 0;
     let tiltFrame = 0;
+    let lastVenueTilt=0;
 
     const destination = config.mapsQuery || config.address || config.name;
     const encodedDestination = encodeURIComponent(destination);
@@ -1901,6 +1918,9 @@
 
     function onVenueOrientation(event) {
       if (!tiltEnabled || document.hidden || document.body.dataset.activeView !== "home") return;
+      const now=performance.now();
+      if (now-lastVenueTilt<55) return;
+      lastVenueTilt=now;
       if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
       if (baseBeta === null || baseGamma === null) {
         baseBeta = event.beta;
