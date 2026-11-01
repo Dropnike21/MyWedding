@@ -90,5 +90,5 @@ test("mobile preview disables costly compositing but retains photo effects",()=>
   assert.match(css,/\.camera-framing-guide\{[\s\S]*?box-shadow:0 0 0 1px/);
   assert.match(app,/if \(mobilePerformance\) addFilmFrame\(thumbnail,number\)/);
   assert.match(app,/combinedPreviewFilter\(\{preview:true\}\)/);
-  assert.match(app,/context\.filter=combinedPreviewFilter\(\)/);
+  assert.match(app,/context\.filter\s*=\s*combinedPreviewFilter\(\)/);
 });
