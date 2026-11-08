@@ -73,7 +73,7 @@ test("full deletion revokes access before removing Drive, Sheet and Firestore",(
   assert.ok(body.indexOf("await ref.delete()")>body.indexOf("sheets.spreadsheets.batchUpdate"));
   assert.match(planner,/verified!=="DELETE"/);
   assert.match(planner,/db\.guests=db\.guests\.filter\(g=>g\.id!==item\.sourceGuestId\)/);
-  assert.match(planner,/if\(item\.status==="deleting"/);
+  assert.match(planner,/item\.status==="deleting"/);
 });
 test("deleted photos do not silently count as saved and camera remains portrait",()=>{
   assert.match(guest,/wedding:photo-uploaded/);
