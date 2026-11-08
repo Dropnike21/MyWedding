@@ -9,7 +9,7 @@ This pass targets Android Chrome and other touch/mobile browsers. Its main objec
 - The Natural look now sends **`filter: none`** to the video instead of `brightness(1.000)`. This avoids allocating a GPU filter layer when no look is selected.
 - The beauty look keeps its gentle tone and contrast on mobile, but the **live mobile preview omits CSS Gaussian blur**; the saved wedding JPEG retains the selected beauty effect.
 - The portrait depth preview uses a cheap tinted vignette rather than a live backdrop-blur. The **saved JPEG still gets the configured portrait/background blur**. Compare the captured result rather than assuming the preview is pixel-accurate.
-- Coalesces hardware zoom and exposure updates to at most about once per 80 ms; stale drag positions are skipped rather than queued for the camera track. Camera tilt sensors are sampled less frequently.
+- Coalesces hardware zoom and exposure updates to at most about once per 80 ms; stale drag positions are skipped. Camera screen-orientation sensing and manual rotation have been removed.
 - Suppresses live thumbnail previews in the filter picker on mobile and removes the large flying-thumbnail animation; the film strip, photo count, clean original, and edited wedding JPEG remain.
 
 ### Homepage
@@ -35,7 +35,7 @@ Source-level tests cover camera crop geometry, orientation film/tool logic, gest
 2. Visit the **Guest Camera** from Home. Open the rear camera in **Natural** with Beautify and Portrait Blur set to **Off**; check preview smoothness at rest, then when panning the phone.
 3. Try pinch zoom, vertical exposure adjustment, tap focus, switch cameras, and photo capture. Confirm touch controls still work and do not queue a long backlog of delayed adjustments.
 4. Turn on Beautify or Portrait Blur, take a picture, and examine the **captured** JPEG. The effects are intentionally lighter in the **live preview** on mobile, but remain in the edited capture.
-5. Rotate between portrait/landscape, open/close the tool rail, tap outside to dismiss, and inspect the vertical hanging film strip and camera-pass details.
+5. Turn the phone sideways and confirm the camera keeps a portrait screen layout with a horizontal film strip and vertical tool rail; scroll if the browser viewport becomes short.
 6. Return Home, then navigate away and back; ensure no camera feed remains active and the page does not visibly stutter.
 7. Repeat on a weaker/older phone if available. Use Chrome's Performance tools or Android's FPS diagnostics for measured frame rates; these source tests are not hardware benchmarks.
 
