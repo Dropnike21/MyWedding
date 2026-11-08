@@ -201,6 +201,7 @@
     photoLimit: 50,
     photosUsed: 0,
     localTaken: 0,
+    captureSequence: 0,
     frames: [],
     capturing: false,
     effectPreviewData: "",
@@ -331,6 +332,7 @@
     camera.photoLimit = Math.max(1, Number(detail.photoLimit || 50));
     camera.photosUsed = Math.max(0, Number(detail.photosUsed || 0));
     camera.localTaken = 0;
+    camera.captureSequence = 0;
     hydrateFilmHistory(camera.photosUsed);
     updateCameraQuota();
   }
@@ -1191,7 +1193,7 @@
     camera.filmTrack.insertBefore(frame,camera.filmEmpty);
     camera.frames.push({
       url:thumbnail.url,node:frame,orientation:thumbnail.orientation,
-      localSequence:camera.localTaken
+      localSequence:camera.captureSequence
     });
     animateFilmAdvance(existing);
     frame.classList.add("is-new");
@@ -1254,6 +1256,7 @@
       if (!photo || !rawBlob) throw new Error("Photo capture failed");
       const thumbnail=await thumbnailFromCanvas(final.canvas,final.orientation);
       camera.localTaken+=1;
+      camera.captureSequence+=1;
       const number=camera.photosUsed+camera.localTaken;
       updateCameraQuota();
       // On mobile, avoid animating a large image layer across the live video.
@@ -1271,7 +1274,7 @@
           facingMode:camera.facingMode,
           orientation:final.orientation,
           watermarked:true,
-          localSequence:camera.localTaken,
+          localSequence:camera.captureSequence,
         }
       }));
     } catch(error) {
@@ -2158,7 +2161,17 @@
   document.addEventListener("wedding:photo-synced",event=>{
     if (!camera.session || camera.session.hidden) return;
     const used=Number(event.detail?.photosUsed);
-    if (Number.isFinite(used))camera.photosUsed=Math.max(camera.photosUsed,used);
+    if (Number.isFinite(used) && used>camera.photosUsed) {
+      const previous=camera.photosUsed;
+      camera.photosUsed=used;
+      // Only lightweight sealed frames are mirrored from other phones.
+      // Full guest images are never downloaded into the camera UI.
+      if (camera.stream) {
+        for (let number=Math.max(previous+1,used-5);number<=used;number+=1)
+          addHistoryFrame(number);
+        requestAnimationFrame(trimFilmFrames);
+      }
+    }
     updateCameraQuota();
   });
 
