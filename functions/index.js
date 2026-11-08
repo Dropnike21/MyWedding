@@ -572,6 +572,30 @@ exports.deleteInvitationAndPhotos = onCall(configuration({
   return {deleted:true,photosDeleted:photoDocs.size};
 });
 
+/** Return only public-safe guest invitation details after a bearer code is
+ * validated. No contact information or private organizer data is exposed. */
+exports.getInvitationDetails = onCall(configuration({maxInstances:8}),async request=>{
+  requireGuest(request);
+  const code=normalizeCode(request.data?.code);
+  if(!CODE_PATTERN.test(code))
+    throw new HttpsError("invalid-argument","Invalid invitation code.");
+  await recordAttempt(request);
+  const digest=hash(code);
+  const index=await db.collection("invitationCodes").doc(digest).get();
+  if(!index.exists || index.get("status")!=="active")
+    throw new HttpsError("permission-denied","Invitation link expired.");
+  const snap=await db.collection("invitationRegistry").doc(index.get("invitationId")).get();
+  if(!snap.exists || snap.get("status")!=="active" ||
+     snap.get("codeDigest")!==digest ||
+     Number(snap.get("revision"))!==Number(index.get("revision")))
+    throw new HttpsError("permission-denied","Invitation link expired.");
+  return {
+    partyLabel:optionalText(snap.get("partyLabel"),120),
+    invitedSeats:Number(snap.get("invitedSeats")||1),
+    weddingDate:"2027-12-23",
+  };
+});
+
 /**
  * Code redemption is serialized with rotations/revocations using a transaction.
  * The session binds to the CURRENT invitation revision, not just a guest name.
