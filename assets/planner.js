@@ -515,11 +515,108 @@ function renderBudget() {
   bindJumps();
 }
 
+let rehearsalLink="";
+function weddingLink(hash,search="") {
+  return window.location.origin+window.location.pathname+search+hash;
+}
+function rehearsalCard() {
+  if (organizerRole!=="owner") return "";
+  return '<section class="planner-rehearsal-card" aria-labelledby="planner-rehearsal-title">'+
+    '<span class="eyebrow">PRIVATE REHEARSAL · OWNER ONLY</span>'+
+    '<h3 id="planner-rehearsal-title">Test the complete invitation journey</h3>'+
+    '<p>Preview the exact guest landing page, then create a real five-photo test pass. '+
+    'Rehearsal uploads go to your private Google Drive and appear separately in the photo archive. '+
+    'The real wedding camera stays disabled.</p>'+
+    '<div class="planner-rehearsal-actions">'+
+      '<button class="button outlined" type="button" id="rehearsal-preview">Preview invitation</button>'+
+      '<button class="button primary" type="button" id="rehearsal-start">Start 1-hour test</button>'+
+      '<button class="button outlined" type="button" id="rehearsal-generate">Generate test invitation link</button>'+
+      '<button class="button outlined" type="button" id="rehearsal-stop">End test</button>'+
+    '</div>'+
+    '<p id="rehearsal-status" class="planner-rehearsal-status" role="status" aria-live="polite">'+
+       'Preview works without backend deployment. Real test links require Firebase Functions and Drive OAuth setup.</p>'+
+    '<div id="rehearsal-link-area" class="planner-rehearsal-link" hidden>'+
+      '<label for="rehearsal-link">Share this test link (visible once)</label>'+
+      '<input type="text" id="rehearsal-link" readonly autocomplete="off" />'+
+      '<div class="planner-rehearsal-actions">'+
+        '<button type="button" class="button outlined" id="rehearsal-copy">Copy link</button>'+
+        '<a class="button primary" id="rehearsal-open" target="_blank" rel="noopener noreferrer">Open guest landing page</a>'+
+      '</div>'+
+    '</div>'+
+  '</section>';
+}
+function bindRehearsalTools() {
+  const status=root.querySelector("#rehearsal-status");
+  if(!status) return;
+  const base=weddingLink("#camera/AJ27TEST");
+  root.querySelector("#rehearsal-preview")?.addEventListener("click",()=>{
+    window.open(base,"_blank","noopener,noreferrer");
+    status.textContent="Invitation design preview opened. This does not upload photos.";
+  });
+  const perform=async (name,message)=>{
+    status.textContent=message;
+    try {
+      const response=await callWeddingFunction(name)({});
+      return response.data || {};
+    } catch(error) {
+      status.textContent="Firebase service unavailable: "+(error?.message || String(error))+
+        ". Deploy and configure the guest Functions before the real rehearsal.";
+      throw error;
+    }
+  };
+  const start=root.querySelector("#rehearsal-start");
+  start?.addEventListener("click",async()=>{
+    start.disabled=true;
+    try {
+      const result=await perform("startCameraRehearsal","Starting secure 1-hour rehearsal…");
+      status.textContent="Rehearsal active until "+new Date(result.closeAt).toLocaleString("en-PH")+
+        ". Generate a test invitation link to continue.";
+    } catch(error) { console.warn("Rehearsal start unavailable:",error?.code || error); }
+    finally {start.disabled=false;}
+  });
+  const issue=root.querySelector("#rehearsal-generate");
+  issue?.addEventListener("click",async()=>{
+    issue.disabled=true;
+    try {
+      const result=await perform("createCameraRehearsalPass","Generating a secure five-frame test code…");
+      const code=String(result.code || "");
+      if(!/^[A-HJ-NP-Z2-9]{8}$/.test(code))throw new Error("Invalid test code from server");
+      rehearsalLink=weddingLink("#camera/"+code,"?cameraRehearsal=1");
+      root.querySelector("#rehearsal-link").value=rehearsalLink;
+      root.querySelector("#rehearsal-open").href=rehearsalLink;
+      root.querySelector("#rehearsal-link-area").hidden=false;
+      status.textContent="Test invitation generated. Copy the link now; the raw code is not stored by the site.";
+    } catch(error) {
+      status.textContent="Could not generate test invitation: "+(error?.message || "Service unavailable");
+    } finally {issue.disabled=false;}
+  });
+  root.querySelector("#rehearsal-copy")?.addEventListener("click",async()=>{
+    if(!rehearsalLink)return;
+    try {
+      await navigator.clipboard.writeText(rehearsalLink);
+      status.textContent="Test invitation link copied. You can open it on another phone.";
+    } catch {
+      const field=root.querySelector("#rehearsal-link");
+      field?.select();
+      status.textContent="Select and copy the highlighted link.";
+    }
+  });
+  root.querySelector("#rehearsal-stop")?.addEventListener("click",async()=>{
+    if(!confirm("End the current camera rehearsal for every test device?"))return;
+    try {
+      await perform("stopCameraRehearsal","Closing rehearsal…");
+      status.textContent="Rehearsal closed. Existing test codes can no longer upload until another test window starts.";
+    } catch(error){ console.warn("Rehearsal stop unavailable:",error?.code || error); }
+  });
+}
+
 async function renderPhotoArchive() {
   root.innerHTML = header(
     "Guest Photo Archive",
     "Owner-only view of guest-camera uploads. The protected Google Sheet is an audit mirror; manage the archive here."
-  ) + '<div class="planner-card"><div class="planner-loading-state">Loading private photo archive…</div></div>';
+  ) + rehearsalCard()+
+    '<div class="planner-card"><div class="planner-loading-state">Loading private photo archive…</div></div>';
+
 
   const token = window.WeddingUI?.begin(
     "Loading photo archive…",
@@ -539,15 +636,18 @@ async function renderPhotoArchive() {
     const rawBytes = items.reduce((sum,item)=>sum+num(item.rawBytes),0);
     const wmBytes = items.reduce((sum,item)=>sum+num(item.watermarkedBytes),0);
     const uniquePasses = new Set(items.map(item=>item.invitationId).filter(Boolean)).size;
+    const testFrames=items.filter(item=>item.testMode===true).length;
+    const realFrames=items.length-testFrames;
     const mb = value => (value/1024/1024).toFixed(1)+" MB";
 
     root.innerHTML = header(
       "Guest Photo Archive",
       "Owner-only guest-camera archive. Google Drive stores the files; Firebase and the website remain the management layer.",
       '<button class="button outlined planner-compact" id="photo-refresh">Refresh</button>'
-    ) +
+    ) + rehearsalCard()+
     '<div class="planner-metrics compact">'+
-      metric("Captured frames",items.length,"Finalized uploads")+
+      metric("Real frames",realFrames,"Finalized guest uploads")+
+      metric("Test frames",testFrames,"Rehearsal photos · private Drive")+
       metric("Invitation passes",uniquePasses,"Unique guest/family codes")+
       metric("RAW storage",mb(rawBytes),"Clean archival originals")+
       metric("Wedding copies",mb(wmBytes),"Filtered + watermarked")+
@@ -566,15 +666,18 @@ async function renderPhotoArchive() {
     '</div>'+
     '<section class="planner-list-card"><div class="planner-list-tools"><strong>Latest frames</strong><span>'+items.length+' loaded</span></div>'+
       (items.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Frame</th><th>Guest / party</th><th>Captured</th><th>Format</th><th>Effect</th><th>Archive</th></tr></thead><tbody>'+
-        items.map(item=>'<tr><td>#'+String(item.frameNumber||0).padStart(2,"0")+'</td><td>'+esc(item.partyLabel||"Invitation")+'</td><td>'+esc(item.capturedAt?new Date(item.capturedAt).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"—")+'</td><td>'+esc((item.orientation||"")+" · "+(item.camera||""))+'</td><td>'+esc(item.effect||"Natural")+'</td><td>'+statusBadge(item.sheetLogged?"Logged":"Sheet pending")+'</td></tr>').join("")+
+        items.map(item=>'<tr><td>#'+String(item.frameNumber||0).padStart(2,"0")+(item.testMode?" · TEST":"")+'</td><td>'+esc(item.partyLabel||"Invitation")+'</td><td>'+esc(item.capturedAt?new Date(item.capturedAt).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"—")+'</td><td>'+esc((item.orientation||"")+" · "+(item.camera||""))+'</td><td>'+esc(item.effect||"Natural")+'</td><td>'+statusBadge(item.sheetLogged?"Logged":"Sheet pending")+'</td></tr>').join("")+
       '</tbody></table></div>':empty("No guest-camera frames have been finalized yet."))+
     '</section>';
 
     root.querySelector("#photo-refresh")?.addEventListener("click",renderPhotoArchive);
+    bindRehearsalTools();
   } catch(error) {
     console.error("Photo archive load failed",error);
     root.innerHTML = header("Guest Photo Archive","Private Drive archive status.")+
+      rehearsalCard()+
       '<div class="planner-card planner-error-card"><h3>Archive connection needs attention</h3><p>'+esc(error?.message||"Could not load Google Drive archive status.")+'</p></div>';
+    bindRehearsalTools();
   } finally {
     if(token) window.WeddingUI?.end(token);
   }

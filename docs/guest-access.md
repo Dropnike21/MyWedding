@@ -1,5 +1,15 @@
 # Secure invitation links, guest RSVP and regeneration
 
+> **November 2026 update:** A guest-facing **invitation landing page** and
+> owner-controlled **real upload rehearsal** are implemented in source.
+> Owners can preview the invitation design without a backend, and can generate
+> a one-hour **five-frame real test pass** after protected Firebase Functions,
+> App Check and Drive OAuth are deployed. Production guest invitations remain
+> disabled. See [Camera rehearsal](camera-rehearsal-end-to-end.md). The older
+> instructions below describe the legacy one-code-per-group invitation flow
+> and are **not** confirmation that backend deployment has occurred.
+
+
 **Status:** Web interface and Cloud Functions are committed to GitHub; Firebase functions, authentication rules and App Check have NOT been deployed. No real invitation links can be issued on the public site yet. The current GitHub Pages website remains a frontend prototype with a local-only camera test.
 
 ## How invitations work
