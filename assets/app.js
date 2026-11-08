@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261108-guest1";
+  const BUILD = "20261108-funcfix1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
