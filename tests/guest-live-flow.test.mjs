@@ -69,8 +69,10 @@ test("full deletion revokes access before removing Drive, Sheet and Firestore",(
   assert.match(body,/drive\.files\.list\(/);
   assert.match(body,/drive\.files\.delete\(/);
   assert.match(body,/sheets\.spreadsheets\.batchUpdate\(/);
-  assert.match(body,/await ref\.delete\(\)/);
-  assert.ok(body.indexOf("await ref.delete()")>body.indexOf("sheets.spreadsheets.batchUpdate"));
+  assert.match(body,/cleanup\.delete\(ref\)/);
+  assert.match(body,/cleanup\.delete\(db\.doc\("weddings\/main\/guests\/"\+linkedGuest\)\)/);
+  assert.match(body,/await cleanup\.commit\(\)/);
+  assert.ok(body.indexOf("await cleanup.commit()")>body.indexOf("sheets.spreadsheets.batchUpdate"));
   assert.match(planner,/verified!=="DELETE"/);
   assert.match(planner,/db\.guests=db\.guests\.filter\(g=>g\.id!==item\.sourceGuestId\)/);
   assert.match(planner,/item\.status==="deleting"/);
