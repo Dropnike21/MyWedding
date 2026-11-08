@@ -2,8 +2,8 @@
 
 A public-facing wedding website and future wedding-management system for Angela & Joseph.
 
-**Wedding date:** February 23, 2027 (tentative)  
-**Project stage:** Frontend and secure callable-function source committed. Firestore exists, but guest access, admin roles and Cloud Functions have **not** been deployed or activated.
+**Wedding date:** December 23, 2027 (tentative)  
+**Project stage:** The organizer's Wedding Studio is Firebase-connected. Guest invitation and photo-upload Firebase Functions are written in the repository but have **not been verified as deployed**. An opt-in, owner-controlled camera rehearsal is available in source and requires backend setup.
 
 ## What's here now
 
@@ -15,6 +15,26 @@ A public-facing wedding website and future wedding-management system for Angela 
 - Cloud Functions source for code issuance, atomic rotation/revocation, RSVP and session validation (**not deployed**)
 
 **Important:** The camera currently does not upload, store, or publish photographs. Invitation-code verification, live RSVP, admin database access, QR issuance, photo moderation, and the 48-hour gallery lock are **not live**. The current page may show a local-only device-camera demo; it never uploads.
+
+## Camera invitation and real-upload rehearsal
+
+The camera interface now stays in **portrait mode**, without sensor-driven
+rotation or a Rotate button. Guests opening a private code link first see a
+styled invitation landing page before redeeming the pass.
+
+The **sample invitation design** works as a local-only preview at
+`https://dropnike21.github.io/MyWedding/#camera/AJ27TEST`.
+
+In Wedding Studio → Photo archive, owners can preview that landing page,
+start a one-hour rehearsal, generate a real five-frame test invitation link,
+and close the rehearsal. Live test mode uses the genuine Firebase Functions
+and private Drive/Sheets photo flow, **but it cannot upload until Cloud
+Functions, anonymous auth, App Check and OAuth secrets are configured and
+deployed**. Normal production guest access and uploads remain disabled.
+
+Read [End-to-end camera rehearsal](docs/camera-rehearsal-end-to-end.md)
+before issuing a real test code. The proposed one-code-per-seat invitation
+design is documented separately and is not active.
 
 ## Deploy with GitHub Pages
 
