@@ -36,13 +36,17 @@ const cameraRequested = () => location.hash === "#camera" || location.hash.start
 const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
 const PREVIEW_USAGE_KEY = "mywedding_camera_preview_usage_v1";
 const previewTestCode = normalize(guestAccessConfig.previewTestCode || "AJ27-TEST");
-const previewTestActive = Boolean(!guestAccessConfig.enabled && guestAccessConfig.previewTestEnabled !== false && CODE_PATTERN.test(previewTestCode));
+const rehearsalRequested = new URLSearchParams(location.search).get("cameraRehearsal")==="1";
+const secureGuestEnabled = guestAccessConfig.enabled || rehearsalRequested;
+const previewTestActive = Boolean(!secureGuestEnabled &&
+  guestAccessConfig.previewTestEnabled !== false && CODE_PATTERN.test(previewTestCode));
 
 
 function driveUploadsActive() {
   return Boolean(
-    guestAccessConfig.enabled &&
-    guestAccessConfig.driveUploadsEnabled &&
+    secureGuestEnabled &&
+    (guestAccessConfig.driveUploadsEnabled ||
+      (rehearsalRequested && cameraAccess?.testMode === true)) &&
     !cameraAccess?.preview
   );
 }
@@ -119,7 +123,9 @@ async function uploadCapturedPhoto(detail) {
       cameraMessage.textContent =
         "Memory saved privately · " + finalized.photosRemaining + " frames left";
     }
-    document.dispatchEvent(new CustomEvent("wedding:photo-uploaded", { detail: finalized }));
+    document.dispatchEvent(new CustomEvent("wedding:photo-uploaded", {
+      detail:{...finalized,localSequence:detail.localSequence}
+    }));
     return finalized;
   } catch (error) {
     console.error("Wedding photo upload failed", error);
@@ -132,7 +138,7 @@ async function uploadCapturedPhoto(detail) {
     }
     if (cameraMessage) {
       cameraMessage.textContent =
-        "This memory could not reach the private archive. Keep the camera open and try another shot.";
+        "Upload failed. This photo was not saved to Drive. Please retry.";
     }
     document.dispatchEvent(new CustomEvent("wedding:photo-upload-failed", {
       detail: { localSequence: detail?.localSequence || 0, message: error?.message || "Upload failed" }
@@ -276,7 +282,7 @@ async function redeem(code) {
 
 async function checkRememberedSession() {
   const user = await guestUser({ create: false });
-  if (!user || !user.isAnonymous || !guestAccessConfig.enabled) return null;
+  if (!user || !user.isAnonymous || !secureGuestEnabled) return null;
   const fn = callGuestFunction("checkGuestSession");
   const response = await fn({});
   return response.data;
@@ -309,7 +315,7 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
     return false;
   }
 
-  if (!guestAccessConfig.enabled) {
+  if (!secureGuestEnabled) {
     if (previewTestActive && code === previewTestCode) {
       const used = previewUsed(code);
       localStorage.setItem(PREVIEW_SESSION_KEY, code);
@@ -345,6 +351,10 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
 
   try {
     const verified = await redeem(code);
+    if (rehearsalRequested && !guestAccessConfig.enabled && verified.testMode !== true) {
+      report("This link accepts rehearsal invitations only.", "error");
+      return false;
+    }
     if (!verified.cameraOpen) {
       const open = verified.openAt ? new Date(verified.openAt) : null;
       const when = open && !Number.isNaN(open.getTime())
@@ -384,7 +394,7 @@ async function restoreOnThisDevice() {
   if (!cameraRequested() || sessionRestoring || pendingLinkCode) return;
   sessionRestoring = true;
 
-  if (!guestAccessConfig.enabled) {
+  if (!secureGuestEnabled) {
     const savedCode = normalize(localStorage.getItem(PREVIEW_SESSION_KEY) || "");
     if (previewTestActive && savedCode === previewTestCode) {
       const used = previewUsed(savedCode);
@@ -414,8 +424,9 @@ async function restoreOnThisDevice() {
   );
   try {
     const session = await checkRememberedSession();
-    if (!session?.valid) {
-      show("Enter your invitation code to open the wedding camera.");
+    if (!session?.valid || (rehearsalRequested &&
+        !guestAccessConfig.enabled && session.testMode !== true)) {
+      show("Enter an active rehearsal code to open the wedding camera.");
       return;
     }
 
@@ -519,7 +530,7 @@ async function initializeGuestCameraAccess() {
     previewHelper.hidden = true;
   }
 
-  if (!guestAccessConfig.enabled) {
+  if (!secureGuestEnabled) {
     if (pendingLinkCode) {
       const code = pendingLinkCode;
       pendingLinkCode = null;
