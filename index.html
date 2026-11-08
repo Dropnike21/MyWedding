@@ -10,8 +10,10 @@
   <link rel="stylesheet" href="./assets/styles.css?v=20261108-mobile1" />
   <link rel="stylesheet" href="./assets/theme-spring-pastels.css?v=20261101-spring1" />
   <link rel="stylesheet" href="./assets/mobile-layout.css?v=20261108-mobile1" />
+  <link rel="stylesheet" href="./assets/camera-portrait.css?v=20261108-rehearsal1" />
+  <link rel="stylesheet" href="./assets/guest-invitation.css?v=20261108-rehearsal1" />
   <script src="./assets/venue-config.js?v=20261108-mobile1"></script>
-  <script src="./assets/app.js?v=20261108-public1" defer></script>
+  <script src="./assets/app.js?v=20261108-rehearsal1" defer></script>
 </head>
 <body>
   <div class="global-loader" id="global-loader" hidden aria-live="polite" aria-busy="true">
@@ -223,6 +225,26 @@
 
     <section class="view" id="view-camera" aria-labelledby="camera-heading" hidden>
       <div class="camera-gate-wrap" id="camera-gate-wrap">
+        <section class="guest-invitation-landing" id="guest-invitation-landing" hidden aria-labelledby="guest-invitation-title">
+          <div class="guest-invite-card">
+            <span class="guest-invite-crest" aria-hidden="true">A <em>&amp;</em> J</span>
+            <span class="guest-invite-eyebrow" id="guest-invitation-mode">YOU'RE INVITED</span>
+            <h2 id="guest-invitation-title">A day to remember,<br /><em>together.</em></h2>
+            <p class="guest-invite-couple">Angela &amp; Joseph</p>
+            <div class="guest-invite-rule" aria-hidden="true"></div>
+            <p class="guest-invite-date" id="guest-invitation-date">December 23, 2027</p>
+            <p class="guest-invite-small">Thursday · Date tentative</p>
+            <p class="guest-invite-message" id="guest-invitation-message">We're delighted to share our wedding memories with you. Your private camera pass is ready below.</p>
+            <div class="guest-invite-pass">
+              <span>YOUR PRIVATE CAMERA PASS</span>
+              <strong id="guest-invitation-code">••••-••••</strong>
+              <small>Each code shares the film allowance assigned to its invitation.</small>
+            </div>
+            <button type="button" class="button primary guest-invite-continue" id="guest-invitation-continue">Open your wedding camera</button>
+            <button type="button" class="guest-invite-enter-manually" id="guest-invitation-enter-code">Enter a different code</button>
+            <p id="guest-invitation-status" role="status" aria-live="polite"></p>
+          </div>
+        </section>
         <div class="section-heading camera-gate-heading">
           <span class="eyebrow">WEDDING CAMERA</span>
           <h1 id="camera-heading">Capture the <em>little moments.</em></h1>
@@ -375,7 +397,7 @@
           </div>
 
           <p class="camera-message" id="camera-message" role="status">Your invitation has been verified. Open the camera when you're ready.</p>
-          <p class="camera-fineprint">Captured test frames cannot be reopened. The secure Drive upload and final 50-photo server counter activate when the upload service is deployed.</p>
+          <p class="camera-fineprint" id="camera-fineprint">Preview frames stay on this phone unless the secure rehearsal upload service is active.</p>
         </div>
 
         <div class="camera-code-modal" id="camera-code-modal" hidden role="dialog" aria-modal="true" aria-labelledby="camera-code-modal-title">
