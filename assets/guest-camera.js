@@ -32,6 +32,8 @@ let pendingLinkCode = null;
 let sessionRestoring = false;
 let cameraAccess = null;
 let photoUploadQueue = Promise.resolve();
+let guestPollTimer = null;
+let guestPollBusy = false;
 const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
 const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
 const PREVIEW_USAGE_KEY = "mywedding_camera_preview_usage_v1";
@@ -209,9 +211,43 @@ function modalShow(message, state = "") {
   switchStatus.className = "camera-code-switch-status" + (state ? " is-" + state : "");
 }
 
+async function refreshSharedFilm() {
+  if (!secureGuestEnabled || cameraSession.hidden || document.hidden || guestPollBusy) return;
+  guestPollBusy=true;
+  try {
+    const result=await checkRememberedSession();
+    if (!result?.valid) return;
+    if (rehearsalRequested && !guestAccessConfig.enabled && result.testMode !== true) return;
+    if (cameraAccess) {
+      cameraAccess.photosUsed=Math.max(Number(cameraAccess.photosUsed || 0),Number(result.photosUsed || 0));
+      cameraAccess.photosRemaining=Math.max(0,Number(result.photosRemaining || 0));
+    }
+    document.dispatchEvent(new CustomEvent("wedding:photo-synced",{detail:result}));
+    if (!result.cameraOpen && cameraMessage)
+      cameraMessage.textContent="Camera rehearsal is closed. Ask an organizer to start a new session.";
+  } catch(error) {
+    if (String(error?.code || "").includes("permission-denied")) {
+      cameraMessage.textContent="This camera pass was revoked or expired.";
+      leaveCameraMode();
+    }
+  } finally {
+    guestPollBusy=false;
+  }
+}
+function startSharedFilmPolling() {
+  if (guestPollTimer) clearInterval(guestPollTimer);
+  if (!secureGuestEnabled) return;
+  guestPollTimer=setInterval(refreshSharedFilm,15000);
+}
+function stopSharedFilmPolling() {
+  if(guestPollTimer) clearInterval(guestPollTimer);
+  guestPollTimer=null;
+}
+
 function enterCameraMode(data = {}) {
   cameraAccess = data;
   closeCodeModal();
+  startSharedFilmPolling();
   gate.hidden = true;
   cameraSession.hidden = false;
   cameraSession.removeAttribute("aria-hidden");
@@ -219,6 +255,12 @@ function enterCameraMode(data = {}) {
   partyLabel.textContent = data.partyLabel || data.invitation?.partyLabel || "Invitation verified";
   quotaLabel.textContent = quotaText(data);
   cameraSession.dataset.photoLimit = String(Math.max(1, Number(data.photoLimit || 50)));
+  cameraSession.dataset.liveUploads = String(driveUploadsActive());
+  cameraSession.dataset.testMode = String(data.testMode === true);
+  const fineprint=document.getElementById("camera-fineprint");
+  if(fineprint) fineprint.textContent=driveUploadsActive()
+    ? "Rehearsal: real private Drive upload. Frames count only after successful server confirmation."
+    : "Preview only: test frames stay on this phone. Production uploads remain disabled.";
   cameraSession.dataset.photosUsed = String(Math.max(0, Number(data.photosUsed || 0)));
   cameraButton.disabled = !data.cameraOpen;
   cameraButton.setAttribute("aria-disabled", String(!data.cameraOpen));
@@ -239,6 +281,8 @@ function enterCameraMode(data = {}) {
 }
 
 function leaveCameraMode({ focusCode = false } = {}) {
+  stopSharedFilmPolling();
+  cameraAccess=null;
   cameraSession.hidden = true;
   cameraSession.setAttribute("aria-hidden", "true");
   gate.hidden = false;
@@ -492,6 +536,10 @@ document.addEventListener("wedding:camera-exit-request", () => {
   if (!cameraSession.hidden) leaveCameraMode();
 });
 
+document.addEventListener("visibilitychange",()=>{
+  if(!document.hidden)refreshSharedFilm();
+});
+window.addEventListener("focus",refreshSharedFilm);
 document.addEventListener("wedding:photo-captured", event => {
   if (cameraAccess?.preview && cameraAccess.accessCode) {
     const usedAtOpen = Math.max(0, Number(cameraAccess.photosUsed || 0));
