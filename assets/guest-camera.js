@@ -12,9 +12,6 @@ const changeCodeButton = document.getElementById("camera-change-code");
 const partyLabel = document.getElementById("camera-session-party");
 const quotaLabel = document.getElementById("camera-session-quota");
 const cameraMessage = document.getElementById("camera-message");
-const previewHelper = document.getElementById("camera-preview-helper");
-const previewCode = document.getElementById("camera-preview-code");
-const useTestCodeButton = document.getElementById("camera-use-test-code");
 const codeModal = document.getElementById("camera-code-modal");
 const codeModalClose = document.getElementById("camera-code-close");
 const switchForm = document.getElementById("camera-code-switch-form");
@@ -42,21 +39,12 @@ let photoUploadQueue = Promise.resolve();
 let guestPollTimer = null;
 let guestPollBusy = false;
 const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
-const PREVIEW_SESSION_KEY = "mywedding_camera_preview_session_v1";
-const PREVIEW_USAGE_KEY = "mywedding_camera_preview_usage_v1";
-const previewTestCode = normalize(guestAccessConfig.previewTestCode || "AJ27-TEST");
-const rehearsalRequested = new URLSearchParams(location.search).get("cameraRehearsal")==="1";
-const secureGuestEnabled = guestAccessConfig.enabled || rehearsalRequested;
-const previewTestActive = Boolean(!secureGuestEnabled &&
-  guestAccessConfig.previewTestEnabled !== false && CODE_PATTERN.test(previewTestCode));
-
+const secureGuestEnabled = guestAccessConfig.enabled;
 
 function driveUploadsActive() {
   return Boolean(
-    secureGuestEnabled &&
-    (guestAccessConfig.driveUploadsEnabled ||
-      (rehearsalRequested && cameraAccess?.testMode === true)) &&
-    !cameraAccess?.preview
+    secureGuestEnabled && guestAccessConfig.driveUploadsEnabled &&
+    cameraAccess?.cameraOpen === true
   );
 }
 
@@ -165,25 +153,6 @@ function queueCapturedPhoto(detail) {
   return photoUploadQueue;
 }
 
-function previewUsage() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(PREVIEW_USAGE_KEY) || "{}");
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function previewUsed(code) {
-  return Math.max(0, Math.min(50, Number(previewUsage()[code] || 0)));
-}
-
-function savePreviewUsed(code, used) {
-  const data = previewUsage();
-  data[code] = Math.max(0, Math.min(50, Number(used || 0)));
-  localStorage.setItem(PREVIEW_USAGE_KEY, JSON.stringify(data));
-}
-
 function show(message, state = "") {
   feedback.textContent = message;
   feedback.className = "invitation-status" + (state ? " is-" + state : "");
@@ -224,14 +193,15 @@ async function refreshSharedFilm() {
   try {
     const result=await checkRememberedSession();
     if (!result?.valid) return;
-    if (rehearsalRequested && !guestAccessConfig.enabled && result.testMode !== true) return;
+
     if (cameraAccess) {
+      cameraAccess.cameraOpen=result.cameraOpen === true;
       cameraAccess.photosUsed=Math.max(Number(cameraAccess.photosUsed || 0),Number(result.photosUsed || 0));
       cameraAccess.photosRemaining=Math.max(0,Number(result.photosRemaining || 0));
     }
     document.dispatchEvent(new CustomEvent("wedding:photo-synced",{detail:result}));
     if (!result.cameraOpen && cameraMessage)
-      cameraMessage.textContent="Camera rehearsal is closed. Ask an organizer to start a new session.";
+      cameraMessage.textContent="Camera access is closed for this invitation. Contact the organizer.";
   } catch(error) {
     if (String(error?.code || "").includes("permission-denied")) {
       cameraMessage.textContent="This camera pass was revoked or expired.";
@@ -264,11 +234,10 @@ function enterCameraMode(data = {}) {
   quotaLabel.textContent = quotaText(data);
   cameraSession.dataset.photoLimit = String(Math.max(1, Number(data.photoLimit || 50)));
   cameraSession.dataset.liveUploads = String(driveUploadsActive());
-  cameraSession.dataset.testMode = String(data.testMode === true);
   const fineprint=document.getElementById("camera-fineprint");
   if(fineprint) fineprint.textContent=driveUploadsActive()
-    ? "Rehearsal: real private Drive upload. Frames count only after successful server confirmation."
-    : "Preview only: test frames stay on this phone. Production uploads remain disabled.";
+    ? "Photos upload privately to Drive. Only confirmed uploads use a frame."
+    : "Camera access is closed. Ask an organizer to enable this invitation.";
   cameraSession.dataset.photosUsed = String(Math.max(0, Number(data.photosUsed || 0)));
   cameraButton.disabled = !data.cameraOpen;
   cameraButton.setAttribute("aria-disabled", String(!data.cameraOpen));
@@ -355,15 +324,10 @@ function showInvitationLanding(code) {
   input.value=formatted(code);
   landingCode.textContent=formatted(code);
   const recipient=document.getElementById("guest-invitation-recipient");
-  if(recipient)recipient.textContent=rehearsalRequested
-    ? "For: Camera Rehearsal · Test Guest" :
-    code===previewTestCode ? "For: Test Guest" : "For our invited guests";
+  if(recipient)recipient.textContent="For our invited guests";
   updateLandingDate();
-  landingMode.textContent=rehearsalRequested ? "CAMERA REHEARSAL · TEST INVITATION"
-    : code===previewTestCode ? "DESIGN PREVIEW · TEST INVITATION" : "YOU'RE INVITED";
-  landingStatus.textContent=rehearsalRequested
-    ? "This test pass uses real private uploads after organizer activation."
-    : "Open your camera when you're ready.";
+  landingMode.textContent="YOU'RE INVITED";
+  landingStatus.textContent="Open your camera when you're ready.";
   invitationLanding.hidden=false;
   gate.classList.add("has-invitation");
 }
@@ -415,26 +379,6 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
     return false;
   }
 
-  if (!secureGuestEnabled) {
-    if (previewTestActive && code === previewTestCode) {
-      const used = previewUsed(code);
-      localStorage.setItem(PREVIEW_SESSION_KEY, code);
-      enterCameraMode({
-        verified: true,
-        cameraOpen: true,
-        partyLabel: "Camera Preview · Test Guest",
-        photoLimit: 50,
-        photosUsed: used,
-        photosRemaining: Math.max(0, 50-used),
-        preview: true,
-        accessCode: code
-      });
-      return true;
-    }
-    report("That preview code is not recognized.", "error");
-    return false;
-  }
-
   const switchSubmit = switching ? switchForm?.querySelector('button[type="submit"]') : submit;
   if (switchSubmit) switchSubmit.disabled = true;
   if (!switching) cameraButton.disabled = true;
@@ -451,10 +395,6 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
 
   try {
     const verified = await redeem(code);
-    if (rehearsalRequested && !guestAccessConfig.enabled && verified.testMode !== true) {
-      report("This link accepts rehearsal invitations only.", "error");
-      return false;
-    }
     if (!verified.cameraOpen) {
       const open = verified.openAt ? new Date(verified.openAt) : null;
       const when = open && !Number.isNaN(open.getTime())
@@ -494,28 +434,6 @@ async function restoreOnThisDevice() {
   if (!cameraRequested() || sessionRestoring || pendingLinkCode) return;
   sessionRestoring = true;
 
-  if (!secureGuestEnabled) {
-    const savedCode = normalize(localStorage.getItem(PREVIEW_SESSION_KEY) || "");
-    if (previewTestActive && savedCode === previewTestCode) {
-      const used = previewUsed(savedCode);
-      enterCameraMode({
-        verified: true,
-        cameraOpen: true,
-        partyLabel: "Camera Preview · Test Guest",
-        photoLimit: 50,
-        photosUsed: used,
-        photosRemaining: Math.max(0, 50-used),
-        preview: true,
-        accessCode: savedCode
-      });
-    } else {
-      show("Preview mode is active. Use the temporary test code below to open the camera.");
-    }
-    submit.disabled = false;
-    sessionRestoring = false;
-    return;
-  }
-
   show("Checking whether this phone already has wedding camera access…");
   const restoreLoader = window.WeddingUI?.begin(
     "Restoring camera pass…",
@@ -524,9 +442,8 @@ async function restoreOnThisDevice() {
   );
   try {
     const session = await checkRememberedSession();
-    if (!session?.valid || (rehearsalRequested &&
-        !guestAccessConfig.enabled && session.testMode !== true)) {
-      show("Enter an active rehearsal code to open the wedding camera.");
+    if (!session?.valid) {
+      show("Enter your invitation code to open the wedding camera.");
       return;
     }
 
@@ -597,12 +514,6 @@ document.addEventListener("visibilitychange",()=>{
 });
 window.addEventListener("focus",refreshSharedFilm);
 document.addEventListener("wedding:photo-captured", event => {
-  if (cameraAccess?.preview && cameraAccess.accessCode) {
-    const usedAtOpen = Math.max(0, Number(cameraAccess.photosUsed || 0));
-    const localSequence = Math.max(0, Number(event.detail?.localSequence || 0));
-    savePreviewUsed(cameraAccess.accessCode, usedAtOpen + localSequence);
-    return;
-  }
   if (driveUploadsActive()) queueCapturedPhoto(event.detail).catch(() => {});
 });
 
@@ -619,22 +530,6 @@ document.addEventListener("wedding:view-change", event => {
 async function initializeGuestCameraAccess() {
   if (!cameraRequested()) return;
   pendingLinkCode = absorbInvitationUrl();
-
-  if (previewTestActive) {
-    previewHelper.hidden = false;
-    previewCode.textContent = formatted(previewTestCode);
-    useTestCodeButton.addEventListener("click", () => {
-      input.value = formatted(previewTestCode);
-      verifyCode(previewTestCode);
-    });
-  } else {
-    previewHelper.hidden = true;
-  }
-
-  if (!secureGuestEnabled) {
-    if (!pendingLinkCode) await restoreOnThisDevice();
-    return;
-  }
 
   try {
     const { auth, tools } = await prepareGuestAuth();
