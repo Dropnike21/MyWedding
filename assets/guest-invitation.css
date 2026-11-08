@@ -71,6 +71,17 @@
   font:normal clamp(20px,4vw,27px)/1.3 Georgia,serif;
 }
 .guest-invite-small{color:#927d70;font-size:11px;letter-spacing:.5px}
+.guest-invite-venue{
+  font-size:12px;
+  line-height:1.5;
+  margin:9px 0!important;
+  color:#74776a;
+}
+.guest-invite-recipient{
+  margin:16px 0 0!important;
+  font:italic 16px Georgia,serif;
+  color:#805c54;
+}
 .guest-invite-message{
   max-width:33ch;
   margin:22px auto!important;
