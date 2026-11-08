@@ -629,7 +629,7 @@ function bindInvitationManager() {
             issuedInvitationLink="";
             const area=root.querySelector("#invitation-generated-link");
             if(area)area.hidden=true;
-            status.textContent="Invitation, associated photos and audit entries removed. Linked planning guest removal was submitted to Firebase.";
+            status.textContent="Invitation, associated Drive photos, Sheet audit rows and linked planning guest permanently removed.";
           }
           await refresh();
         }catch(error){
@@ -647,6 +647,9 @@ function bindInvitationManager() {
     if(!guest){status.textContent="Select a saved guest first.";return;}
     setBusy(true);status.textContent="Issuing a private link for "+guest.name+"…";
     try{
+      // Ensure the new saved guest exists in Firebase before linking their
+      // code, avoiding a race with a just-submitted Guests & RSVPs form.
+      if(remoteActive)await plannerFirestore.queue(db);
       const issued=await run("createInvitation",{
         partyLabel:guest.name,side:guest.side||"Shared",
         invitedSeats:Math.min(30,Math.max(1,Number(guest.seats)||1)),
