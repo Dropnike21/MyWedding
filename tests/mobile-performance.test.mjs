@@ -16,7 +16,9 @@ function extracted(name,next) {
 test("optimized JavaScript parses and CSS blocks remain balanced",()=>{
   assert.doesNotThrow(()=>new Script(app));
   assert.equal((css.match(/{/g)||[]).length,(css.match(/}/g)||[]).length);
-  assert.match(html,/20261101-perf1/);
+  const version=app.match(/const BUILD = "([^"]+)"/)?.[1];
+  assert.ok(version);
+  assert.ok(html.includes("assets/app.js?v="+version));
 });
 
 test("natural mobile camera preview does not use a video filter layer",()=>{
