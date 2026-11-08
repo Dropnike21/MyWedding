@@ -6,7 +6,7 @@
  * Until the owner publishes Firestore rules and initializes the public
  * projection, use the known December 23 tentative-date fallback.
  */
-import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261031-2330";
+import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261108-guest1";
 import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
 const FALLBACK = Object.freeze({
