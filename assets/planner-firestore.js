@@ -56,6 +56,7 @@ export class PlannerFirestoreStore {
     this.shadow = null;
     this.db = null;
     this.pending = Promise.resolve();
+    this.publicDetailsError = null;
   }
 
   prepare() {
@@ -155,7 +156,42 @@ export class PlannerFirestoreStore {
 
     if (!data.budgetCategories.length) data.budgetCategories = structuredClone(seedData.budgetCategories);
     this.shadow = structuredClone(data);
+    // Keep the published, non-private date in sync on owner login.
+    // This is deliberately best-effort: a missing published rule must not
+    // block the private planner from loading.
+    if (this.role === "owner") {
+      this.publishPublicDetails(data.settings).catch(error=>{
+        this.publicDetailsError = error;
+        console.warn("Public wedding details are pending publication:",error?.code || error);
+      });
+    }
     return data;
+  }
+
+  publicProjection(settings) {
+    const date=String(settings?.date || "").trim();
+    if (!/^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(date))
+      throw new Error("Select a valid wedding date before publishing public details.");
+    return {
+      date,
+      dateTentative:true,
+      venueName:String(settings?.venue || "").trim().slice(0,120),
+      venueTentative:true,
+    };
+  }
+
+  async publishPublicDetails(settings) {
+    if (this.role !== "owner" || !this.db || !this.user) return false;
+    const details=this.publicProjection(settings);
+    const ref=doc(this.db,"publicWeddingDetails","current");
+    const snap=await getDoc(ref);
+    if (snap.exists() && Object.keys(details).every(key=>snap.data()[key] === details[key])) {
+      this.publicDetailsError=null;
+      return true;
+    }
+    await setDoc(ref,{...details,updatedAt:serverTimestamp()});
+    this.publicDetailsError=null;
+    return true;
   }
 
   async initialize(seedData) {
@@ -179,6 +215,10 @@ export class PlannerFirestoreStore {
       at:serverTimestamp()
     });
     await batch.commit();
+    this.publishPublicDetails(seedData.settings).catch(error=>{
+      this.publicDetailsError=error;
+      console.warn("Public wedding details are pending publication:",error?.code || error);
+    });
   }
 
   canWriteSection(name) {
@@ -231,6 +271,14 @@ export class PlannerFirestoreStore {
     });
     await batch.commit();
     this.shadow = structuredClone(data);
+    if (changed.includes("settings") && this.role === "owner") {
+      try {
+        await this.publishPublicDetails(data.settings);
+      } catch(error) {
+        this.publicDetailsError=error;
+        console.warn("Planner saved, but public date/venue has not published:",error?.code || error);
+      }
+    }
   }
 }
 
