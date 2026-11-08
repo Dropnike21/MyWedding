@@ -12,6 +12,7 @@ const WEDDING_ID = "main";
 const DEFAULT_OWNER_EMAILS = new Set([
   "babaynike2013@gmail.com",
   "josephsixson@mcstayuman.edu.ph",
+  "nungaygela@gmail.com",
 ]);
 const COLLECTIONS = ["guests","vendors","expenses","payments","tasks","timeline","decisions","team","budgetCategories"];
 
@@ -93,7 +94,7 @@ export class PlannerFirestoreStore {
       return {
         uid: user.uid,
         email: user.email || "",
-        displayName: user.displayName || "Groom / Owner",
+        displayName: user.displayName || "Wedding Owner",
         active: true,
         role: "owner",
         defaultOwner: true,
