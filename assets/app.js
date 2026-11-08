@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261108-rehearsal1";
+  const BUILD = "20261108-guest1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -2198,8 +2198,8 @@
   setupRipples();
   refreshInteractions();
 
-  // The camera is still a local device demonstration until the protected
-  // invitation + Google Drive upload backend is deployed.
+  // Real invitation verification and Drive uploads depend on deployed
+  // protected Firebase Cloud Functions and owner-managed camera access.
   // Date, weekday, countdown and venue are read from the public-safe
   // Firebase projection, never from the private organizer document.
   import(featureUrl("public-wedding.js"))
