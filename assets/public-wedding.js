@@ -22,10 +22,10 @@ let started = false;
 
 function validDate(value) {
   if (typeof value !== "string" || !DATE_PATTERN.test(value)) return false;
-  const stamp = new Date(value + "T00:00:00+08:00");
-  return !Number.isNaN(stamp.getTime()) &&
-    new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Manila",year:"numeric",month:"2-digit",day:"2-digit"})
-      .format(stamp).replaceAll("/", "-") === value;
+  const [year,month,day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year,month-1,day));
+  return date.getUTCFullYear()===year &&
+    date.getUTCMonth()+1===month && date.getUTCDate()===day;
 }
 
 function normalize(data) {
