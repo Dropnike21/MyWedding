@@ -1,7 +1,9 @@
 # Proposed: one invitation with individual seat codes and safe multi-device use
 
-**Status:** design proposal only. The production guest invitation backend and photo
-uploads remain disabled. Do not print or distribute real guest codes yet.
+**Status:** design proposal only for distinct per-seat codes. A normal
+one-code-per-invitation backend and photo upload path exist in source, but
+Firebase deployment and real upload verification remain necessary.
+Do not distribute wedding-day codes before testing.
 
 ## Recommended guest experience
 
