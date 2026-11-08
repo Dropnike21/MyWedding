@@ -1,0 +1,167 @@
+/* Fixed portrait wedding camera, independent of phone tilt.
+   Browser/OS screen rotation cannot be locked reliably on a normal webpage. */
+@media (max-width:1100px) {
+  body.camera-session-active,
+  body.camera-session-active.camera-landscape {
+    overflow:auto!important;
+    overscroll-behavior-y:contain;
+  }
+  body.camera-session-active .camera-session {
+    display:flex!important;
+    flex-direction:column!important;
+    grid-template-columns:none!important;
+    grid-template-rows:none!important;
+    width:min(100%,460px)!important;
+    max-width:460px!important;
+    height:auto!important;
+    min-height:0!important;
+    margin:0 auto!important;
+    transform:none!important;
+    border-radius:0!important;
+    overflow:visible!important;
+  }
+  body.camera-session-active .camera-session .camera-live-stage{
+    flex:1 1 auto;
+    position:relative;
+    width:100%;
+    height:clamp(350px,72dvh,720px)!important;
+    min-height:350px!important;
+    max-height:none!important;
+    aspect-ratio:auto!important;
+    grid-row:auto!important;
+    grid-column:auto!important;
+  }
+  body.camera-session-active .camera-session .camera-session-bottom{
+    display:flex!important;
+    flex-direction:column!important;
+    width:100%;
+    height:auto!important;
+    min-height:0!important;
+    padding:12px 14px calc(14px + env(safe-area-inset-bottom,0px))!important;
+    gap:8px!important;
+    grid-column:auto!important;
+    grid-row:auto!important;
+    overflow:visible!important;
+  }
+  body.camera-session-active .camera-session .camera-capture-deck{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    justify-content:stretch!important;
+    align-items:center!important;
+    width:100%;
+    gap:11px!important;
+  }
+  body.camera-session-active .camera-session .camera-film-wrap{
+    flex:1 1 auto!important;
+    width:100%!important;
+    max-width:none!important;
+    height:auto!important;
+    min-width:0;
+  }
+  body.camera-session-active .camera-session .camera-film{
+    width:100%!important;
+    max-width:none!important;
+    height:72px!important;
+    min-height:72px!important;
+    overflow:hidden;
+  }
+  body.camera-session-active .camera-session .camera-film-track{
+    inset:8px 7px!important;
+    flex-direction:row!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:4px!important;
+  }
+  body.camera-session-active .camera-session .camera-film-frame,
+  body.camera-session-active .camera-session .camera-film-empty{
+    align-self:center!important;
+  }
+  body.camera-session-active .camera-session .camera-film-frame .camera-film-image{
+    transform:none!important;
+    position:absolute!important;
+    inset:0!important;
+    width:auto!important;
+    height:auto!important;
+  }
+  body.camera-session-active .camera-session .camera-action-rail{
+    position:absolute!important;
+    top:50%!important;
+    right:34px!important;
+    left:auto!important;
+    bottom:auto!important;
+    height:auto!important;
+    max-height:calc(100% - 25px);
+    width:auto!important;
+    display:flex!important;
+    flex-direction:column!important;
+    flex-wrap:nowrap!important;
+    justify-content:center!important;
+    transform:translate(12px,-50%)!important;
+    gap:7px!important;
+    overflow-y:auto;
+    scrollbar-width:none;
+  }
+  body.camera-session-active .camera-session .camera-action-rail.is-open{
+    transform:translate(0,-50%)!important;
+  }
+  body.camera-session-active .camera-session .camera-rail-toggle{
+    position:absolute!important;
+    right:0!important;
+    top:50%!important;
+    left:auto!important;
+    bottom:auto!important;
+    width:30px!important;
+    height:65px!important;
+    border-radius:14px 0 0 14px!important;
+    transform:translateY(-50%)!important;
+  }
+  body.camera-session-active .camera-session .camera-rail-button{
+    width:40px!important;
+    height:40px!important;
+    flex:0 0 40px!important;
+  }
+  body.camera-session-active .camera-session .camera-sheet{
+    top:auto!important;
+    left:8px!important;
+    right:8px!important;
+    bottom:8px!important;
+    max-height:min(76%,500px)!important;
+    overflow-y:auto!important;
+  }
+  body.camera-session-active .camera-session .camera-bottom-identity{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+  }
+  body.camera-session-active .camera-session .camera-current-guest strong{
+    max-width:100%!important;
+  }
+  body.camera-session-active .camera-session .camera-shutter{
+    width:66px!important;
+    height:66px!important;
+  }
+  body.camera-session-active .camera-session .camera-shutter>span{
+    width:47px!important;
+    height:47px!important;
+  }
+}
+/* Keep the portrait camera card centered in a browser landscape viewport.
+   Allow vertical scroll instead of rotating its tools, film, or controls. */
+@media(max-width:1100px) and (orientation:landscape){
+  body.camera-session-active #view-camera{
+    position:relative!important;
+    inset:auto!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:100dvh;
+    overflow:visible!important;
+    display:block!important;
+  }
+  body.camera-session-active .camera-session .camera-live-stage{
+    height:max(430px,72dvh)!important;
+    min-height:430px!important;
+  }
+}
+.camera-film-frame.is-upload-failed{
+  outline:2px solid #ec8d8d;
+  opacity:.65;
+}
