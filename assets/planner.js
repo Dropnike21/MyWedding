@@ -524,7 +524,7 @@ function guestInvitationUrl(code) {
 function invitationManagerCard() {
   if(organizerRole!=="owner")return "";
   const guests=active(db.guests);
-  return '<section class="planner-rehearsal-card" aria-labelledby="invitation-manager-title">'+
+  return '<section class="planner-invitation-card" aria-labelledby="invitation-manager-title">'+
     '<span class="eyebrow">GUEST INVITATIONS · OWNER ACCESS</span>'+
     '<h3 id="invitation-manager-title">Invitation links &amp; camera access</h3>'+
     '<p>Create a guest under <strong>Guests &amp; RSVPs</strong>, then select them here to issue a real invitation link. '+
@@ -535,16 +535,16 @@ function invitationManagerCard() {
       '<option value="">Choose a saved guest</option>'+
       guests.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+" · "+esc(g.seats)+" seats</option>").join("")+
     '</select>'+
-    '<div class="planner-rehearsal-actions">'+
+    '<div class="planner-invitation-actions">'+
       '<button class="button primary" type="button" id="invitation-create"'+(!guests.length?" disabled":"")+'>Generate invitation link</button>'+
       '<button class="button outlined" type="button" id="invitation-refresh">Refresh invitations</button>'+
     '</div>'+
-    '<p id="invitation-manager-status" class="planner-rehearsal-status" role="status" aria-live="polite">'+
+    '<p id="invitation-manager-status" class="planner-invitation-status" role="status" aria-live="polite">'+
       'Only verified owners can issue links or remove guests. Guest verification uses Firebase.</p>'+
-    '<div id="invitation-generated-link" class="planner-rehearsal-link" hidden>'+
+    '<div id="invitation-generated-link" class="planner-invitation-link" hidden>'+
       '<label for="invitation-link-value">New private invitation link — copy now</label>'+
       '<input type="text" id="invitation-link-value" readonly autocomplete="off" />'+
-      '<div class="planner-rehearsal-actions">'+
+      '<div class="planner-invitation-actions">'+
         '<button type="button" class="button outlined" id="invitation-copy">Copy link</button>'+
         '<a class="button primary" id="invitation-open" target="_blank" rel="noopener noreferrer">Open guest invitation</a>'+
       '</div>'+
