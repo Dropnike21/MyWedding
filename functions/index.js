@@ -757,6 +757,7 @@ exports.finalizeGuestPhotoUpload = onCall(driveConfiguration(), async request =>
   try {
     result = await db.runTransaction(async tx => {
       const existing = await tx.get(uploadRef);
+      const pendingState = await tx.get(pendingRef);
       if (existing.exists) {
         const data = existing.data();
         if (data.sessionUid !== request.auth.uid)
@@ -769,6 +770,8 @@ exports.finalizeGuestPhotoUpload = onCall(driveConfiguration(), async request =>
         };
       }
 
+      if (!pendingState.exists || pendingState.get("status") !== "uploading")
+        throw new HttpsError("failed-precondition","This upload was cancelled or expired.");
       const invitationRef = db.collection("invitationRegistry").doc(pending.invitationId);
       const invitation = await tx.get(invitationRef);
       if (
@@ -887,11 +890,20 @@ exports.cancelGuestPhotoUpload = onCall(driveConfiguration(), async request => {
     throw new HttpsError("invalid-argument", "Invalid photo upload.");
 
   const pendingRef = db.collection("pendingPhotoUploads").doc(uploadId);
-  const pendingSnap = await pendingRef.get();
-  if (!pendingSnap.exists) return { ok: true };
-  const pending = pendingSnap.data();
-  if (pending.sessionUid !== request.auth.uid)
-    throw new HttpsError("permission-denied", "This upload belongs to another session.");
+  // Mark cancellation atomically before deleting any Drive object. A delayed
+  // retry must never remove a photo that has already been finalized.
+  const pending = await db.runTransaction(async tx => {
+    const snap=await tx.get(pendingRef);
+    if(!snap.exists)return null;
+    if(snap.get("sessionUid")!==request.auth.uid)
+      throw new HttpsError("permission-denied","This upload belongs to another session.");
+    const committed=await tx.get(db.collection("photoUploads").doc(uploadId));
+    if(committed.exists || snap.get("status")==="finalized")return null;
+    tx.set(pendingRef,{status:"cancelled",cancelledAt:FieldValue.serverTimestamp()},
+      {merge:true});
+    return snap.data();
+  });
+  if(!pending)return {ok:true,alreadyFinalized:true};
 
   const { drive } = driveServices();
   const candidates = [
@@ -915,10 +927,6 @@ exports.cancelGuestPhotoUpload = onCall(driveConfiguration(), async request => {
     }
   }
 
-  await pendingRef.set({
-    status: "cancelled",
-    cancelledAt: FieldValue.serverTimestamp(),
-  }, { merge: true });
   return { ok: true };
 });
 
