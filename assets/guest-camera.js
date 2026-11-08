@@ -330,9 +330,26 @@ function showInvitationLanding(code) {
   if(recipient)recipient.textContent="For our invited guests";
   updateLandingDate();
   landingMode.textContent="YOU'RE INVITED";
-  landingStatus.textContent="Open your camera when you're ready.";
+  landingStatus.textContent="Checking your invitation details securely…";
   invitationLanding.hidden=false;
   gate.classList.add("has-invitation");
+  // The link itself is a bearer credential. Fetch only the named party and
+  // seat count after anonymous auth + App Check; do not show private records.
+  guestUser({create:true})
+    .then(()=>callGuestFunction("getInvitationDetails")({code}))
+    .then(response=>{
+      if(pendingLinkCode!==code)return;
+      const recipient=document.getElementById("guest-invitation-recipient");
+      if(recipient && response.data?.partyLabel)
+        recipient.textContent="For: "+response.data.partyLabel;
+      landingStatus.textContent="Invitation for "+Number(response.data?.invitedSeats||1)+
+        " allotted seat(s). Open your camera when you're ready.";
+    })
+    .catch(error=>{
+      if(pendingLinkCode===code)landingStatus.textContent=
+        "Invitation details aren't available yet. You can still try to verify the code.";
+      console.warn("Could not load invitation details:",error?.code||error);
+    });
 }
 function hideInvitationLanding() {
   if(invitationLanding)invitationLanding.hidden=true;
