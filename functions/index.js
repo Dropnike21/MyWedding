@@ -578,8 +578,17 @@ exports.deleteInvitationAndPhotos = onCall(configuration({
       await batch.commit();
     }
   }
-  await ref.delete();
-  return {deleted:true,photosDeleted:photoDocs.size};
+  const finalSnap=await ref.get();
+  const linkedGuest=finalSnap.get("sourceGuestId");
+  const cleanup=db.batch();
+  cleanup.delete(ref);
+  if(linkedGuest && /^[A-Za-z0-9_-]{1,100}$/.test(linkedGuest))
+    cleanup.delete(db.doc("weddings/main/guests/"+linkedGuest));
+  await cleanup.commit();
+  return {
+    deleted:true,photosDeleted:photoDocs.size,
+    planningGuestDeleted:Boolean(linkedGuest)
+  };
 });
 
 /** Return only public-safe guest invitation details after a bearer code is
