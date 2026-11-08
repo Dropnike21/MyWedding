@@ -32,6 +32,7 @@ const MAX_IP_ATTEMPTS = 400; // Shared venue Wi-Fi: many guests may use one publ
 const DEFAULT_OWNER_EMAILS = new Set([
   "babaynike2013@gmail.com",
   "josephsixson@mcstayuman.edu.ph",
+  "nungaygela@gmail.com",
 ]);
 
 function hash(value) {
@@ -147,12 +148,14 @@ async function recordAttempt(request) {
     updates.forEach((value, i) => tx.set(refs[i], value));
   });
 }
-async function eventWindow() {
-  const schedule = await db.doc("weddingSettings/camera").get();
+async function eventWindow(testMode = false) {
+  const schedule = await db.doc(testMode ? "weddingSettings/cameraRehearsal" : "weddingSettings/camera").get();
   const start = schedule.get("openAt");
   const end = schedule.get("closeAt");
   if (!start?.toMillis || !end?.toMillis || start.toMillis() >= end.toMillis())
-    throw new HttpsError("failed-precondition", "Wedding camera schedule is not ready.");
+    throw new HttpsError("failed-precondition", testMode
+      ? "Start a camera rehearsal from the organizer archive."
+      : "Wedding camera schedule is not ready.");
   const now = Date.now();
   return {
     start, end,
@@ -356,6 +359,60 @@ exports.createInvitation = onCall(configuration(), async request => {
   throw new HttpsError("internal", "Could not issue a unique code.");
 });
 
+/** Rehearsal is separate from the wedding-day camera schedule and invitations. */
+exports.startCameraRehearsal = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const now=Date.now(),openAt=Timestamp.fromMillis(now);
+  const closeAt=Timestamp.fromMillis(now+60*60*1000);
+  await db.doc("weddingSettings/cameraRehearsal").set({
+    openAt,closeAt,startedBy:request.auth.uid,updatedAt:FieldValue.serverTimestamp()
+  });
+  return {cameraOpen:true,openAt:openAt.toDate().toISOString(),closeAt:closeAt.toDate().toISOString()};
+});
+exports.stopCameraRehearsal = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const now=Date.now();
+  await db.doc("weddingSettings/cameraRehearsal").set({
+    openAt:Timestamp.fromMillis(now-1000),closeAt:Timestamp.fromMillis(now),
+    stoppedBy:request.auth.uid,updatedAt:FieldValue.serverTimestamp()
+  });
+  return {cameraOpen:false};
+});
+exports.cameraRehearsalStatus = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const snap=await db.doc("weddingSettings/cameraRehearsal").get();
+  const start=snap.get("openAt"),end=snap.get("closeAt"),now=Date.now();
+  return {
+    configured:Boolean(start?.toMillis && end?.toMillis),
+    cameraOpen:Boolean(start?.toMillis && end?.toMillis &&
+      now>=start.toMillis() && now<end.toMillis()),
+    openAt:start?.toDate?.().toISOString() || null,
+    closeAt:end?.toDate?.().toISOString() || null
+  };
+});
+exports.createCameraRehearsalPass = onCall(configuration(), async request => {
+  requireAdmin(request);
+  for(let attempt=0;attempt<5;attempt++){
+    const code=generateCode(),digest=hash(code);
+    const invitation=db.collection("invitationRegistry").doc();
+    const batch=db.batch();
+    batch.create(db.collection("invitationCodes").doc(digest),{
+      invitationId:invitation.id,revision:1,status:"active"
+    });
+    batch.create(invitation,{
+      partyLabel:"Camera Rehearsal · Test Guest",side:"Shared",invitedSeats:1,
+      rsvp:"Pending",confirmedSeats:0,notes:"TEST — not an actual guest",
+      codeDigest:digest,revision:1,status:"active",testMode:true,photoLimit:5,
+      photosUsed:0,createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()
+    });
+    try{
+      await batch.commit();
+      return {...oneTimeCodeResponse(invitation.id,code,1),testMode:true,photoLimit:5};
+    }catch(error){if(!isDuplicate(error))throw error;}
+  }
+  throw new HttpsError("internal","Could not issue a rehearsal code.");
+});
+
 /** Private invitation register. This NEVER returns plaintext codes. */
 exports.listInvitations = onCall(configuration({}, false), async request => {
   requireAdmin(request);
@@ -460,7 +517,6 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
   if (!CODE_PATTERN.test(code))
     throw new HttpsError("invalid-argument", "Invalid code format.");
   await recordAttempt(request);
-  const window = await eventWindow();
   const digest = hash(code);
   const indexRef = db.collection("invitationCodes").doc(digest);
   const sessionRef = db.collection("guestSessions").doc(request.auth.uid);
@@ -488,10 +544,13 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
       confirmedSeats: Number(activeSnap.get("confirmedSeats") || 0),
       photoLimit: Number(activeSnap.get("photoLimit") || 50),
       photosUsed: Number(activeSnap.get("photosUsed") || 0),
+      testMode: activeSnap.get("testMode") === true,
     };
   });
+  const window = await eventWindow(result.testMode);
   return {
     verified: true,
+    testMode: result.testMode,
     cameraOpen: window.cameraOpen,
     invitation: result,
     photoLimit: result.photoLimit,
@@ -527,6 +586,7 @@ async function activeGuestSession(uid) {
     invitationId: invitation.id,
     revision: Number(invitation.get("revision")),
     partyLabel: invitation.get("partyLabel") || "",
+    testMode: invitation.get("testMode") === true,
     photoLimit,
     photosUsed,
     photosRemaining: Math.max(0, photoLimit - photosUsed),
@@ -535,7 +595,7 @@ async function activeGuestSession(uid) {
 exports.checkGuestSession = onCall(configuration({}, false), async request => {
   requireGuest(request);
   const session = await activeGuestSession(request.auth.uid);
-  const window = await eventWindow();
+  const window = await eventWindow(session.testMode);
   return {
     valid: true,
     cameraOpen: window.cameraOpen,
@@ -553,7 +613,7 @@ exports.checkGuestSession = onCall(configuration({}, false), async request => {
 exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
   requireGuest(request);
   const session = await activeGuestSession(request.auth.uid);
-  const window = await eventWindow();
+  const window = await eventWindow(session.testMode);
   if (!window.cameraOpen)
     throw new HttpsError("failed-precondition", "The wedding camera is closed.");
 
@@ -565,8 +625,9 @@ exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
   const meta = captureMeta(request.data || {});
   const uploadId = randomBytes(12).toString("hex");
   const suffix = uploadId.slice(-10);
-  const rawName = "AJ_" + session.invitationId + "_" + suffix + "_RAW.jpg";
-  const watermarkedName = "AJ_" + session.invitationId + "_" + suffix + "_WATERMARKED.jpg";
+  const prefix=session.testMode ? "TEST_AJ_" : "AJ_";
+  const rawName = prefix + session.invitationId + "_" + suffix + "_RAW.jpg";
+  const watermarkedName = prefix + session.invitationId + "_" + suffix + "_WATERMARKED.jpg";
   const capturedAtIso = meta.clientCapturedAt && !Number.isNaN(Date.parse(meta.clientCapturedAt))
     ? new Date(meta.clientCapturedAt).toISOString()
     : new Date().toISOString();
@@ -578,6 +639,7 @@ exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
     invitationId: session.invitationId,
     revision: session.revision,
     partyLabel: session.partyLabel,
+    testMode: session.testMode,
     rawBytes,
     watermarkedBytes,
     ...meta,
@@ -706,6 +768,7 @@ exports.finalizeGuestPhotoUpload = onCall(driveConfiguration(), async request =>
         revision: Number(pending.revision),
         sessionUid: request.auth.uid,
         partyLabel: pending.partyLabel || "",
+        testMode: pending.testMode === true,
         frameNumber,
         orientation: pending.orientation || "portrait",
         effect: pending.effect || "natural",
@@ -874,6 +937,7 @@ exports.listPhotoUploads = onCall(configuration({}, false), async request => {
         uploadId: docSnap.id,
         invitationId: value.invitationId || "",
         partyLabel: value.partyLabel || "",
+        testMode: value.testMode === true,
         frameNumber: Number(value.frameNumber || 0),
         orientation: value.orientation || "",
         effect: value.effect || "",
