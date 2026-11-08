@@ -531,10 +531,18 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
         activeSnap.get("codeDigest") !== digest ||
         Number(activeSnap.get("revision")) !== Number(indexSnap.get("revision")))
       throw new HttpsError("permission-denied", "Invalid or expired invitation.");
+    const testMode=activeSnap.get("testMode") === true;
+    const scheduleRef=db.doc(testMode
+      ? "weddingSettings/cameraRehearsal" : "weddingSettings/camera");
+    const schedule=await tx.get(scheduleRef);
+    const start=schedule.get("openAt"),end=schedule.get("closeAt");
+    if (!start?.toMillis || !end?.toMillis || start.toMillis() >= end.toMillis())
+      throw new HttpsError("failed-precondition","Wedding camera schedule is not ready.");
+    const now=Date.now();
     tx.set(sessionRef, {
       invitationId,
       revision: Number(activeSnap.get("revision")),
-      validUntil: window.end,
+      validUntil: end,
       redeemedAt: FieldValue.serverTimestamp(),
     });
     return {
@@ -544,21 +552,23 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
       confirmedSeats: Number(activeSnap.get("confirmedSeats") || 0),
       photoLimit: Number(activeSnap.get("photoLimit") || 50),
       photosUsed: Number(activeSnap.get("photosUsed") || 0),
-      testMode: activeSnap.get("testMode") === true,
+      testMode,
+      cameraOpen: now >= start.toMillis() && now < end.toMillis(),
+      openAt:start.toDate().toISOString(),
+      closeAt:end.toDate().toISOString(),
     };
   });
-  const window = await eventWindow(result.testMode);
   return {
     verified: true,
     testMode: result.testMode,
-    cameraOpen: window.cameraOpen,
+    cameraOpen: result.cameraOpen,
     invitation: result,
     photoLimit: result.photoLimit,
     photosUsed: result.photosUsed,
     photosRemaining: Math.max(0, result.photoLimit - result.photosUsed),
     // Only the matching invited party's own details are returned after code verification.
-    openAt: window.start.toDate().toISOString(),
-    closeAt: window.end.toDate().toISOString(),
+    openAt: result.openAt,
+    closeAt: result.closeAt,
   };
 });
 
