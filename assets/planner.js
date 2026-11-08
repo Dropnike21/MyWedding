@@ -409,7 +409,8 @@ function renderEntity(view) {
   const formRec=selected||defaultRecord(view);
   root.innerHTML=header(schema.title,schema.subtitle,
       "<button class='button outlined planner-compact' id='planner-archived-toggle'>"+(showArchived?"Hide archived":"Show archived")+"</button>"+
-      "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>")+
+      "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>"+
+      (view==="guests"?"<button class='button outlined planner-compact' id='planner-invitation-manage'>Invitations &amp; photo cleanup</button>":""))+
     '<div class="planner-split">'+
       '<section class="planner-list-card"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr>'+schema.columns.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+
@@ -421,6 +422,7 @@ function renderEntity(view) {
       '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?'Save changes':'Add '+esc(schema.singular))+'</button><button class="button subtle" type="button" id="planner-cancel">Clear</button><span id="planner-entity-msg"></span></div></form></section>'+
     '</div>';
   root.querySelector("#planner-new").addEventListener("click",()=>{selectedId=null;renderEntity(view)});
+  root.querySelector("#planner-invitation-manage")?.addEventListener("click",()=>switchPlanner("photos"));
   root.querySelector("#planner-archived-toggle").addEventListener("click",()=>{showArchived=!showArchived;selectedId=null;renderEntity(view)});
   root.querySelector("#planner-cancel").addEventListener("click",()=>{selectedId=null;renderEntity(view)});
   root.querySelector("#planner-search").addEventListener("input",e=>{
