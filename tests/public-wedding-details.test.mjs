@@ -89,7 +89,7 @@ test("only owners publish a strict public projection; private planner stays prot
   assert.match(store,/doc\(this\.db,"publicWeddingDetails","current"\)/);
   assert.match(store,/await setDoc\(ref,\{\.\.\.details,updatedAt:serverTimestamp\(\)\}\)/);
   assert.match(store,/changed\.includes\("settings"\)/);
-  assert.match(planner,/planner-firestore\.js\?v=20261108-public1/);
+  assert.match(planner,/planner-firestore\.js\?v=20261108-guest1/);
 });
 
 test("guest photo and planning features remain independently gated",()=>{

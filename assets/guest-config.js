@@ -1,16 +1,16 @@
 /**
- * Invitation access remains OFF until Firebase Authentication,
- * App Check and the callable backend have been deployed and tested.
+ * Guest invitation links use real Firebase verification and uploads.
+ * Valid guest codes are issued only by authenticated wedding owners.
+ * The backend must be deployed before these features work.
  * Never put secrets, invitation code lists or Google Drive OAuth tokens here.
  */
 export const guestAccessConfig = Object.freeze({
-  enabled: false,
-  previewTestEnabled: true,
-  previewTestCode: "AJ27-TEST",
+  enabled: true,
+  previewTestEnabled: false,
   plannerEnabled: true,
   region: "asia-southeast1",
   callableName: "redeemInvitation",
-  driveUploadsEnabled: false,
+  driveUploadsEnabled: true,
   beginPhotoUploadCallable: "beginGuestPhotoUpload",
   finalizePhotoUploadCallable: "finalizeGuestPhotoUpload",
   cancelPhotoUploadCallable: "cancelGuestPhotoUpload",

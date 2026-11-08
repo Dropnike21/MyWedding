@@ -1,5 +1,5 @@
-import { plannerFirestore } from "./planner-firestore.js?v=20261108-public1";
-import { callWeddingFunction } from "./firebase-services.js?v=20261031-2330";
+import { plannerFirestore } from "./planner-firestore.js?v=20261108-guest1";
+import { callWeddingFunction } from "./firebase-services.js?v=20261108-guest1";
 (() => {
 "use strict";
 
@@ -409,7 +409,8 @@ function renderEntity(view) {
   const formRec=selected||defaultRecord(view);
   root.innerHTML=header(schema.title,schema.subtitle,
       "<button class='button outlined planner-compact' id='planner-archived-toggle'>"+(showArchived?"Hide archived":"Show archived")+"</button>"+
-      "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>")+
+      "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>"+
+      (view==="guests"?"<button class='button outlined planner-compact' id='planner-invitation-manage'>Invitations &amp; photo cleanup</button>":""))+
     '<div class="planner-split">'+
       '<section class="planner-list-card"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr>'+schema.columns.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+
@@ -421,6 +422,7 @@ function renderEntity(view) {
       '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?'Save changes':'Add '+esc(schema.singular))+'</button><button class="button subtle" type="button" id="planner-cancel">Clear</button><span id="planner-entity-msg"></span></div></form></section>'+
     '</div>';
   root.querySelector("#planner-new").addEventListener("click",()=>{selectedId=null;renderEntity(view)});
+  root.querySelector("#planner-invitation-manage")?.addEventListener("click",()=>switchPlanner("photos"));
   root.querySelector("#planner-archived-toggle").addEventListener("click",()=>{showArchived=!showArchived;selectedId=null;renderEntity(view)});
   root.querySelector("#planner-cancel").addEventListener("click",()=>{selectedId=null;renderEntity(view)});
   root.querySelector("#planner-search").addEventListener("input",e=>{
@@ -515,98 +517,175 @@ function renderBudget() {
   bindJumps();
 }
 
-let rehearsalLink="";
-function weddingLink(hash,search="") {
-  return window.location.origin+window.location.pathname+search+hash;
+let issuedInvitationLink="";
+function guestInvitationUrl(code) {
+  return window.location.origin+window.location.pathname+"#camera/"+String(code);
 }
-function rehearsalCard() {
-  if (organizerRole!=="owner") return "";
-  return '<section class="planner-rehearsal-card" aria-labelledby="planner-rehearsal-title">'+
-    '<span class="eyebrow">PRIVATE REHEARSAL · OWNER ONLY</span>'+
-    '<h3 id="planner-rehearsal-title">Test the complete invitation journey</h3>'+
-    '<p>Preview the exact guest landing page, then create a real five-photo test pass. '+
-    'Rehearsal uploads go to your private Google Drive and appear separately in the photo archive. '+
-    'The real wedding camera stays disabled.</p>'+
-    '<div class="planner-rehearsal-actions">'+
-      '<button class="button outlined" type="button" id="rehearsal-preview">Preview invitation</button>'+
-      '<button class="button primary" type="button" id="rehearsal-start">Start 1-hour test</button>'+
-      '<button class="button outlined" type="button" id="rehearsal-generate">Generate test invitation link</button>'+
-      '<button class="button outlined" type="button" id="rehearsal-stop">End test</button>'+
+function invitationManagerCard() {
+  if(organizerRole!=="owner")return "";
+  const guests=active(db.guests);
+  return '<section class="planner-invitation-card" aria-labelledby="invitation-manager-title">'+
+    '<span class="eyebrow">GUEST INVITATIONS · OWNER ACCESS</span>'+
+    '<h3 id="invitation-manager-title">Invitation links &amp; camera access</h3>'+
+    '<p>Create a guest under <strong>Guests &amp; RSVPs</strong>, then select them here to issue a real invitation link. '+
+    'The camera can be opened or closed separately for each invitation, without a time limit. '+
+    'A new code is visible only once; existing links cannot be retrieved, but may be regenerated.</p>'+
+    '<label for="invitation-guest-select">Saved guest or family</label>'+
+    '<select id="invitation-guest-select" class="planner-invite-select">'+
+      '<option value="">Choose a saved guest</option>'+
+      guests.map(g=>'<option value="'+esc(g.id)+'">'+esc(g.name)+" · "+esc(g.seats)+" seats</option>").join("")+
+    '</select>'+
+    '<div class="planner-invitation-actions">'+
+      '<button class="button primary" type="button" id="invitation-create"'+(!guests.length?" disabled":"")+'>Generate invitation link</button>'+
+      '<button class="button outlined" type="button" id="invitation-refresh">Refresh invitations</button>'+
     '</div>'+
-    '<p id="rehearsal-status" class="planner-rehearsal-status" role="status" aria-live="polite">'+
-       'Preview works without backend deployment. Real test links require Firebase Functions and Drive OAuth setup.</p>'+
-    '<div id="rehearsal-link-area" class="planner-rehearsal-link" hidden>'+
-      '<label for="rehearsal-link">Share this test link (visible once)</label>'+
-      '<input type="text" id="rehearsal-link" readonly autocomplete="off" />'+
-      '<div class="planner-rehearsal-actions">'+
-        '<button type="button" class="button outlined" id="rehearsal-copy">Copy link</button>'+
-        '<a class="button primary" id="rehearsal-open" target="_blank" rel="noopener noreferrer">Open guest landing page</a>'+
+    '<p id="invitation-manager-status" class="planner-invitation-status" role="status" aria-live="polite">'+
+      'Only verified owners can issue links or remove guests. Guest verification uses Firebase.</p>'+
+    '<div id="invitation-generated-link" class="planner-invitation-link" hidden>'+
+      '<label for="invitation-link-value">New private invitation link — copy now</label>'+
+      '<input type="text" id="invitation-link-value" readonly autocomplete="off" />'+
+      '<div class="planner-invitation-actions">'+
+        '<button type="button" class="button outlined" id="invitation-copy">Copy link</button>'+
+        '<a class="button primary" id="invitation-open" target="_blank" rel="noopener noreferrer">Open guest invitation</a>'+
       '</div>'+
     '</div>'+
+    '<div class="planner-invitation-list" id="invitation-list" aria-live="polite">Loading issued invitations…</div>'+
   '</section>';
 }
-function bindRehearsalTools() {
-  const status=root.querySelector("#rehearsal-status");
-  if(!status) return;
-  const base=weddingLink("#camera/AJ27TEST");
-  root.querySelector("#rehearsal-preview")?.addEventListener("click",()=>{
-    window.open(base,"_blank","noopener,noreferrer");
-    status.textContent="Invitation design preview opened. This does not upload photos.";
-  });
-  const perform=async (name,message)=>{
-    status.textContent=message;
-    try {
-      const response=await callWeddingFunction(name)({});
-      return response.data || {};
-    } catch(error) {
-      status.textContent="Firebase service unavailable: "+(error?.message || String(error))+
-        ". Deploy and configure the guest Functions before the real rehearsal.";
-      throw error;
-    }
+function bindInvitationManager() {
+  const panel=root.querySelector("#invitation-list");
+  const status=root.querySelector("#invitation-manager-status");
+  if(!panel||!status)return;
+  let busy=false;
+  const run=async(name,data)=> (await callWeddingFunction(name)(data)).data||{};
+  const setBusy=value=>{
+    busy=value;
+    for(const button of root.querySelectorAll("#invitation-create,#invitation-refresh,[data-invitation-action]"))
+      button.disabled=value;
   };
-  const start=root.querySelector("#rehearsal-start");
-  start?.addEventListener("click",async()=>{
-    start.disabled=true;
-    try {
-      const result=await perform("startCameraRehearsal","Starting secure 1-hour rehearsal…");
-      status.textContent="Rehearsal active until "+new Date(result.closeAt).toLocaleString("en-PH")+
-        ". Generate a test invitation link to continue.";
-    } catch(error) { console.warn("Rehearsal start unavailable:",error?.code || error); }
-    finally {start.disabled=false;}
+  const displayLink=code=>{
+    issuedInvitationLink=guestInvitationUrl(code);
+    const output=root.querySelector("#invitation-link-value");
+    if(output)output.value=issuedInvitationLink;
+    const anchor=root.querySelector("#invitation-open");
+    if(anchor)anchor.href=issuedInvitationLink;
+    const area=root.querySelector("#invitation-generated-link");
+    if(area)area.hidden=false;
+  };
+  const refresh=async()=>{
+    const result=await run("listInvitations",{});
+    const invitations=result.items||[];
+    if(!invitations.length){panel.innerHTML='<p class="planner-muted">No invitations issued yet.</p>';return;}
+    panel.innerHTML='<div class="planner-table-wrap"><table class="planner-table">'+
+      '<thead><tr><th>Guest / family</th><th>Seats</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
+      invitations.map(item=>'<tr><td>'+esc(item.partyLabel)+
+        (item.status==="deleting"?' · DELETION PENDING':'')+
+        '</td><td>'+esc(item.invitedSeats)+'</td><td>'+esc(item.photosUsed)+' / '+esc(item.photoLimit)+
+        '</td><td>'+esc(item.cameraAccessEnabled?"Open":"Closed")+
+        '</td><td><div class="planner-invite-actions">'+
+        (item.status==="active"
+          ? '<button type="button" data-invitation-action="camera" data-invitation-id="'+esc(item.id)+'">'+
+              (item.cameraAccessEnabled?"Close camera":"Open camera")+'</button>'+
+            '<button type="button" data-invitation-action="rotate" data-invitation-id="'+esc(item.id)+'">Regenerate link</button>'
+          : "")+
+        '<button type="button" class="planner-link-danger" data-invitation-action="delete" data-invitation-id="'+esc(item.id)+'">Delete guest &amp; photos</button>'+
+        '</div></td></tr>').join("")+
+      '</tbody></table></div>';
+    panel.querySelectorAll("[data-invitation-action]").forEach(button=>{
+      button.addEventListener("click",async()=>{
+        if(busy)return;
+        const item=invitations.find(x=>x.id===button.dataset.invitationId);
+        if(!item)return;
+        const action=button.dataset.invitationAction;
+        const actionLabel=action==="camera"?(item.cameraAccessEnabled?"close":"open"):
+          action==="rotate"?"regenerate":"delete";
+        if(action==="delete"){
+          const verified=prompt("Permanently delete this invitation, its camera access, BOTH Drive photo copies, the Sheet log rows and its linked planning guest? Type DELETE to confirm: "+
+            item.partyLabel);
+          if(verified!=="DELETE")return;
+        }else if(action==="rotate" && !confirm("Replace the previous invitation link for "+item.partyLabel+"? The old link will stop working."))return;
+        setBusy(true);
+        status.textContent="Processing "+actionLabel+" for "+item.partyLabel+"…";
+        try{
+          if(action==="camera"){
+            await run("setInvitationCameraAccess",{
+              invitationId:item.id,enabled:!item.cameraAccessEnabled
+            });
+            status.textContent="Camera "+(item.cameraAccessEnabled?"closed":"opened")+
+              " for "+item.partyLabel+".";
+          }else if(action==="rotate"){
+            const result=await run("rotateInvitation",{invitationId:item.id});
+            displayLink(result.code);
+            status.textContent="New invitation link issued. Copy it now; the old code is invalid.";
+          }else{
+            await run("deleteInvitationAndPhotos",{invitationId:item.id});
+            if(item.sourceGuestId){
+              const exists=db.guests.some(g=>g.id===item.sourceGuestId);
+              if(exists){
+                db.guests=db.guests.filter(g=>g.id!==item.sourceGuestId);
+                save();
+              }
+            }
+            issuedInvitationLink="";
+            const area=root.querySelector("#invitation-generated-link");
+            if(area)area.hidden=true;
+            status.textContent="Invitation, associated Drive photos, Sheet audit rows and linked planning guest permanently removed.";
+          }
+          await refresh();
+        }catch(error){
+          status.textContent="Could not complete "+actionLabel+": "+
+            (error?.message||String(error))+
+            ". If deletion failed, access remains revoked and you can retry.";
+        }finally{setBusy(false);}
+      });
+    });
+  };
+  root.querySelector("#invitation-create")?.addEventListener("click",async()=>{
+    if(busy)return;
+    const selected=root.querySelector("#invitation-guest-select")?.value;
+    const guest=active(db.guests).find(g=>g.id===selected);
+    if(!guest){status.textContent="Select a saved guest first.";return;}
+    setBusy(true);status.textContent="Issuing a private link for "+guest.name+"…";
+    try{
+      // Ensure the new saved guest exists in Firebase before linking their
+      // code, avoiding a race with a just-submitted Guests & RSVPs form.
+      if(remoteActive)await plannerFirestore.queue(db);
+      const issued=await run("createInvitation",{
+        partyLabel:guest.name,side:guest.side||"Shared",
+        invitedSeats:Math.min(30,Math.max(1,Number(guest.seats)||1)),
+        notes:"",rsvp:"Pending",sourceGuestId:guest.id
+      });
+      displayLink(issued.code);
+      try {
+        await run("setInvitationCameraAccess",{
+          invitationId:issued.invitationId,enabled:true
+        });
+        status.textContent="Invitation link ready. Camera enabled for this guest until you close or delete it.";
+      }catch(error){
+        status.textContent="Invitation created, but camera access could not be enabled: "+
+          (error?.message||String(error))+
+          ". Copy the link, then use Open camera in the invitation list.";
+      }
+      await refresh();
+    }catch(error){status.textContent="Invitation creation failed: "+(error?.message||String(error));}
+    finally{setBusy(false);}
   });
-  const issue=root.querySelector("#rehearsal-generate");
-  issue?.addEventListener("click",async()=>{
-    issue.disabled=true;
-    try {
-      const result=await perform("createCameraRehearsalPass","Generating a secure five-frame test code…");
-      const code=String(result.code || "");
-      if(!/^[A-HJ-NP-Z2-9]{8}$/.test(code))throw new Error("Invalid test code from server");
-      rehearsalLink=weddingLink("#camera/"+code,"?cameraRehearsal=1");
-      root.querySelector("#rehearsal-link").value=rehearsalLink;
-      root.querySelector("#rehearsal-open").href=rehearsalLink;
-      root.querySelector("#rehearsal-link-area").hidden=false;
-      status.textContent="Test invitation generated. Copy the link now; the raw code is not stored by the site.";
-    } catch(error) {
-      status.textContent="Could not generate test invitation: "+(error?.message || "Service unavailable");
-    } finally {issue.disabled=false;}
+  root.querySelector("#invitation-refresh")?.addEventListener("click",()=>{
+    refresh().catch(error=>{status.textContent="Could not load invitations: "+(error?.message||String(error));});
   });
-  root.querySelector("#rehearsal-copy")?.addEventListener("click",async()=>{
-    if(!rehearsalLink)return;
+  root.querySelector("#invitation-copy")?.addEventListener("click",async()=>{
+    if(!issuedInvitationLink)return;
     try {
-      await navigator.clipboard.writeText(rehearsalLink);
-      status.textContent="Test invitation link copied. You can open it on another phone.";
-    } catch {
-      const field=root.querySelector("#rehearsal-link");
-      field?.select();
-      status.textContent="Select and copy the highlighted link.";
+      await navigator.clipboard.writeText(issuedInvitationLink);
+      status.textContent="Invitation link copied. It can be opened on another phone.";
+    }catch{
+      root.querySelector("#invitation-link-value")?.select();
+      status.textContent="Copy the selected link using your browser.";
     }
   });
-  root.querySelector("#rehearsal-stop")?.addEventListener("click",async()=>{
-    if(!confirm("End the current camera rehearsal for every test device?"))return;
-    try {
-      await perform("stopCameraRehearsal","Closing rehearsal…");
-      status.textContent="Rehearsal closed. Existing test codes can no longer upload until another test window starts.";
-    } catch(error){ console.warn("Rehearsal stop unavailable:",error?.code || error); }
+  refresh().catch(error=>{
+    panel.textContent="Invitation service unavailable. Firebase Functions may need deployment.";
+    status.textContent="Unable to load issued invitations: "+(error?.message||String(error));
   });
 }
 
@@ -614,7 +693,7 @@ async function renderPhotoArchive() {
   root.innerHTML = header(
     "Guest Photo Archive",
     "Owner-only view of guest-camera uploads. The protected Google Sheet is an audit mirror; manage the archive here."
-  ) + rehearsalCard()+
+  ) + invitationManagerCard()+
     '<div class="planner-card"><div class="planner-loading-state">Loading private photo archive…</div></div>';
 
 
@@ -636,18 +715,16 @@ async function renderPhotoArchive() {
     const rawBytes = items.reduce((sum,item)=>sum+num(item.rawBytes),0);
     const wmBytes = items.reduce((sum,item)=>sum+num(item.watermarkedBytes),0);
     const uniquePasses = new Set(items.map(item=>item.invitationId).filter(Boolean)).size;
-    const testFrames=items.filter(item=>item.testMode===true).length;
-    const realFrames=items.length-testFrames;
+    const realFrames=items.length;
     const mb = value => (value/1024/1024).toFixed(1)+" MB";
 
     root.innerHTML = header(
       "Guest Photo Archive",
       "Owner-only guest-camera archive. Google Drive stores the files; Firebase and the website remain the management layer.",
       '<button class="button outlined planner-compact" id="photo-refresh">Refresh</button>'
-    ) + rehearsalCard()+
+    ) + invitationManagerCard()+
     '<div class="planner-metrics compact">'+
       metric("Real frames",realFrames,"Finalized guest uploads")+
-      metric("Test frames",testFrames,"Rehearsal photos · private Drive")+
       metric("Invitation passes",uniquePasses,"Unique guest/family codes")+
       metric("RAW storage",mb(rawBytes),"Clean archival originals")+
       metric("Wedding copies",mb(wmBytes),"Filtered + watermarked")+
@@ -666,18 +743,18 @@ async function renderPhotoArchive() {
     '</div>'+
     '<section class="planner-list-card"><div class="planner-list-tools"><strong>Latest frames</strong><span>'+items.length+' loaded</span></div>'+
       (items.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Frame</th><th>Guest / party</th><th>Captured</th><th>Format</th><th>Effect</th><th>Archive</th></tr></thead><tbody>'+
-        items.map(item=>'<tr><td>#'+String(item.frameNumber||0).padStart(2,"0")+(item.testMode?" · TEST":"")+'</td><td>'+esc(item.partyLabel||"Invitation")+'</td><td>'+esc(item.capturedAt?new Date(item.capturedAt).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"—")+'</td><td>'+esc((item.orientation||"")+" · "+(item.camera||""))+'</td><td>'+esc(item.effect||"Natural")+'</td><td>'+statusBadge(item.sheetLogged?"Logged":"Sheet pending")+'</td></tr>').join("")+
+        items.map(item=>'<tr><td>#'+String(item.frameNumber||0).padStart(2,"0")+'</td><td>'+esc(item.partyLabel||"Invitation")+'</td><td>'+esc(item.capturedAt?new Date(item.capturedAt).toLocaleString("en-PH",{dateStyle:"medium",timeStyle:"short"}):"—")+'</td><td>'+esc((item.orientation||"")+" · "+(item.camera||""))+'</td><td>'+esc(item.effect||"Natural")+'</td><td>'+statusBadge(item.sheetLogged?"Logged":"Sheet pending")+'</td></tr>').join("")+
       '</tbody></table></div>':empty("No guest-camera frames have been finalized yet."))+
     '</section>';
 
     root.querySelector("#photo-refresh")?.addEventListener("click",renderPhotoArchive);
-    bindRehearsalTools();
+    bindInvitationManager();
   } catch(error) {
     console.error("Photo archive load failed",error);
     root.innerHTML = header("Guest Photo Archive","Private Drive archive status.")+
-      rehearsalCard()+
+      invitationManagerCard()+
       '<div class="planner-card planner-error-card"><h3>Archive connection needs attention</h3><p>'+esc(error?.message||"Could not load Google Drive archive status.")+'</p></div>';
-    bindRehearsalTools();
+    bindInvitationManager();
   } finally {
     if(token) window.WeddingUI?.end(token);
   }

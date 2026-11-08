@@ -7,10 +7,9 @@ camera remains centered and the page can scroll to the shutter.
 
 ## Phone-camera feature checks
 
-1. Open the sample invitation design at
-   `https://dropnike21.github.io/MyWedding/#camera/AJ27TEST`. It opens a
-   guest-facing arrival screen; no camera or code verification should begin
-   until the guest taps **Open your wedding camera**.
+1. Create a real guest in Planning Studio and generate their invitation
+   link under **Invitations & photo cleanup**. Open it on a second phone and
+   verify the landing page precedes the camera. Deployed Functions are required.
 2. Test on Android Chrome and iPhone Safari at ordinary phone width. Check
    that the camera controls expand **vertically** beside the preview, the
    **film strip stays horizontal**, and the shutter is fully accessible.
@@ -29,14 +28,14 @@ camera remains centered and the page can scroll to the shutter.
    stream stops.
 8. Verify the watermark uses the published wedding date (default Dec 23,
    2027), not the previously hardcoded Feb 23 watermark.
-9. Run the **full real-upload rehearsal** only after deploying Firebase
-   Functions and Drive credentials, following
-   [End-to-end camera rehearsal](camera-rehearsal-end-to-end.md).
+9. Test a genuine guest-code upload after deploying Firebase Functions and
+   Google Drive credentials, following
+   [Guest invitation and cleanup](guest-invitation-live-flow.md).
 
 ## Automated checks
 
 ```sh
-node --test tests/camera.test.mjs tests/camera-rehearsal.test.mjs
+node --test tests/camera.test.mjs tests/guest-live-flow.test.mjs
 ```
 
 Source tests cover camera geometry, UI and invitation wiring, but cannot

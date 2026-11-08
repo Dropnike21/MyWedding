@@ -114,6 +114,8 @@ function publicInvitation(snapshot) {
     confirmedSeats: Number(v.confirmedSeats || 0),
     photoLimit: Number(v.photoLimit || 50),
     photosUsed: Number(v.photosUsed || 0),
+    cameraAccessEnabled: v.cameraAccessEnabled === true,
+    sourceGuestId: v.sourceGuestId || "",
     notes: v.notes || "",
     status: v.status,
     revision: Number(v.revision || 1),
@@ -148,21 +150,22 @@ async function recordAttempt(request) {
     updates.forEach((value, i) => tx.set(refs[i], value));
   });
 }
-async function eventWindow(testMode = false) {
-  const schedule = await db.doc(testMode ? "weddingSettings/cameraRehearsal" : "weddingSettings/camera").get();
-  const start = schedule.get("openAt");
-  const end = schedule.get("closeAt");
-  if (!start?.toMillis || !end?.toMillis || start.toMillis() >= end.toMillis())
-    throw new HttpsError("failed-precondition", testMode
-      ? "Start a camera rehearsal from the organizer archive."
-      : "Wedding camera schedule is not ready.");
-  const now = Date.now();
+// Owners can explicitly enable a particular invitation without changing
+// the wedding-day schedule. This never opens another invitation's camera.
+async function cameraWindow(manualEnabled) {
+  if (manualEnabled) return {cameraOpen:true,openAt:null,closeAt:null};
+  const schedule=await db.doc("weddingSettings/camera").get();
+  const start=schedule.get("openAt"),end=schedule.get("closeAt");
+  if (!start?.toMillis || !end?.toMillis || start.toMillis()>=end.toMillis())
+    return {cameraOpen:false,openAt:null,closeAt:null};
+  const now=Date.now();
   return {
-    start, end,
-    cameraOpen: now >= start.toMillis() && now < end.toMillis(),
-    rehearsalId: testMode ? String(schedule.get("rehearsalId") || "") : null,
+    cameraOpen:now>=start.toMillis() && now<end.toMillis(),
+    openAt:start.toDate().toISOString(),
+    closeAt:end.toDate().toISOString(),
   };
 }
+
 function configuration(options = {}, withSecret = true) {
   return {
     region: REGION,
@@ -326,10 +329,18 @@ function oneTimeCodeResponse(id, code, revision) {
 exports.createInvitation = onCall(configuration(), async request => {
   requireAdmin(request);
   const values = registrationFields(request.data || {});
+  const guestId=optionalText(request.data?.sourceGuestId,100);
+  if(guestId && !/^[A-Za-z0-9_-]{1,100}$/.test(guestId))
+    throw new HttpsError("invalid-argument","Invalid planner guest identifier.");
+  const fixedId=guestId ? "guest_"+guestId : "";
+  if(fixedId && (await db.collection("invitationRegistry").doc(fixedId).get()).exists)
+    throw new HttpsError("already-exists","This guest already has an invitation. Use Regenerate link instead.");
   for (let i = 0; i < 5; i++) {
     const code = generateCode();
     const digest = hash(code);
-    const invitation = db.collection("invitationRegistry").doc();
+    const invitation = fixedId
+      ? db.collection("invitationRegistry").doc(fixedId)
+      : db.collection("invitationRegistry").doc();
     const batch = db.batch();
     batch.create(db.collection("invitationCodes").doc(digest), {
       invitationId: invitation.id,
@@ -342,6 +353,8 @@ exports.createInvitation = onCall(configuration(), async request => {
       revision: 1,
       status: "active",
       confirmedSeats: 0,
+      cameraAccessEnabled: false,
+      sourceGuestId: optionalText(request.data?.sourceGuestId,100),
       photoLimit: 50,
       photosUsed: 0,
       createdAt: FieldValue.serverTimestamp(),
@@ -355,69 +368,11 @@ exports.createInvitation = onCall(configuration(), async request => {
       }) };
     } catch (error) {
       if (!isDuplicate(error)) throw error;
+      if(fixedId)
+        throw new HttpsError("already-exists","This guest already has an invitation. Use Regenerate link instead.");
     }
   }
   throw new HttpsError("internal", "Could not issue a unique code.");
-});
-
-/** Rehearsal is separate from the wedding-day camera schedule and invitations. */
-exports.startCameraRehearsal = onCall(configuration({}, false), async request => {
-  requireAdmin(request);
-  const now=Date.now(),openAt=Timestamp.fromMillis(now);
-  const closeAt=Timestamp.fromMillis(now+60*60*1000);
-  const rehearsalId=randomBytes(16).toString("hex");
-  await db.doc("weddingSettings/cameraRehearsal").set({
-    openAt,closeAt,rehearsalId,startedBy:request.auth.uid,
-    updatedAt:FieldValue.serverTimestamp()
-  });
-  return {cameraOpen:true,openAt:openAt.toDate().toISOString(),closeAt:closeAt.toDate().toISOString()};
-});
-exports.stopCameraRehearsal = onCall(configuration({}, false), async request => {
-  requireAdmin(request);
-  const now=Date.now();
-  await db.doc("weddingSettings/cameraRehearsal").set({
-    openAt:Timestamp.fromMillis(now-1000),closeAt:Timestamp.fromMillis(now),
-    stoppedBy:request.auth.uid,updatedAt:FieldValue.serverTimestamp()
-  });
-  return {cameraOpen:false};
-});
-exports.cameraRehearsalStatus = onCall(configuration({}, false), async request => {
-  requireAdmin(request);
-  const snap=await db.doc("weddingSettings/cameraRehearsal").get();
-  const start=snap.get("openAt"),end=snap.get("closeAt"),now=Date.now();
-  return {
-    configured:Boolean(start?.toMillis && end?.toMillis),
-    cameraOpen:Boolean(start?.toMillis && end?.toMillis &&
-      now>=start.toMillis() && now<end.toMillis()),
-    openAt:start?.toDate?.().toISOString() || null,
-    closeAt:end?.toDate?.().toISOString() || null
-  };
-});
-exports.createCameraRehearsalPass = onCall(configuration(), async request => {
-  requireAdmin(request);
-  const rehearsal=await eventWindow(true);
-  if(!rehearsal.cameraOpen || !rehearsal.rehearsalId)
-    throw new HttpsError("failed-precondition","Start a camera rehearsal before generating links.");
-  for(let attempt=0;attempt<5;attempt++){
-    const code=generateCode(),digest=hash(code);
-    const invitation=db.collection("invitationRegistry").doc();
-    const batch=db.batch();
-    batch.create(db.collection("invitationCodes").doc(digest),{
-      invitationId:invitation.id,revision:1,status:"active"
-    });
-    batch.create(invitation,{
-      partyLabel:"Camera Rehearsal · Test Guest",side:"Shared",invitedSeats:1,
-      rsvp:"Pending",confirmedSeats:0,notes:"TEST — not an actual guest",
-      codeDigest:digest,revision:1,status:"active",testMode:true,
-      rehearsalId:rehearsal.rehearsalId,photoLimit:5,
-      photosUsed:0,createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()
-    });
-    try{
-      await batch.commit();
-      return {...oneTimeCodeResponse(invitation.id,code,1),testMode:true,photoLimit:5};
-    }catch(error){if(!isDuplicate(error))throw error;}
-  }
-  throw new HttpsError("internal","Could not issue a rehearsal code.");
 });
 
 /** Private invitation register. This NEVER returns plaintext codes. */
@@ -514,6 +469,151 @@ exports.revokeInvitation = onCall(configuration({}, false), async request => {
   return { revoked: true, invitationId: id };
 });
 
+/** Camera access is explicitly controlled per invitation by an owner.
+ * It can be turned on/off without affecting other guests or using a timer. */
+exports.setInvitationCameraAccess = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const id=idField(request.data?.invitationId,"invitation");
+  if(typeof request.data?.enabled !== "boolean")
+    throw new HttpsError("invalid-argument","Specify whether camera access is enabled.");
+  const ref=db.collection("invitationRegistry").doc(id);
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    if(!snap.exists || snap.get("status")!=="active")
+      throw new HttpsError("not-found","Active invitation not found.");
+    tx.update(ref,{
+      cameraAccessEnabled:request.data.enabled,
+      updatedAt:FieldValue.serverTimestamp()
+    });
+  });
+  return {invitationId:id,cameraAccessEnabled:request.data.enabled};
+});
+
+/** Remove one invitation and all its photos, not merely hide its row.
+ * The code is revoked before deleting files, so no new upload can finalize.
+ * A failure retains the deleting invitation for retry and never reports success.
+ */
+exports.deleteInvitationAndPhotos = onCall(configuration({
+  secrets:[CODE_SECRET,DRIVE_OAUTH_SECRET],timeoutSeconds:120,maxInstances:3
+}),async request=>{
+  requireAdmin(request);
+  const id=idField(request.data?.invitationId,"invitation");
+  const ref=db.collection("invitationRegistry").doc(id);
+  const state=await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    if(!snap.exists)return "absent";
+    if(snap.get("status")==="deleting")return "deleting";
+    const digest=snap.get("codeDigest");
+    if(digest)tx.delete(db.collection("invitationCodes").doc(digest));
+    tx.update(ref,{
+      status:"deleting",codeDigest:null,cameraAccessEnabled:false,
+      revision:Number(snap.get("revision")||1)+1,
+      deletionStartedAt:FieldValue.serverTimestamp(),
+    });
+    return "started";
+  });
+  if(state==="absent")return {deleted:true,alreadyDeleted:true};
+
+  const photoDocs=await db.collection("photoUploads").where("invitationId","==",id).get();
+  const pendingDocs=await db.collection("pendingPhotoUploads").where("invitationId","==",id).get();
+  const guestSessions=await db.collection("guestSessions").where("invitationId","==",id).get();
+  // If the invitation has no archived or pending uploads, it is safe to
+  // remove immediately without requiring Google Drive credentials.
+  if(photoDocs.size || pendingDocs.size){
+    const {drive,sheets}=driveServices();
+    for(const [folderId,variant] of [
+      [DRIVE_RAW_FOLDER_ID,"raw"],[DRIVE_WATERMARKED_FOLDER_ID,"watermarked"]
+    ]){
+      let token=undefined;
+      do {
+        const response=await drive.files.list({
+          q:"trashed = false and '"+folderId+
+            "' in parents and appProperties has { key='invitationId' and value='"+id+"' }",
+          fields:"nextPageToken,files(id,mimeType,appProperties,parents,trashed)",
+          pageSize:1000,pageToken:token
+        });
+        token=response.data.nextPageToken;
+        for(const file of response.data.files||[]){
+          if(file.appProperties?.invitationId!==id ||
+             file.appProperties?.variant!==variant ||
+             file.mimeType!=="image/jpeg" ||
+             !file.parents?.includes(folderId))continue;
+          try {await drive.files.delete({fileId:file.id});}
+          catch(error){if(error?.code!==404 && error?.response?.status!==404)throw error;}
+        }
+      }while(token);
+    }
+    // Remove this invitation's rows from the protected audit sheet. Read
+    // positions immediately before a descending batch deletion, so other
+    // invitation logs are not accidentally removed.
+    const spreadsheet=await sheets.spreadsheets.get({
+      spreadsheetId:PHOTO_LOG_SPREADSHEET_ID,
+      fields:"sheets(properties(sheetId,title))"
+    });
+    const sheet=spreadsheet.data.sheets?.find(x=>x.properties?.title==="Photo Log");
+    if(!sheet)throw new HttpsError("failed-precondition","Photo Log sheet missing.");
+    const cells=await sheets.spreadsheets.values.get({
+      spreadsheetId:PHOTO_LOG_SPREADSHEET_ID,range:"'Photo Log'!A:C"
+    });
+    const rows=cells.data.values || [];
+    const indexes=rows.flatMap((row,index)=>index>0 && row[2]===id?[index]:[])
+      .sort((a,b)=>b-a);
+    if(indexes.length){
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId:PHOTO_LOG_SPREADSHEET_ID,
+        requestBody:{requests:indexes.map(index=>({
+          deleteDimension:{range:{
+            sheetId:sheet.properties.sheetId,dimension:"ROWS",
+            startIndex:index,endIndex:index+1
+          }}
+        }))}
+      });
+    }
+  }
+  // Only after Drive and Sheet deletion have succeeded, remove records.
+  for(const items of [photoDocs.docs,pendingDocs.docs,guestSessions.docs]){
+    for(let i=0;i<items.length;i+=350){
+      const batch=db.batch();
+      for(const docSnap of items.slice(i,i+350))batch.delete(docSnap.ref);
+      await batch.commit();
+    }
+  }
+  const finalSnap=await ref.get();
+  const linkedGuest=finalSnap.get("sourceGuestId");
+  const cleanup=db.batch();
+  cleanup.delete(ref);
+  if(linkedGuest && /^[A-Za-z0-9_-]{1,100}$/.test(linkedGuest))
+    cleanup.delete(db.doc("weddings/main/guests/"+linkedGuest));
+  await cleanup.commit();
+  return {
+    deleted:true,photosDeleted:photoDocs.size,
+    planningGuestDeleted:Boolean(linkedGuest)
+  };
+});
+
+/** Return only public-safe guest invitation details after a bearer code is
+ * validated. No contact information or private organizer data is exposed. */
+exports.getInvitationDetails = onCall(configuration({maxInstances:8}),async request=>{
+  requireGuest(request);
+  const code=normalizeCode(request.data?.code);
+  if(!CODE_PATTERN.test(code))
+    throw new HttpsError("invalid-argument","Invalid invitation code.");
+  await recordAttempt(request);
+  const digest=hash(code);
+  const index=await db.collection("invitationCodes").doc(digest).get();
+  if(!index.exists || index.get("status")!=="active")
+    throw new HttpsError("permission-denied","Invitation link expired.");
+  const snap=await db.collection("invitationRegistry").doc(index.get("invitationId")).get();
+  if(!snap.exists || snap.get("status")!=="active" ||
+     snap.get("codeDigest")!==digest ||
+     Number(snap.get("revision"))!==Number(index.get("revision")))
+    throw new HttpsError("permission-denied","Invitation link expired.");
+  return {
+    partyLabel:optionalText(snap.get("partyLabel"),120),
+    invitedSeats:Number(snap.get("invitedSeats")||1),
+  };
+});
+
 /**
  * Code redemption is serialized with rotations/revocations using a transaction.
  * The session binds to the CURRENT invitation revision, not just a guest name.
@@ -538,48 +638,37 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
         activeSnap.get("codeDigest") !== digest ||
         Number(activeSnap.get("revision")) !== Number(indexSnap.get("revision")))
       throw new HttpsError("permission-denied", "Invalid or expired invitation.");
-    const testMode=activeSnap.get("testMode") === true;
-    const scheduleRef=db.doc(testMode
-      ? "weddingSettings/cameraRehearsal" : "weddingSettings/camera");
-    const schedule=await tx.get(scheduleRef);
-    const start=schedule.get("openAt"),end=schedule.get("closeAt");
-    if (!start?.toMillis || !end?.toMillis || start.toMillis() >= end.toMillis())
-      throw new HttpsError("failed-precondition","Wedding camera schedule is not ready.");
-    const now=Date.now();
-    if(testMode && (String(activeSnap.get("rehearsalId") || "") !==
-        String(schedule.get("rehearsalId") || "") ||
-        !schedule.get("rehearsalId") || now<start.toMillis() || now>=end.toMillis()))
-      throw new HttpsError("permission-denied","That rehearsal invitation is expired.");
+    const manualEnabled=activeSnap.get("cameraAccessEnabled") === true;
+    // Redemption is allowed even while the camera is closed: the guest can
+    // view their invitation and return when access is enabled.
+    const validUntil=Timestamp.fromMillis(Date.now()+30*24*60*60*1000);
     tx.set(sessionRef, {
       invitationId,
-      revision: Number(activeSnap.get("revision")),
-      validUntil: end,
-      redeemedAt: FieldValue.serverTimestamp(),
+      revision:Number(activeSnap.get("revision")),
+      validUntil,
+      redeemedAt:FieldValue.serverTimestamp(),
     });
     return {
-      partyLabel: activeSnap.get("partyLabel"),
-      invitedSeats: Number(activeSnap.get("invitedSeats") || 1),
-      rsvp: activeSnap.get("rsvp") || "Pending",
-      confirmedSeats: Number(activeSnap.get("confirmedSeats") || 0),
-      photoLimit: Number(activeSnap.get("photoLimit") || 50),
-      photosUsed: Number(activeSnap.get("photosUsed") || 0),
-      testMode,
-      cameraOpen: now >= start.toMillis() && now < end.toMillis(),
-      openAt:start.toDate().toISOString(),
-      closeAt:end.toDate().toISOString(),
+      partyLabel:activeSnap.get("partyLabel") || "",
+      invitedSeats:Number(activeSnap.get("invitedSeats") || 1),
+      rsvp:activeSnap.get("rsvp") || "Pending",
+      confirmedSeats:Number(activeSnap.get("confirmedSeats") || 0),
+      photoLimit:Number(activeSnap.get("photoLimit") || 50),
+      photosUsed:Number(activeSnap.get("photosUsed") || 0),
+      manualEnabled,
     };
   });
+  const window=await cameraWindow(result.manualEnabled);
   return {
     verified: true,
-    testMode: result.testMode,
-    cameraOpen: result.cameraOpen,
+    cameraOpen: window.cameraOpen,
     invitation: result,
     photoLimit: result.photoLimit,
     photosUsed: result.photosUsed,
     photosRemaining: Math.max(0, result.photoLimit - result.photosUsed),
     // Only the matching invited party's own details are returned after code verification.
-    openAt: result.openAt,
-    closeAt: result.closeAt,
+    openAt: window.openAt,
+    closeAt: window.closeAt,
   };
 });
 
@@ -601,19 +690,13 @@ async function activeGuestSession(uid) {
       sessionData.validUntil.toMillis() <= Date.now()) {
     throw new HttpsError("permission-denied", "This invitation session has expired. Enter the current code.");
   }
-  if (invitation.get("testMode") === true) {
-    const rehearsal=await eventWindow(true);
-    if (!rehearsal.cameraOpen || !rehearsal.rehearsalId ||
-        rehearsal.rehearsalId !== invitation.get("rehearsalId"))
-      throw new HttpsError("permission-denied","This rehearsal session has ended.");
-  }
   const photoLimit = Number(invitation.get("photoLimit") || 50);
   const photosUsed = Number(invitation.get("photosUsed") || 0);
   return {
     invitationId: invitation.id,
     revision: Number(invitation.get("revision")),
     partyLabel: invitation.get("partyLabel") || "",
-    testMode: invitation.get("testMode") === true,
+    cameraAccessEnabled: invitation.get("cameraAccessEnabled") === true,
     photoLimit,
     photosUsed,
     photosRemaining: Math.max(0, photoLimit - photosUsed),
@@ -622,12 +705,12 @@ async function activeGuestSession(uid) {
 exports.checkGuestSession = onCall(configuration({}, false), async request => {
   requireGuest(request);
   const session = await activeGuestSession(request.auth.uid);
-  const window = await eventWindow(session.testMode);
+  const window = await cameraWindow(session.cameraAccessEnabled);
   return {
     valid: true,
     cameraOpen: window.cameraOpen,
-    openAt: window.start.toDate().toISOString(),
-    closeAt: window.end.toDate().toISOString(),
+    openAt: window.openAt,
+    closeAt: window.closeAt,
     ...session,
   };
 });
@@ -640,7 +723,7 @@ exports.checkGuestSession = onCall(configuration({}, false), async request => {
 exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
   requireGuest(request);
   const session = await activeGuestSession(request.auth.uid);
-  const window = await eventWindow(session.testMode);
+  const window = await cameraWindow(session.cameraAccessEnabled);
   if (!window.cameraOpen)
     throw new HttpsError("failed-precondition", "The wedding camera is closed.");
 
@@ -652,9 +735,8 @@ exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
   const meta = captureMeta(request.data || {});
   const uploadId = randomBytes(12).toString("hex");
   const suffix = uploadId.slice(-10);
-  const prefix=session.testMode ? "TEST_AJ_" : "AJ_";
-  const rawName = prefix + session.invitationId + "_" + suffix + "_RAW.jpg";
-  const watermarkedName = prefix + session.invitationId + "_" + suffix + "_WATERMARKED.jpg";
+  const rawName = "AJ_" + session.invitationId + "_" + suffix + "_RAW.jpg";
+  const watermarkedName = "AJ_" + session.invitationId + "_" + suffix + "_WATERMARKED.jpg";
   const capturedAtIso = meta.clientCapturedAt && !Number.isNaN(Date.parse(meta.clientCapturedAt))
     ? new Date(meta.clientCapturedAt).toISOString()
     : new Date().toISOString();
@@ -666,7 +748,6 @@ exports.beginGuestPhotoUpload = onCall(driveConfiguration(), async request => {
     invitationId: session.invitationId,
     revision: session.revision,
     partyLabel: session.partyLabel,
-    testMode: session.testMode,
     rawBytes,
     watermarkedBytes,
     ...meta,
@@ -798,7 +879,6 @@ exports.finalizeGuestPhotoUpload = onCall(driveConfiguration(), async request =>
         revision: Number(pending.revision),
         sessionUid: request.auth.uid,
         partyLabel: pending.partyLabel || "",
-        testMode: pending.testMode === true,
         frameNumber,
         orientation: pending.orientation || "portrait",
         effect: pending.effect || "natural",
@@ -972,7 +1052,6 @@ exports.listPhotoUploads = onCall(configuration({}, false), async request => {
         uploadId: docSnap.id,
         invitationId: value.invitationId || "",
         partyLabel: value.partyLabel || "",
-        testMode: value.testMode === true,
         frameNumber: Number(value.frameNumber || 0),
         orientation: value.orientation || "",
         effect: value.effect || "",
