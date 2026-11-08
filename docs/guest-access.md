@@ -81,11 +81,22 @@ The screenshot confirms the Firestore database exists. The following items are s
    \`\`\`
    Deployment has not been performed by ChatGPT. Validate CLI/project selection first.
 7. Create a trusted organizer Google-authenticated Firebase account. Grant the **admin** custom claim using a trusted Firebase Admin SDK environment with sufficient IAM permissions, not browser JavaScript or a client-side flag. See \`functions/scripts/grant-admin.js\` (requires Application Default Credentials and authorized project access).
-8. Create \`weddingSettings/camera\` with \`openAt\` and \`closeAt\` as **Firestore Timestamp** values. For February 23, 2027, choose the precise start/end instants in Asia/Manila. Use a **separate test period** for rehearsal.
+8. Create \`weddingSettings/camera\` with \`openAt\` and \`closeAt\` as **Firestore Timestamp** values. For December 23, 2027, choose the precise start/end instants in Asia/Manila. Use a **separate test period** for rehearsal.
 9. Verify code issuance, one-device and two-device use, RSVP, rotation, old-code rejection, old-session rejection, and revocation in Firebase Emulator or a dedicated staging project.
 10. Only after successful testing, change \`assets/guest-config.js\` to \`enabled: true\` with the **public** App Check Enterprise site key, and publish the frontend. Do not enable prematurely.
 
 Note: enabling Google sign-in on GitHub Pages may require additional provider/domain configuration. Ensure the Firebase project authenticates correctly at the final hosted URL before use.
+
+## Planned multiple codes per invitation
+
+The next invitation design assigns a **distinct code to each allotted seat**
+under one family/group invitation. Two phones can use the same seat's code
+simultaneously, but the two sessions represent **the same seat**; neither a
+second RSVP nor additional photo allowance is created. Group photo quota and
+seat RSVP must be enforced transactionally by the server. The existing backend
+is one-code-per-invitation and is not deployed. See
+[Seat codes and concurrent sessions](seat-codes-concurrency.md) for the
+proposed schema, migration precautions, and test plan.
 
 ## Future photo storage
 

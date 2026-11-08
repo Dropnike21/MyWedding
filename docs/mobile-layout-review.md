@@ -31,9 +31,9 @@ This update is intended to correct navigation and readability problems visible o
 3. Open How It Works and check all explanatory cards and links at 320px and landscape.
 4. Use text zoom or larger font settings and confirm important controls still have room to wrap.
 
-## Outstanding content issue
+## Wedding details alignment
 
-The screenshot shows a **February 23, 2027** tentative public website date while the authenticated Firebase planner shows **December 23, 2027**. This is a real content mismatch but is **not** automatically corrected by a responsive-layout change. Confirm the intended public wedding date before modifying the banner, home countdown, and venue copy. Do not overwrite `weddings/main.settings.date` merely to match static site text.
+The couple confirmed **December 23, 2027 (tentative)** as the working wedding date. The outdated February banner was removed. Public dates and venue now use a minimal Firestore projection with a December fallback, while private planning records remain protected. See `docs/public-wedding-details.md` for the deployment steps.
 
 ## Automated checks
 

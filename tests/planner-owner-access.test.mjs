@@ -46,7 +46,7 @@ test("bride owner inherits normal planner owner permissions without opening gues
 test("frontend and planner adapter cache versions are updated",()=>{
   const version=app.match(/const BUILD = "([^"]+)"/)?.[1];
   assert.ok(version);
-  assert.ok(planner.includes("planner-firestore.js?v=20261108-coowners1"));
+  assert.match(planner,/planner-firestore\.js\?v=20261108-public1/);
   assert.ok(html.includes("assets/app.js?v="+version));
 });
 

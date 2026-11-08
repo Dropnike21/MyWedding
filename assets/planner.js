@@ -1,4 +1,4 @@
-import { plannerFirestore } from "./planner-firestore.js?v=20261108-coowners1";
+import { plannerFirestore } from "./planner-firestore.js?v=20261108-public1";
 import { callWeddingFunction } from "./firebase-services.js?v=20261031-2330";
 (() => {
 "use strict";
@@ -24,7 +24,7 @@ function seed() {
   return {
     version: VERSION,
     settings: {
-      date: "2027-02-23",
+      date: "2027-12-23",
       budget: 70000,
       venue: "Estoria",
       ceremony: "Civil wedding",
@@ -55,7 +55,7 @@ function seed() {
     ],
     guests: [],
     vendors: [
-      {id:"v-estoria",name:"Estoria (tentative)",category:"Venue + catering",contact:"",package:"",quote:0,agreed:0,status:"To inquire",reserveBy:"",notes:"Confirm February 23, 2027 availability, capacity, inclusions, taxes, overtime and rain backup.",archived:false}
+      {id:"v-estoria",name:"Estoria (tentative)",category:"Venue + catering",contact:"",package:"",quote:0,agreed:0,status:"To inquire",reserveBy:"",notes:"Confirm December 23, 2027 availability, capacity, inclusions, taxes, overtime and rain backup.",archived:false}
     ],
     payments: [],
     expenses: [],
@@ -72,7 +72,7 @@ function seed() {
       {id:"tl3",time:"12:30",title:"Reception / lunch",location:"Estoria (tentative)",owner:"Coordinator",status:"Draft",notes:"Timing depends on ceremony location and travel.",archived:false}
     ],
     decisions: [
-      {id:"d1",title:"Confirm final wedding date",owner:"Both",dueDate:"2026-11-15",status:"Open",decision:"",notes:"Tentative: February 23, 2027.",archived:false},
+      {id:"d1",title:"Confirm final wedding date",owner:"Both",dueDate:"2026-11-15",status:"Open",decision:"",notes:"Tentative: December 23, 2027.",archived:false},
       {id:"d2",title:"Confirm ceremony city / municipality",owner:"Both",dueDate:"2026-11-15",status:"Open",decision:"",notes:"Needed for civil wedding requirements.",archived:false},
       {id:"d3",title:"Set maximum guest headcount",owner:"Both",dueDate:"2026-11-20",status:"Open",decision:"",notes:"Must fit the ₱70,000 total budget.",archived:false}
     ],
@@ -129,7 +129,17 @@ function save() {
   if(remoteActive){
     setSyncState("SYNCING");
     plannerFirestore.queue(db)
-      .then(()=>setSyncState("FIREBASE SYNCED"))
+      .then(()=>{
+        // Private records may save before the public-safe website projection
+        // is publishable. Do not mislabel that as a failed planning write.
+        if (plannerFirestore.publicDetailsError) {
+          setSyncState("PLANNER SYNCED");
+          const note=document.querySelector(".planner-toolbar small");
+          if(note) note.textContent="Plan saved. Public date/venue update is pending Firebase rules publication.";
+        } else {
+          setSyncState("FIREBASE SYNCED");
+        }
+      })
       .catch(error=>{
         console.error("Planner sync failed",error);
         setSyncState("SYNC ERROR",true);

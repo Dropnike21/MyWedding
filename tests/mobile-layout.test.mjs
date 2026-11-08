@@ -30,8 +30,9 @@ test("the mobile stylesheet loads after theme and uses a versioned asset",()=>{
   const theme=html.indexOf("theme-spring-pastels.css");
   const layout=html.indexOf("mobile-layout.css?v=20261108-mobile1");
   assert.ok(theme>=0 && layout>theme);
-  assert.ok(html.includes("assets/app.js?v=20261108-mobile1"));
-  assert.ok(app.includes('const BUILD = "20261108-mobile1"'));
+  const build=app.match(/const BUILD = "([^"]+)"/)?.[1];
+  assert.ok(build);
+  assert.ok(html.includes("assets/app.js?v="+build));
 });
 
 test("native section picker mirrors all planner sidebar views",()=>{
