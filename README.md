@@ -3,38 +3,34 @@
 A public-facing wedding website and future wedding-management system for Angela & Joseph.
 
 **Wedding date:** December 23, 2027 (tentative)  
-**Project stage:** The organizer's Wedding Studio is Firebase-connected. Guest invitation and photo-upload Firebase Functions are written in the repository but have **not been verified as deployed**. An opt-in, owner-controlled camera rehearsal is available in source and requires backend setup.
+**Project stage:** Firebase-connected Wedding Studio and source code for
+real guest invitation links, owner-controlled camera access and secure Drive
+photo uploads. Firebase Cloud Functions and Drive OAuth still need production
+deployment and end-to-end verification.
 
-## What's here now
+## What's available
 
-- Responsive public wedding landing page and countdown
-- Responsive private invitation-management UI (sign-in, create/edit/list, rotate/revoke) behind a currently disabled backend
-- Browser camera **local demo**: take a photo and save it to your own device
-- Architecture overview for Firebase, private Google Drive photos, and Google Sheets
-- Firebase client configuration, App Check helper, code redemption and guest RSVP client interface
-- Cloud Functions source for code issuance, atomic rotation/revocation, RSVP and session validation (**not deployed**)
+- Responsive public wedding site with Firebase-backed safe wedding details.
+- Private organizer Planning Studio with guests, RSVP, budget, suppliers and tasks.
+- Genuine per-invitation links: **Guests & RSVPs → Invitations & photo cleanup**.
+- Guest-facing invitation landing page displaying party name and allotted seats
+  after secure code verification.
+- Portrait-only camera with RAW and edited JPEG uploads, shared server-side
+  frame quota and owner-managed access (no fixed time limit).
+- An explicit **Delete guest & photos** action: revoke code, remove the
+  invitation and guest record, both Drive images, Firestore metadata and Sheet
+  audit rows. Cleanup must succeed before deletion is reported complete.
+- One code per invitation currently; unique codes for individual seats are
+  still a separate future enhancement.
 
-**Important:** The camera currently does not upload, store, or publish photographs. Invitation-code verification, live RSVP, admin database access, QR issuance, photo moderation, and the 48-hour gallery lock are **not live**. The current page may show a local-only device-camera demo; it never uploads.
+**Important:** All actual uploads depend on Firebase Functions, App Check,
+anonymous auth and private Google Drive OAuth. GitHub Pages updates alone do
+not deploy those services. Do not send guest invitations before a successful
+end-to-end upload check.
 
-## Camera invitation and real-upload rehearsal
-
-The camera interface now stays in **portrait mode**, without sensor-driven
-rotation or a Rotate button. Guests opening a private code link first see a
-styled invitation landing page before redeeming the pass.
-
-The **sample invitation design** works as a local-only preview at
-`https://dropnike21.github.io/MyWedding/#camera/AJ27TEST`.
-
-In Wedding Studio → Photo archive, owners can preview that landing page,
-start a one-hour rehearsal, generate a real five-frame test invitation link,
-and close the rehearsal. Live test mode uses the genuine Firebase Functions
-and private Drive/Sheets photo flow, **but it cannot upload until Cloud
-Functions, anonymous auth, App Check and OAuth secrets are configured and
-deployed**. Normal production guest access and uploads remain disabled.
-
-Read [End-to-end camera rehearsal](docs/camera-rehearsal-end-to-end.md)
-before issuing a real test code. The proposed one-code-per-seat invitation
-design is documented separately and is not active.
+See [Normal guest invitation, camera and photo cleanup](docs/guest-invitation-live-flow.md).
+There is no one-hour rehearsal or temporary guest mode. Create your own
+ordinary guest record to test, then delete it using the owner cleanup action.
 
 ## Deploy with GitHub Pages
 
@@ -107,15 +103,15 @@ The backend implements `createInvitation`, `listInvitations`, `updateInvitation`
 
 Raw codes are returned once to an authorized organizer and are **never stored in plaintext** in Firestore. Do not paste actual invitation URLs into public GitHub issues.
 
-All live Firebase calls are currently disabled in `assets/guest-config.js` until you configure Authentication, Enterprise App Check, Cloud Functions and admin roles. Please do **not** enable the switch until these services have been deployed and tested.
+Real guest verification and upload calls are enabled in the frontend, but require deployed Cloud Functions, App Check, anonymous Auth, and private Drive OAuth. No upload is considered successful before server confirmation.
 
 For architecture, Firebase configuration, organizer claims, rate limiting, and a staged testing checklist, see **[Secure guest access setup](docs/guest-access.md)**.
 
 ### Pending features
 
-- Secure Google Drive photo upload and 24/48-hour locked gallery
+- Deploy and verify secure Google Drive photo uploads; build the 24/48-hour locked gallery
 - QR image generation/print layouts for unique invitations
-- Supplier, payment, budget and task management forms
+- Expand individual-per-seat guest links and RSVP handling
 - Automatic Firestore → private Google Sheets reporting mirror
 - Production deployment, Android/iPhone testing and accessibility rehearsal
 
