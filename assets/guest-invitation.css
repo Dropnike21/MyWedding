@@ -130,27 +130,27 @@
   cursor:pointer;
 }
 #guest-invitation-status{font-size:11px;line-height:1.5;color:#7c5550}
-.planner-rehearsal-card{
+.planner-invitation-card{
   padding:20px;
   border:1px solid #d5d7ce;
   border-radius:14px;
   background:#faf7ee;
   margin:0 0 18px;
 }
-.planner-rehearsal-card h3{margin:7px 0 8px;font:normal 25px/1.2 Georgia,serif}
-.planner-rehearsal-card p{font-size:12px;line-height:1.55;color:#637068}
-.planner-rehearsal-actions{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}
-.planner-rehearsal-actions .button{min-height:44px}
-.planner-rehearsal-status{font-size:12px;line-height:1.6;min-height:20px}
-.planner-rehearsal-link{
+.planner-invitation-card h3{margin:7px 0 8px;font:normal 25px/1.2 Georgia,serif}
+.planner-invitation-card p{font-size:12px;line-height:1.55;color:#637068}
+.planner-invitation-actions{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}
+.planner-invitation-actions .button{min-height:44px}
+.planner-invitation-status{font-size:12px;line-height:1.6;min-height:20px}
+.planner-invitation-link{
   margin-top:14px;
   border:1px solid #d6d2c4;
   background:#f1eee4;
   border-radius:11px;
   padding:12px;
 }
-.planner-rehearsal-link[hidden]{display:none!important}
-.planner-rehearsal-link input{
+.planner-invitation-link[hidden]{display:none!important}
+.planner-invitation-link input{
   width:100%;
   padding:11px;
   font:12px ui-monospace,monospace;
@@ -160,7 +160,7 @@
   background:#fff;
   margin:8px 0;
 }
-.planner-rehearsal-link code{
+.planner-invitation-link code{
   font:700 17px ui-monospace,monospace;
   letter-spacing:1px;
 }
@@ -168,6 +168,23 @@
   .guest-invitation-landing{padding:4px 11px}
   .guest-invite-card{padding:35px 21px 28px}
   .guest-invite-card h2{font-size:35px}
-  .planner-rehearsal-actions{display:grid;grid-template-columns:1fr}
-  .planner-rehearsal-actions .button{width:100%}
+  .planner-invitation-actions{display:grid;grid-template-columns:1fr}
+  .planner-invitation-actions .button{width:100%}
 }
+
+.planner-invite-select{
+  display:block;width:100%;min-height:46px;margin:10px 0 6px;
+  padding:10px 14px;font-size:16px;border:1px solid #c8cfca;
+  border-radius:10px;background:#fff;color:#31443b;
+}
+.planner-invitation-list{margin-top:17px}
+.planner-invite-actions{display:flex;flex-wrap:wrap;gap:7px;min-width:180px}
+.planner-invite-actions button{
+  font:600 12px/1.2 inherit;min-height:39px;padding:9px 10px;
+  color:#2d483a;border:1px solid #b7c6b9;border-radius:8px;background:#fff;
+  cursor:pointer;
+}
+.planner-invite-actions .planner-link-danger{
+  color:#913e3b;border-color:#e2aaa5;background:#fff8f7;
+}
+.planner-invite-actions button:disabled{opacity:.55;cursor:not-allowed}
