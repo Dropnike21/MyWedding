@@ -200,8 +200,11 @@ async function refreshSharedFilm() {
       cameraAccess.photosRemaining=Math.max(0,Number(result.photosRemaining || 0));
     }
     document.dispatchEvent(new CustomEvent("wedding:photo-synced",{detail:result}));
-    if (!result.cameraOpen && cameraMessage)
-      cameraMessage.textContent="Camera access is closed for this invitation. Contact the organizer.";
+    if (!result.cameraOpen) {
+      if(cameraMessage)cameraMessage.textContent="Camera access has been closed by the organizer.";
+      leaveCameraMode();
+      show("Your invitation is still valid, but camera access is closed.");
+    }
   } catch(error) {
     if (String(error?.code || "").includes("permission-denied")) {
       cameraMessage.textContent="This camera pass was revoked or expired.";
@@ -400,7 +403,9 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
       const when = open && !Number.isNaN(open.getTime())
         ? open.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
         : "the wedding-day access window";
-      report("Invitation verified. The camera will open at " + when + ".", "ok");
+      report(verified.openAt
+        ? "Invitation verified. The camera opens at " + when + "."
+        : "Invitation verified. The organizer has not opened camera access yet.", "ok");
       return false;
     }
     enterCameraMode({
@@ -454,7 +459,9 @@ async function restoreOnThisDevice() {
       const when = open && !Number.isNaN(open.getTime())
         ? open.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
         : "the wedding-day access window";
-      show("This phone remembers your invitation. The camera opens at " + when + ".", "ok");
+      show(session.openAt
+        ? "This phone remembers your invitation. The camera opens at " + when + "."
+        : "This phone remembers your invitation. Camera access is currently closed.", "ok");
     }
   } catch (error) {
     const denied = String(error?.code || "").includes("permission-denied");
