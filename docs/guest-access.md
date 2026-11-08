@@ -87,6 +87,17 @@ The screenshot confirms the Firestore database exists. The following items are s
 
 Note: enabling Google sign-in on GitHub Pages may require additional provider/domain configuration. Ensure the Firebase project authenticates correctly at the final hosted URL before use.
 
+## Planned multiple codes per invitation
+
+The next invitation design assigns a **distinct code to each allotted seat**
+under one family/group invitation. Two phones can use the same seat's code
+simultaneously, but the two sessions represent **the same seat**; neither a
+second RSVP nor additional photo allowance is created. Group photo quota and
+seat RSVP must be enforced transactionally by the server. The existing backend
+is one-code-per-invitation and is not deployed. See
+[Seat codes and concurrent sessions](seat-codes-concurrency.md) for the
+proposed schema, migration precautions, and test plan.
+
 ## Future photo storage
 
 - A separate trusted backend will receive and validate each upload. The camera button on the current page is intentionally **local only**.
