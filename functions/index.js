@@ -459,6 +459,119 @@ exports.revokeInvitation = onCall(configuration({}, false), async request => {
   return { revoked: true, invitationId: id };
 });
 
+/** Camera access is explicitly controlled per invitation by an owner.
+ * It can be turned on/off without affecting other guests or using a timer. */
+exports.setInvitationCameraAccess = onCall(configuration({}, false), async request => {
+  requireAdmin(request);
+  const id=idField(request.data?.invitationId,"invitation");
+  if(typeof request.data?.enabled !== "boolean")
+    throw new HttpsError("invalid-argument","Specify whether camera access is enabled.");
+  const ref=db.collection("invitationRegistry").doc(id);
+  await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    if(!snap.exists || snap.get("status")!=="active")
+      throw new HttpsError("not-found","Active invitation not found.");
+    tx.update(ref,{
+      cameraAccessEnabled:request.data.enabled,
+      updatedAt:FieldValue.serverTimestamp()
+    });
+  });
+  return {invitationId:id,cameraAccessEnabled:request.data.enabled};
+});
+
+/** Remove one invitation and all its photos, not merely hide its row.
+ * The code is revoked before deleting files, so no new upload can finalize.
+ * A failure retains the deleting invitation for retry and never reports success.
+ */
+exports.deleteInvitationAndPhotos = onCall(configuration({
+  secrets:[CODE_SECRET,DRIVE_OAUTH_SECRET],timeoutSeconds:120,maxInstances:3
+}),async request=>{
+  requireAdmin(request);
+  const id=idField(request.data?.invitationId,"invitation");
+  const ref=db.collection("invitationRegistry").doc(id);
+  const state=await db.runTransaction(async tx=>{
+    const snap=await tx.get(ref);
+    if(!snap.exists)return "absent";
+    if(snap.get("status")==="deleting")return "deleting";
+    const digest=snap.get("codeDigest");
+    if(digest)tx.delete(db.collection("invitationCodes").doc(digest));
+    tx.update(ref,{
+      status:"deleting",codeDigest:null,cameraAccessEnabled:false,
+      revision:Number(snap.get("revision")||1)+1,
+      deletionStartedAt:FieldValue.serverTimestamp(),
+    });
+    return "started";
+  });
+  if(state==="absent")return {deleted:true,alreadyDeleted:true};
+
+  const photoDocs=await db.collection("photoUploads").where("invitationId","==",id).get();
+  const pendingDocs=await db.collection("pendingPhotoUploads").where("invitationId","==",id).get();
+  const guestSessions=await db.collection("guestSessions").where("invitationId","==",id).get();
+  // If the invitation has no archived or pending uploads, it is safe to
+  // remove immediately without requiring Google Drive credentials.
+  if(photoDocs.size || pendingDocs.size){
+    const {drive,sheets}=driveServices();
+    for(const [folderId,variant] of [
+      [DRIVE_RAW_FOLDER_ID,"raw"],[DRIVE_WATERMARKED_FOLDER_ID,"watermarked"]
+    ]){
+      let token=undefined;
+      do {
+        const response=await drive.files.list({
+          q:"trashed = false and '"+folderId+
+            "' in parents and appProperties has { key='invitationId' and value='"+id+"' }",
+          fields:"nextPageToken,files(id,mimeType,appProperties,parents,trashed)",
+          pageSize:1000,pageToken:token
+        });
+        token=response.data.nextPageToken;
+        for(const file of response.data.files||[]){
+          if(file.appProperties?.invitationId!==id ||
+             file.appProperties?.variant!==variant ||
+             file.mimeType!=="image/jpeg" ||
+             !file.parents?.includes(folderId))continue;
+          try {await drive.files.delete({fileId:file.id});}
+          catch(error){if(error?.code!==404 && error?.response?.status!==404)throw error;}
+        }
+      }while(token);
+    }
+    // Remove this invitation's rows from the protected audit sheet. Read
+    // positions immediately before a descending batch deletion, so other
+    // invitation logs are not accidentally removed.
+    const spreadsheet=await sheets.spreadsheets.get({
+      spreadsheetId:PHOTO_LOG_SPREADSHEET_ID,
+      fields:"sheets(properties(sheetId,title))"
+    });
+    const sheet=spreadsheet.data.sheets?.find(x=>x.properties?.title==="Photo Log");
+    if(!sheet)throw new HttpsError("failed-precondition","Photo Log sheet missing.");
+    const cells=await sheets.spreadsheets.values.get({
+      spreadsheetId:PHOTO_LOG_SPREADSHEET_ID,range:"'Photo Log'!A:C"
+    });
+    const rows=cells.data.values || [];
+    const indexes=rows.flatMap((row,index)=>index>0 && row[2]===id?[index]:[])
+      .sort((a,b)=>b-a);
+    if(indexes.length){
+      await sheets.spreadsheets.batchUpdate({
+        spreadsheetId:PHOTO_LOG_SPREADSHEET_ID,
+        requestBody:{requests:indexes.map(index=>({
+          deleteDimension:{range:{
+            sheetId:sheet.properties.sheetId,dimension:"ROWS",
+            startIndex:index,endIndex:index+1
+          }}
+        }))}
+      });
+    }
+  }
+  // Only after Drive and Sheet deletion have succeeded, remove records.
+  for(const items of [photoDocs.docs,pendingDocs.docs,guestSessions.docs]){
+    for(let i=0;i<items.length;i+=350){
+      const batch=db.batch();
+      for(const docSnap of items.slice(i,i+350))batch.delete(docSnap.ref);
+      await batch.commit();
+    }
+  }
+  await ref.delete();
+  return {deleted:true,photosDeleted:photoDocs.size};
+});
+
 /**
  * Code redemption is serialized with rotations/revocations using a transaction.
  * The session binds to the CURRENT invitation revision, not just a guest name.
