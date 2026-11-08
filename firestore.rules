@@ -62,6 +62,29 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Public website only reads a tightly scoped date/venue projection.
+    // No private budget, guest, personal or organizer records are exposed.
+    match /publicWeddingDetails/current {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly([
+          "date", "dateTentative", "venueName", "venueTentative", "updatedAt"
+        ])
+        && request.resource.data.keys().hasAll([
+          "date", "dateTentative", "venueName", "venueTentative", "updatedAt"
+        ])
+        && request.resource.data.date is string
+        && request.resource.data.date.matches('^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$')
+        && request.resource.data.dateTentative is bool
+        && request.resource.data.venueName is string
+        && request.resource.data.venueName.size() <= 120
+        && request.resource.data.venueTentative is bool
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+
     match /weddings/{weddingId} {
       allow read: if canReadPlanning();
       allow create, update: if isOwner();
