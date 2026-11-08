@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261108-mobile1";
+  const BUILD = "20261108-public1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -2166,19 +2166,6 @@
     else location.hash = "#" + view;
   }
 
-  function countdown() {
-    const weddingDate = new Date("2027-02-23T00:00:00+08:00");
-    const diff = weddingDate.getTime() - Date.now();
-    const el = document.getElementById("countdown");
-    if (!el) return;
-    if (diff <= 0) {
-      el.textContent = "Our day is here";
-    } else {
-      const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
-      el.textContent = days + " day" + (days === 1 ? "" : "s") + " to go";
-    }
-  }
-
   document.querySelectorAll("[data-view]").forEach(button => {
     button.addEventListener("click", () => navigate(button.dataset.view));
   });
@@ -2226,7 +2213,10 @@
 
   // The camera is still a local device demonstration until the protected
   // invitation + Google Drive upload backend is deployed.
-  countdown();
-  setInterval(countdown, 60 * 1000);
+  // Date, weekday, countdown and venue are read from the public-safe
+  // Firebase projection, never from the private organizer document.
+  import(featureUrl("public-wedding.js"))
+    .then(module=>module.start())
+    .catch(error=>console.warn("Public wedding details unavailable:",error));
   switchView(location.hash.slice(1));
 })();
