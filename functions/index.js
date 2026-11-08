@@ -329,10 +329,18 @@ function oneTimeCodeResponse(id, code, revision) {
 exports.createInvitation = onCall(configuration(), async request => {
   requireAdmin(request);
   const values = registrationFields(request.data || {});
+  const guestId=optionalText(request.data?.sourceGuestId,100);
+  if(guestId && !/^[A-Za-z0-9_-]{1,100}$/.test(guestId))
+    throw new HttpsError("invalid-argument","Invalid planner guest identifier.");
+  const fixedId=guestId ? "guest_"+guestId : "";
+  if(fixedId && (await db.collection("invitationRegistry").doc(fixedId).get()).exists)
+    throw new HttpsError("already-exists","This guest already has an invitation. Use Regenerate link instead.");
   for (let i = 0; i < 5; i++) {
     const code = generateCode();
     const digest = hash(code);
-    const invitation = db.collection("invitationRegistry").doc();
+    const invitation = fixedId
+      ? db.collection("invitationRegistry").doc(fixedId)
+      : db.collection("invitationRegistry").doc();
     const batch = db.batch();
     batch.create(db.collection("invitationCodes").doc(digest), {
       invitationId: invitation.id,
@@ -360,6 +368,8 @@ exports.createInvitation = onCall(configuration(), async request => {
       }) };
     } catch (error) {
       if (!isDuplicate(error)) throw error;
+      if(fixedId)
+        throw new HttpsError("already-exists","This guest already has an invitation. Use Regenerate link instead.");
     }
   }
   throw new HttpsError("internal", "Could not issue a unique code.");
