@@ -10,10 +10,10 @@
   <link rel="stylesheet" href="./assets/styles.css?v=20261108-mobile1" />
   <link rel="stylesheet" href="./assets/theme-spring-pastels.css?v=20261101-spring1" />
   <link rel="stylesheet" href="./assets/mobile-layout.css?v=20261108-mobile1" />
-  <link rel="stylesheet" href="./assets/camera-portrait.css?v=20261108-rehearsal1" />
-  <link rel="stylesheet" href="./assets/guest-invitation.css?v=20261108-rehearsal1" />
+  <link rel="stylesheet" href="./assets/camera-portrait.css?v=20261108-guest1" />
+  <link rel="stylesheet" href="./assets/guest-invitation.css?v=20261108-guest1" />
   <script src="./assets/venue-config.js?v=20261108-mobile1"></script>
-  <script src="./assets/app.js?v=20261108-rehearsal1" defer></script>
+  <script src="./assets/app.js?v=20261108-guest1" defer></script>
 </head>
 <body>
   <div class="global-loader" id="global-loader" hidden aria-live="polite" aria-busy="true">
@@ -213,7 +213,7 @@
             <button type="button" class="planner-nav" data-planner-view="timeline"><span>◷</span><b>Wedding day</b><small>Run of show</small></button>
             <button type="button" class="planner-nav" data-planner-view="decisions"><span>?</span><b>Decisions</b><small>Open choices</small></button>
             <button type="button" class="planner-nav" data-planner-view="team"><span>◎</span><b>Coordinator team</b><small>Roles & contacts</small></button>
-            <div class="planner-sidebar-note">Invitation-code issuance remains disabled until the secure Firebase backend is deployed.</div>
+            <div class="planner-sidebar-note">Manage real invitation links and uploaded photos under Photo archive. Firebase backend deployment is required.</div>
           </aside>
 
           <main class="planner-workspace" id="planner-workspace" aria-live="polite">
@@ -271,11 +271,6 @@
               <button class="button primary" type="submit" id="check-invitation">Open camera →</button>
             </div>
             <p id="invitation-help" class="invitation-help">Eight letters or numbers. The dash is optional.</p>
-            <div class="camera-preview-helper" id="camera-preview-helper" hidden>
-              <span>Preview mode</span>
-              <code id="camera-preview-code"></code>
-              <button type="button" id="camera-use-test-code">Use test code</button>
-            </div>
             <p class="invitation-status" id="invitation-status" role="status" aria-live="polite">Checking whether this device already has camera access…</p>
           </form>
 
@@ -399,7 +394,7 @@
           </div>
 
           <p class="camera-message" id="camera-message" role="status">Your invitation has been verified. Open the camera when you're ready.</p>
-          <p class="camera-fineprint" id="camera-fineprint">Preview frames stay on this phone unless the secure rehearsal upload service is active.</p>
+          <p class="camera-fineprint" id="camera-fineprint">Photos are saved only after a successful secure upload to the private archive.</p>
         </div>
 
         <div class="camera-code-modal" id="camera-code-modal" hidden role="dialog" aria-modal="true" aria-labelledby="camera-code-modal-title">
@@ -431,6 +426,6 @@
     </section>
   </main>
 
-  <footer><span class="footer-brand">A <em>&</em> J</span><div>Built for a day we'll never forget.</div><small>© 2026 Angela & Joseph · Preview experience · Route location is used only for directions and is not stored</small></footer>
+  <footer><span class="footer-brand">A <em>&</em> J</span><div>Built for a day we'll never forget.</div><small>© 2026 Angela & Joseph · Route location is used only for directions and is not stored</small></footer>
 </body>
 </html>
