@@ -55,16 +55,17 @@ Before publishing, review the file. It does the following:
 
 Publish via Firebase Console > Firestore > Rules, or with Firebase CLI after confirming the correct project.
 
-## 3. Default groom / owner accounts
+## 3. Default wedding owner accounts
 
-These two verified Google accounts are built into the planner as default `owner` identities:
+These three verified Google accounts are built into the planner as default `owner` identities:
 
 - `babaynike2013@gmail.com`
 - `josephsixson@mcstayuman.edu.ph`
+- `nungaygela@gmail.com` (bride / co-owner)
 
 They do **not** require an `organizers/{uid}` Firestore document. Firestore Security Rules independently verify the signed-in Firebase token's verified email before granting owner permissions.
 
-Because this repository is public, these two addresses are visible in the published rules/source. If that is undesirable, remove the built-in allowlist and use UID-based `organizers/{uid}` records instead.
+Because this repository is public, these addresses are visible in the published rules/source. If that is undesirable, remove the built-in allowlist and use UID-based `organizers/{uid}` records instead.
 
 For any additional owner, coordinator, or finance account, the planner authorizes against:
 
@@ -100,6 +101,18 @@ Do not use Auto-ID for this document. The UID must be the document ID.
 Sign out and sign in again on Wedding Studio.
 
 If `weddings/main` does not exist yet, the first **owner** automatically seeds the Firebase planner with the current starter data and budget categories.
+
+## Bride / groom remote planning
+
+1. Publish the current repository's entire `firestore.rules` in **Firebase Console → Firestore Database → Rules** (replace the editor contents rather than appending a new `allow` block). The GitHub deployment alone does not publish Firestore rules.
+2. Confirm the GitHub Pages website is running the updated build. Open **Planning Studio** on each person's device.
+3. Each person signs in separately with **Continue with Google**, using their own verified Google account. For the bride, select `nungaygela@gmail.com`.
+4. Both authorized owner accounts access the same `weddings/main` database; neither needs an `organizers/{uid}` record.
+5. Make a small test checklist change, confirm it saves in Firebase, then refresh the other device and confirm the change appears. Reverse the direction for a second test.
+
+**Synchronization behavior:** The planner currently loads Firestore when opening or reloading the workspace and writes changed records to Firestore. It does *not* subscribe to real-time updates. When the other person changes something, **refresh the planner after their save is confirmed** to read it. Avoid editing the same record simultaneously: overlapping writes can replace one person's changes. Don't refresh while an unsaved edit is still pending.
+
+**Privacy:** The built-in email allowlist is committed to a **public** GitHub repository, so organizer addresses are visible in the repository. For a private alternative, create the bride's account in Firebase Authentication and add an `organizers/{uid}` document with `active: true` and `role: "owner"`, then remove the email from the public allowlists in both `firestore.rules` and `assets/planner-firestore.js`.
 
 ## 4. Add a coordinator later
 
