@@ -1,5 +1,5 @@
-import { guestAccessConfig } from "./guest-config.js?v=20261031-2330";
-import { getGuestClient, callGuestFunction } from "./firebase-services.js?v=20261031-2330";
+import { guestAccessConfig } from "./guest-config.js?v=20261108-guest1";
+import { getGuestClient, callGuestFunction } from "./firebase-services.js?v=20261108-guest1";
 
 const form = document.getElementById("invitation-form");
 const input = document.getElementById("invitation-code");
