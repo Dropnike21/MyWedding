@@ -13,6 +13,7 @@ service cloud.firestore {
         && (
           request.auth.token.email == "babaynike2013@gmail.com"
           || request.auth.token.email == "josephsixson@mcstayuman.edu.ph"
+          || request.auth.token.email == "nungaygela@gmail.com"
         );
     }
 
