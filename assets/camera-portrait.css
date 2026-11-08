@@ -6,7 +6,23 @@
     overflow:auto!important;
     overscroll-behavior-y:contain;
   }
+  body.camera-session-active #main{
+    height:auto!important;
+    min-height:100dvh;
+    overflow:visible!important;
+  }
+  body.camera-session-active #view-camera{
+    position:relative!important;
+    inset:auto!important;
+    display:block!important;
+    width:100%!important;
+    min-height:100dvh;
+    height:auto!important;
+    overflow:visible!important;
+  }
   body.camera-session-active .camera-session {
+    position:relative!important;
+    inset:auto!important;
     display:flex!important;
     flex-direction:column!important;
     grid-template-columns:none!important;
