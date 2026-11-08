@@ -1,0 +1,162 @@
+/* Guest-facing invitation arrival card. Appears before code verification. */
+.guest-invitation-landing[hidden]{display:none!important}
+.camera-gate-wrap.has-invitation .camera-gate-heading,
+.camera-gate-wrap.has-invitation .camera-access-card{display:none!important}
+.guest-invitation-landing{
+  width:100%;
+  max-width:720px;
+  margin:20px auto 36px;
+  padding:12px;
+}
+.guest-invite-card{
+  position:relative;
+  margin:0 auto;
+  padding:clamp(30px,6vw,57px) clamp(22px,6vw,50px);
+  max-width:540px;
+  border:1px solid #d6c9b8;
+  outline:1px solid #e7dccc;
+  outline-offset:-9px;
+  border-radius:7px;
+  background:#fffaf0;
+  color:#36483b;
+  text-align:center;
+  box-shadow:0 10px 36px rgba(48,51,40,.13);
+}
+.guest-invite-card:before,
+.guest-invite-card:after{
+  content:"✦";
+  position:absolute;
+  top:22px;
+  font-size:15px;
+  color:#b79a6e;
+}
+.guest-invite-card:before{left:23px}
+.guest-invite-card:after{right:23px}
+.guest-invite-crest{
+  display:block;
+  font:italic 32px/1.1 Georgia,serif;
+  letter-spacing:-2px;
+  color:#2c4638;
+}
+.guest-invite-crest em{color:#c58d80;font-style:italic}
+.guest-invite-eyebrow{
+  display:block;
+  margin-top:20px;
+  color:#916f60;
+  font-weight:800;
+  font-size:10px;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+}
+.guest-invite-card h2{
+  margin:14px 0 12px;
+  color:#284337;
+  font:normal clamp(31px,7vw,45px)/1.12 Georgia,serif;
+  letter-spacing:-1.4px;
+}
+.guest-invite-card h2 em{font-style:italic;color:#b77c75}
+.guest-invite-couple{
+  font:normal clamp(21px,4vw,27px)/1.3 Georgia,serif;
+  color:#304a3e;
+  margin:16px 0!important;
+}
+.guest-invite-rule{
+  width:90px;
+  height:1px;
+  margin:18px auto;
+  background:#c8a785;
+}
+.guest-invite-date{
+  margin:8px 0!important;
+  font:normal clamp(20px,4vw,27px)/1.3 Georgia,serif;
+}
+.guest-invite-small{color:#927d70;font-size:11px;letter-spacing:.5px}
+.guest-invite-message{
+  max-width:33ch;
+  margin:22px auto!important;
+  font-size:13px;
+  line-height:1.65;
+  color:#5c645c;
+}
+.guest-invite-pass{
+  padding:17px 16px;
+  background:#f1ede2;
+  border:1px solid #dbcfbe;
+  border-radius:10px;
+  margin:18px 0 18px;
+}
+.guest-invite-pass>span{
+  display:block;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:1.25px;
+  color:#677e6b;
+}
+.guest-invite-pass strong{
+  display:block;
+  margin:11px 0 7px;
+  font:700 clamp(22px,5vw,28px)/1 ui-monospace,Menlo,monospace;
+  letter-spacing:2px;
+}
+.guest-invite-pass small{font-size:10px;color:#777b70;line-height:1.5;display:block}
+.guest-invite-continue{
+  display:block!important;
+  width:100%;
+  min-height:50px;
+  padding:12px 15px!important;
+  font-size:13px!important;
+  touch-action:manipulation;
+}
+.guest-invite-enter-manually{
+  min-height:44px;
+  padding:9px;
+  margin-top:11px;
+  border:0;
+  background:transparent;
+  color:#42584a;
+  text-decoration:underline;
+  font-size:11px;
+  cursor:pointer;
+}
+#guest-invitation-status{font-size:11px;line-height:1.5;color:#7c5550}
+.planner-rehearsal-card{
+  padding:20px;
+  border:1px solid #d5d7ce;
+  border-radius:14px;
+  background:#faf7ee;
+  margin:0 0 18px;
+}
+.planner-rehearsal-card h3{margin:7px 0 8px;font:normal 25px/1.2 Georgia,serif}
+.planner-rehearsal-card p{font-size:12px;line-height:1.55;color:#637068}
+.planner-rehearsal-actions{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}
+.planner-rehearsal-actions .button{min-height:44px}
+.planner-rehearsal-status{font-size:12px;line-height:1.6;min-height:20px}
+.planner-rehearsal-link{
+  margin-top:14px;
+  border:1px solid #d6d2c4;
+  background:#f1eee4;
+  border-radius:11px;
+  padding:12px;
+}
+.planner-rehearsal-link[hidden]{display:none!important}
+.planner-rehearsal-link input{
+  width:100%;
+  padding:11px;
+  font:12px ui-monospace,monospace;
+  border:1px solid #c4cfc4;
+  border-radius:8px;
+  color:#33473d;
+  background:#fff;
+  margin:8px 0;
+}
+.planner-rehearsal-link code{
+  font:700 17px ui-monospace,monospace;
+  letter-spacing:1px;
+}
+@media(max-width:620px){
+  .guest-invitation-landing{padding:4px 11px}
+  .guest-invite-card{padding:35px 21px 28px}
+  .guest-invite-card h2{font-size:35px}
+  .planner-rehearsal-actions{display:grid;grid-template-columns:1fr}
+  .planner-rehearsal-actions .button{width:100%}
+}
