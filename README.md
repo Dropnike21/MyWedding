@@ -102,6 +102,21 @@ For architecture, Firebase configuration, organizer claims, rate limiting, and a
 The current production/database state has not been verified by a live Firebase connection from ChatGPT. Deploying or modifying Google Cloud IAM permissions requires explicit action in your Firebase/Google accounts.
 
 
+## Public wedding date and invitation design
+
+The working wedding date is **December 23, 2027 (tentative)**. The public
+Home page now gets its date, countdown and venue name from a narrow Firestore
+`publicWeddingDetails/current` projection, with a December fallback before
+that record is published. The private `weddings/main` record remains
+organizer-only. After merging the website change, **publish the updated
+Firestore rules and open Planning Studio as an owner** to initialize the public
+record. See [Public wedding details](docs/public-wedding-details.md).
+
+Per-seat invitation codes and simultaneous multi-device access are designed
+in [Seat codes and concurrency](docs/seat-codes-concurrency.md), but are **not
+yet deployed**. The guest camera's public preview remains local and does not
+provide production server-side quota synchronization.
+
 ## Firebase planner connection
 
 The Wedding Studio now has a Firestore adapter and role-based Security Rules. It uses Google Authentication + App Check + Firestore directly for planning CRUD, while invitation and camera security remain server-only.
