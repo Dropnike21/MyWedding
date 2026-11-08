@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 const app = readFileSync(new URL("../assets/app.js", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 const styles = readFileSync(new URL("../assets/styles.css", import.meta.url), "utf8");
+const portraitStyles = readFileSync(new URL("../assets/camera-portrait.css", import.meta.url), "utf8");
 
 test("camera JavaScript parses", () => {
   assert.doesNotThrow(() => new Script(app));
@@ -15,7 +16,7 @@ test("new camera controls are present with unique IDs", () => {
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   assert.equal(ids.length, new Set(ids).size);
   for (const id of [
-    "camera-framing-guide", "camera-rotate", "camera-depth-overlay",
+    "camera-framing-guide", "camera-depth-overlay",
     "camera-aspect-options", "camera-temperature", "camera-focus-distance",
     "camera-focus-auto", "camera-beauty", "camera-aperture"
   ]) {
@@ -28,7 +29,7 @@ test("CSS rule block delimiters are balanced", () => {
 });
 
 const begin = app.indexOf("  function captureGeometry(video) {");
-const end = app.indexOf("\n  function drawWatermark(", begin);
+const end = app.indexOf("\n  let weddingWatermarkDate=", begin);
 assert.ok(begin >= 0 && end > begin, "captureGeometry function must exist");
 const geometryBody = app.slice(begin, end);
 const factory = runInNewContext(
@@ -62,17 +63,15 @@ test("camera pass name precedes the change-code action in both layouts", () => {
     identity.indexOf('id="camera-change-code"'));
 });
 
-test("portrait tools are vertical and landscape tools are horizontal on top", () => {
-  assert.match(styles,/camera-session:not\(\.is-landscape\) \.camera-action-rail\{[\s\S]*?flex-direction:column!important/);
-  assert.match(styles,/camera-session\.is-landscape \.camera-action-rail\{[\s\S]*?flex-direction:row!important/);
-  assert.match(styles,/camera-session\.is-landscape \.camera-action-rail\{[\s\S]*?top:8px!important/);
-});
-
-test("landscape film hangs vertically with rotated thumbnails", () => {
-  assert.match(styles,/camera-session\.is-landscape \.camera-film-track\{[\s\S]*?flex-direction:column!important/);
-  assert.match(styles,/camera-session\.is-landscape \.camera-film-frame \.camera-film-image\{[\s\S]*?rotate\(90deg\)/);
-  assert.match(app,/function isFilmVertical\(\)/);
-  assert.match(app,/const vertical=isFilmVertical\(\)/);
+test("portrait camera controls remain vertical in every phone orientation", () => {
+  assert.doesNotMatch(html,/id="camera-rotate"/);
+  assert.doesNotMatch(app,/handleCameraDeviceTilt|toggleCameraOrientation|manualLandscape/);
+  assert.doesNotMatch(app,/addEventListener\("deviceorientation",handleCameraDeviceTilt/);
+  assert.match(app,/function isCameraLandscape\(\) \{[\s\S]*?return false;/);
+  assert.match(app,/function isFilmVertical\(\) \{[\s\S]*?return false;/);
+  assert.match(portraitStyles,/camera-session \.camera-action-rail\{[\s\S]*?flex-direction:column!important/);
+  assert.match(portraitStyles,/camera-session \.camera-film-track\{[\s\S]*?flex-direction:row!important/);
+  assert.match(portraitStyles,/orientation:landscape/);
 });
 
 test("film capacity is measured on the active orientation axis", () => {
