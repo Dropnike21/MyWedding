@@ -1,13 +1,11 @@
 # Secure invitation links, guest RSVP and regeneration
 
-> **November 2026 update:** A guest-facing **invitation landing page** and
-> owner-controlled **real upload rehearsal** are implemented in source.
-> Owners can preview the invitation design without a backend, and can generate
-> a one-hour **five-frame real test pass** after protected Firebase Functions,
-> App Check and Drive OAuth are deployed. Production guest invitations remain
-> disabled. See [Camera rehearsal](camera-rehearsal-end-to-end.md). The older
-> instructions below describe the legacy one-code-per-group invitation flow
-> and are **not** confirmation that backend deployment has occurred.
+> **November 2026 update:** Owners can issue real invitations from the
+> saved guest list via **Invitations & photo cleanup**. Camera access is
+> controlled individually per invitation without a timer. A guest and their
+> associated Drive photos/audit records can be deleted after verification.
+> Backend deployment is required. See
+> [Guest invitation and cleanup](guest-invitation-live-flow.md).
 
 
 **Status:** Web interface and Cloud Functions are committed to GitHub; Firebase functions, authentication rules and App Check have NOT been deployed. No real invitation links can be issued on the public site yet. The current GitHub Pages website remains a frontend prototype with a local-only camera test.
@@ -69,7 +67,9 @@ Firestore security rules in \`firestore.rules\` **deny all direct browser access
 | \`respondToInvitation\` | Guest with valid current session + App Check | Saves RSVP and attending seats |
 | \`checkGuestSession\` | Guest with valid current session + App Check | Checks revision and current camera window |
 
-**Not implemented:** secure Google Drive uploads, QR image generation, photo moderation, 48-hour release, backups, or live Google Sheets sync.
+**Still to deploy/verify:** the secure Drive photo upload and Sheet logging
+source is available, but Firebase Functions and OAuth need activation.
+QR printing, moderation, delayed release and independent backups remain future work.
 
 ## Deployment prerequisites
 
