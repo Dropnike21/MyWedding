@@ -160,6 +160,7 @@ async function eventWindow(testMode = false) {
   return {
     start, end,
     cameraOpen: now >= start.toMillis() && now < end.toMillis(),
+    rehearsalId: testMode ? String(schedule.get("rehearsalId") || "") : null,
   };
 }
 function configuration(options = {}, withSecret = true) {
@@ -364,8 +365,10 @@ exports.startCameraRehearsal = onCall(configuration({}, false), async request =>
   requireAdmin(request);
   const now=Date.now(),openAt=Timestamp.fromMillis(now);
   const closeAt=Timestamp.fromMillis(now+60*60*1000);
+  const rehearsalId=randomBytes(16).toString("hex");
   await db.doc("weddingSettings/cameraRehearsal").set({
-    openAt,closeAt,startedBy:request.auth.uid,updatedAt:FieldValue.serverTimestamp()
+    openAt,closeAt,rehearsalId,startedBy:request.auth.uid,
+    updatedAt:FieldValue.serverTimestamp()
   });
   return {cameraOpen:true,openAt:openAt.toDate().toISOString(),closeAt:closeAt.toDate().toISOString()};
 });
@@ -392,6 +395,9 @@ exports.cameraRehearsalStatus = onCall(configuration({}, false), async request =
 });
 exports.createCameraRehearsalPass = onCall(configuration(), async request => {
   requireAdmin(request);
+  const rehearsal=await eventWindow(true);
+  if(!rehearsal.cameraOpen || !rehearsal.rehearsalId)
+    throw new HttpsError("failed-precondition","Start a camera rehearsal before generating links.");
   for(let attempt=0;attempt<5;attempt++){
     const code=generateCode(),digest=hash(code);
     const invitation=db.collection("invitationRegistry").doc();
@@ -402,7 +408,8 @@ exports.createCameraRehearsalPass = onCall(configuration(), async request => {
     batch.create(invitation,{
       partyLabel:"Camera Rehearsal · Test Guest",side:"Shared",invitedSeats:1,
       rsvp:"Pending",confirmedSeats:0,notes:"TEST — not an actual guest",
-      codeDigest:digest,revision:1,status:"active",testMode:true,photoLimit:5,
+      codeDigest:digest,revision:1,status:"active",testMode:true,
+      rehearsalId:rehearsal.rehearsalId,photoLimit:5,
       photosUsed:0,createdAt:FieldValue.serverTimestamp(),updatedAt:FieldValue.serverTimestamp()
     });
     try{
@@ -539,6 +546,10 @@ exports.redeemInvitation = onCall(configuration({ maxInstances: 8 }), async requ
     if (!start?.toMillis || !end?.toMillis || start.toMillis() >= end.toMillis())
       throw new HttpsError("failed-precondition","Wedding camera schedule is not ready.");
     const now=Date.now();
+    if(testMode && (String(activeSnap.get("rehearsalId") || "") !==
+        String(schedule.get("rehearsalId") || "") ||
+        !schedule.get("rehearsalId") || now<start.toMillis() || now>=end.toMillis()))
+      throw new HttpsError("permission-denied","That rehearsal invitation is expired.");
     tx.set(sessionRef, {
       invitationId,
       revision: Number(activeSnap.get("revision")),
@@ -589,6 +600,12 @@ async function activeGuestSession(uid) {
       !sessionData.validUntil?.toMillis ||
       sessionData.validUntil.toMillis() <= Date.now()) {
     throw new HttpsError("permission-denied", "This invitation session has expired. Enter the current code.");
+  }
+  if (invitation.get("testMode") === true) {
+    const rehearsal=await eventWindow(true);
+    if (!rehearsal.cameraOpen || !rehearsal.rehearsalId ||
+        rehearsal.rehearsalId !== invitation.get("rehearsalId"))
+      throw new HttpsError("permission-denied","This rehearsal session has ended.");
   }
   const photoLimit = Number(invitation.get("photoLimit") || 50);
   const photosUsed = Number(invitation.get("photosUsed") || 0);
