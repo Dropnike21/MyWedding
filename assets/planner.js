@@ -1,4 +1,4 @@
-import { plannerFirestore } from "./planner-firestore.js?v=20261108-coowners1";
+import { plannerFirestore } from "./planner-firestore.js?v=20261108-public1";
 import { callWeddingFunction } from "./firebase-services.js?v=20261031-2330";
 (() => {
 "use strict";
@@ -129,7 +129,17 @@ function save() {
   if(remoteActive){
     setSyncState("SYNCING");
     plannerFirestore.queue(db)
-      .then(()=>setSyncState("FIREBASE SYNCED"))
+      .then(()=>{
+        // Private records may save before the public-safe website projection
+        // is publishable. Do not mislabel that as a failed planning write.
+        if (plannerFirestore.publicDetailsError) {
+          setSyncState("PLANNER SYNCED");
+          const note=document.querySelector(".planner-toolbar small");
+          if(note) note.textContent="Plan saved. Public date/venue update is pending Firebase rules publication.";
+        } else {
+          setSyncState("FIREBASE SYNCED");
+        }
+      })
       .catch(error=>{
         console.error("Planner sync failed",error);
         setSyncState("SYNC ERROR",true);
