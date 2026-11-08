@@ -397,8 +397,8 @@
   .planner-field input,.planner-field select,
   .planner-editor-card input,.planner-editor-card select{min-height:44px}
   .planner-workspace .button,.planner-form-actions button{min-height:44px}
-  /* Forms should never be forced below the preview by desktop ordering. */
-  .planner-editor-card{order:initial!important;padding:16px}
+  /* Keep the active editor above long records on phones. */
+  .planner-editor-card{padding:16px}
   .planner-nav:hover{transform:none}
   body.camera-session-active{padding-bottom:0!important}
   body.camera-session-active .topline,
@@ -414,4 +414,20 @@
   .planner-metric{padding:12px 10px!important}
   .planner-metric strong{font-size:20px!important}
   .venue-route-actions{grid-template-columns:1fr}
+}
+
+/* A sideways phone has room for a balanced copy/photo hero. */
+@media (min-width:720px) and (orientation:landscape) and (pointer:coarse){
+  .home-hero{grid-template-columns:minmax(0,1fr) minmax(0,.94fr)!important}
+  .hero-copy{padding:30px 22px!important}
+  .hero-copy h1{font-size:clamp(48px,6vw,72px)!important}
+  .hero-art{height:100%!important;min-height:300px!important}
+  .button-row{grid-template-columns:1fr 1fr}
+  .button-row .button{padding:10px 8px;font-size:10px}
+  .facts{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px}
+  .fact{display:block;padding:10px!important;border-bottom:0!important;border-right:1px solid #d8e0e4!important}
+  .fact:last-child{border-right:0!important}
+  .fact-value{text-align:left;font-size:17px!important;margin-top:8px}
+  .planner-toolbar-actions .button,.planner-toolbar-actions button{flex:0 1 170px}
+  .planner-metrics,.planner-metrics.compact{grid-template-columns:repeat(3,minmax(0,1fr))!important}
 }
