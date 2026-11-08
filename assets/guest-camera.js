@@ -344,12 +344,20 @@ function updateLandingDate() {
   if (!landingDate) return;
   const current=document.getElementById("wedding-big-day")?.textContent?.trim();
   landingDate.textContent=current || "December 23, 2027";
+  const configured=document.getElementById("wedding-venue-fact")?.textContent?.trim();
+  const venue=document.getElementById("guest-invitation-venue");
+  if(venue) venue.textContent=configured && configured!=="Venue to be confirmed"
+    ? configured+" · Tentative venue" : "Venue to be confirmed";
 }
 function showInvitationLanding(code) {
   if (!CODE_PATTERN.test(code) || !invitationLanding) return;
   pendingLinkCode=code;
   input.value=formatted(code);
   landingCode.textContent=formatted(code);
+  const recipient=document.getElementById("guest-invitation-recipient");
+  if(recipient)recipient.textContent=rehearsalRequested
+    ? "For: Camera Rehearsal · Test Guest" :
+    code===previewTestCode ? "For: Test Guest" : "For our invited guests";
   updateLandingDate();
   landingMode.textContent=rehearsalRequested ? "CAMERA REHEARSAL · TEST INVITATION"
     : code===previewTestCode ? "DESIGN PREVIEW · TEST INVITATION" : "YOU'RE INVITED";
