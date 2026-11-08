@@ -517,6 +517,29 @@ function renderBudget() {
   bindJumps();
 }
 
+// Firebase callable failures are often generic in a mobile browser.
+function invitationServiceError(error, service = "invitation service") {
+  const code=String(error?.code || "unknown").replace(/^functions\//,"").toLowerCase();
+  const message=String(error?.message || "").trim();
+  const hint=message && !/^(internal|0|unknown)$/i.test(message)
+    ? " "+message : "";
+  if(code==="internal" || code==="not-found" || code==="unavailable" ||
+     code==="unknown" || message==="0") {
+    return "The Firebase "+service+" is unavailable or failed on the server ("+
+      code+"). Check Firebase Console > Functions in asia-southeast1 for the "+
+      "deployed function and inspect its logs. GitHub Pages does not deploy Firebase Functions."+hint;
+  }
+  if(code==="unauthenticated" || code==="permission-denied")
+    return "Firebase did not authorize the "+service+" request ("+code+
+      "). Sign in as a verified wedding owner and verify App Check and Function permissions."+hint;
+  if(code==="failed-precondition")
+    return "The "+service+" needs additional Firebase or Google Drive setup ("+
+      code+")."+hint;
+  if(code==="already-exists")
+    return "This guest already has an invitation. Use Regenerate link instead.";
+  return "The "+service+" failed ("+code+")."+(hint||" Please inspect Firebase Functions logs.");
+}
+
 let issuedInvitationLink="";
 function guestInvitationUrl(code) {
   return window.location.origin+window.location.pathname+"#camera/"+String(code);
@@ -634,8 +657,8 @@ function bindInvitationManager() {
           await refresh();
         }catch(error){
           status.textContent="Could not complete "+actionLabel+": "+
-            (error?.message||String(error))+
-            ". If deletion failed, access remains revoked and you can retry.";
+            invitationServiceError(error,"invitation service")+
+            (action==="delete" ? " If deletion failed, access remains revoked and you can retry." : "");
         }finally{setBusy(false);}
       });
     });
@@ -663,15 +686,17 @@ function bindInvitationManager() {
         status.textContent="Invitation link ready. Camera enabled for this guest until you close or delete it.";
       }catch(error){
         status.textContent="Invitation created, but camera access could not be enabled: "+
-          (error?.message||String(error))+
-          ". Copy the link, then use Open camera in the invitation list.";
+          invitationServiceError(error,"camera access")+
+          " Copy the link, then use Open camera in the invitation list.";
       }
       await refresh();
-    }catch(error){status.textContent="Invitation creation failed: "+(error?.message||String(error));}
+    }catch(error){status.textContent="Invitation creation failed: "+
+      invitationServiceError(error,"invitation creation");}
     finally{setBusy(false);}
   });
   root.querySelector("#invitation-refresh")?.addEventListener("click",()=>{
-    refresh().catch(error=>{status.textContent="Could not load invitations: "+(error?.message||String(error));});
+    refresh().catch(error=>{status.textContent="Could not load invitations: "+
+      invitationServiceError(error,"invitation list");});
   });
   root.querySelector("#invitation-copy")?.addEventListener("click",async()=>{
     if(!issuedInvitationLink)return;
@@ -684,8 +709,8 @@ function bindInvitationManager() {
     }
   });
   refresh().catch(error=>{
-    panel.textContent="Invitation service unavailable. Firebase Functions may need deployment.";
-    status.textContent="Unable to load issued invitations: "+(error?.message||String(error));
+    panel.textContent="Invitation list unavailable. Open Firebase Console > Functions to verify deployment.";
+    status.textContent=invitationServiceError(error,"invitation list");
   });
 }
 
