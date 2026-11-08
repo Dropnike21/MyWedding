@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261108-public1";
+  const BUILD = "20261108-rehearsal1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -1036,6 +1036,13 @@
     return {sx,sy,sw,sh,width,height,orientation:landscape?"landscape":"portrait"};
   }
 
+  let weddingWatermarkDate="12.23.27";
+  document.addEventListener("wedding:public-details",event=>{
+    const value=event.detail?.date;
+    if (/^20\d{2}-\d{2}-\d{2}$/.test(value || "")) {
+      weddingWatermarkDate=value.slice(5,7)+"."+value.slice(8,10)+"."+value.slice(2,4);
+    }
+  });
   function drawWatermark(context,canvas) {
     const pad=Math.max(18,canvas.width*.022);
     const fontSize=Math.max(18,canvas.width*.022);
@@ -1046,7 +1053,7 @@
     context.shadowBlur=Math.max(3,fontSize*.25);
     context.fillStyle="rgba(255,248,238,.62)";
     context.font="italic "+fontSize+"px Georgia,serif";
-    context.fillText("A&J · 02.23.27",canvas.width-pad,canvas.height-pad);
+    context.fillText("A&J · "+weddingWatermarkDate,canvas.width-pad,canvas.height-pad);
     context.restore();
   }
 
@@ -1182,7 +1189,10 @@
     count.textContent=String(number).padStart(2,"0");
     frame.appendChild(count);
     camera.filmTrack.insertBefore(frame,camera.filmEmpty);
-    camera.frames.push({url:thumbnail.url,node:frame,orientation:thumbnail.orientation});
+    camera.frames.push({
+      url:thumbnail.url,node:frame,orientation:thumbnail.orientation,
+      localSequence:camera.localTaken
+    });
     animateFilmAdvance(existing);
     frame.classList.add("is-new");
     frame.addEventListener("animationend",()=>frame.classList.remove("is-new"),{once:true});
@@ -1249,7 +1259,9 @@
       // On mobile, avoid animating a large image layer across the live video.
       if (mobilePerformance) addFilmFrame(thumbnail,number);
       else await animateCaptureToFilm(thumbnail,number);
-      camera.message.textContent="Moment sealed · "+cameraRemaining()+" frames left";
+      camera.message.textContent=camera.session?.dataset.liveUploads==="true"
+        ? "Uploading photo to the private archive…"
+        : "Moment sealed · "+cameraRemaining()+" frames left";
       document.dispatchEvent(new CustomEvent("wedding:photo-captured",{
         detail:{
           blob:photo,
@@ -2116,6 +2128,38 @@
     }
     configureCameraSession(event.detail);
     updateCameraOrientation();
+  });
+  document.addEventListener("wedding:photo-uploaded",event=>{
+    if (!camera.session || camera.session.hidden) return;
+    const data=event.detail || {};
+    const updated=Number(data.photosUsed);
+    if (Number.isFinite(updated))
+      camera.photosUsed=Math.max(camera.photosUsed,updated);
+    camera.localTaken=Math.max(0,camera.localTaken-1);
+    const frame=camera.frames.find(item=>item.localSequence===data.localSequence);
+    if(frame && Number.isFinite(Number(data.frameNumber))) {
+      frame.node?.querySelector("span")?.replaceChildren(
+        document.createTextNode(String(data.frameNumber).padStart(2,"0"))
+      );
+      frame.node?.classList.add("is-uploaded");
+    }
+    updateCameraQuota();
+    if (camera.message)
+      camera.message.textContent="Saved to private Drive · "+cameraRemaining()+" frames left";
+  });
+  document.addEventListener("wedding:photo-upload-failed",event=>{
+    if (!camera.session || camera.session.hidden) return;
+    camera.localTaken=Math.max(0,camera.localTaken-1);
+    const frame=camera.frames.find(item=>item.localSequence===event.detail?.localSequence);
+    frame?.node?.classList.add("is-upload-failed");
+    updateCameraQuota();
+    if(camera.message)camera.message.textContent="Upload failed — frame not saved. Try again.";
+  });
+  document.addEventListener("wedding:photo-synced",event=>{
+    if (!camera.session || camera.session.hidden) return;
+    const used=Number(event.detail?.photosUsed);
+    if (Number.isFinite(used))camera.photosUsed=Math.max(camera.photosUsed,used);
+    updateCameraQuota();
   });
 
   const plannerWorkspace = document.getElementById("planner-workspace");
