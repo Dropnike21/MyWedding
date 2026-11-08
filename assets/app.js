@@ -159,8 +159,6 @@
     focusAuto: document.getElementById("camera-focus-auto"),
     settingsHelp: document.getElementById("camera-setting-help"),
     depthOverlay: document.getElementById("camera-depth-overlay"),
-    rotate: document.getElementById("camera-rotate"),
-    rotateLabel: document.getElementById("camera-rotate-label"),
     beauty: document.getElementById("camera-beauty"),
     beautyValue: document.getElementById("camera-beauty-value"),
     aperture: document.getElementById("camera-aperture"),
@@ -219,8 +217,6 @@
     hardwareExposure: false,
     beautyStrength: 0,
     apertureStrength: 0,
-    manualLandscape: false,
-    autoTiltLandscape: null,
     aspectRatio: "4:3",
     temperatureOffset: 0,
     hardwareWhiteBalance: false,
@@ -234,7 +230,6 @@
     dragStartExposure: 0,
     gestureMoved: false,
     focusUiTimeout: null,
-    lastSensorAt: 0,
   };
 
   // Keep the latest gesture value, never pile up dozens of hardware
@@ -288,7 +283,8 @@
   }
 
   function isFilmVertical() {
-    return Boolean(camera.session?.classList.contains("is-landscape"));
+    // Fixed portrait film strip regardless of device orientation.
+    return false;
   }
 
   function maxVisibleFilmFrames(sampleSize = 36) {
@@ -383,8 +379,9 @@
   }
 
   function isCameraLandscape() {
-    return Boolean(window.matchMedia("(orientation: landscape)").matches ||
-      camera.manualLandscape || camera.autoTiltLandscape === true);
+    // Web browsers cannot reliably force OS portrait orientation, but this
+    // camera never switches to its old landscape or manually rotated layout.
+    return false;
   }
 
   function updateCameraFrameGuide() {
@@ -422,33 +419,10 @@
   }
 
   function updateCameraOrientation() {
-    const wasLandscape=camera.session?.classList.contains("is-landscape");
-    const wasManual=camera.session?.classList.contains("is-manual-landscape");
-    const viewportLandscape = window.matchMedia("(orientation: landscape)").matches;
-    const manual = !viewportLandscape &&
-      (camera.manualLandscape || camera.autoTiltLandscape === true);
-    const landscape = viewportLandscape || manual;
-    const layoutChanged=wasLandscape!==landscape || wasManual!==manual;
-    if (layoutChanged) {
-      camera.session?.classList.toggle("is-landscape",landscape);
-      camera.session?.classList.toggle("is-manual-landscape",manual);
-    }
-    if (wasLandscape !== landscape) setRail(false);
-    if (!camera.railOpen) {
-      const icon=camera.railToggle?.querySelector("span");
-      if (icon) icon.textContent=landscape ? "☰" : "‹";
-    }
-    document.body.classList.toggle("camera-landscape",
-      landscape && document.body.classList.contains("camera-session-active"));
-    camera.rotate?.setAttribute("aria-pressed",String(camera.manualLandscape));
-    if (camera.rotateLabel) camera.rotateLabel.textContent = camera.manualLandscape ? "Auto" : "Rotate";
-    camera.rotate?.setAttribute("aria-label",camera.manualLandscape
-      ? "Return camera interface to automatic orientation"
-      : "Rotate camera interface into landscape mode");
-    if (layoutChanged) requestAnimationFrame(()=>{
-      updateCameraFrameGuide();
-      if (wasLandscape !== landscape) trimFilmFrames();
-    });
+    camera.session?.classList.remove("is-landscape","is-manual-landscape");
+    document.body.classList.remove("camera-landscape");
+    // Still recompute the frame when the browser resizes.
+    requestAnimationFrame(updateCameraFrameGuide);
   }
 
   function selectCameraAspect(aspect) {
@@ -461,32 +435,6 @@
     });
     updateCameraFrameGuide();
     if (camera.message) camera.message.textContent = aspect + " photo framing selected.";
-  }
-
-  function handleCameraDeviceTilt(event) {
-    if (!camera.stream || camera.manualLandscape || document.hidden ||
-        !Number.isFinite(event?.gamma) || !Number.isFinite(event?.beta)) return;
-    const now=performance.now();
-    if (now-camera.lastSensorAt < 140) return;
-    camera.lastSensorAt=now;
-    // Only infer a rotation for a reasonably upright phone; flat-on-table poses
-    // do not have a stable sensor-based orientation.
-    const side = Math.abs(event.gamma);
-    const forward = Math.abs(event.beta);
-    // Portrait-upright phones can report beta near 90°. Always allow a
-    // transition back to portrait so auto-tilt cannot get stuck landscape.
-    const landscape = side < 27 ? false : (side > 57 && forward < 70 ? true : null);
-    if (landscape === null || landscape === camera.autoTiltLandscape) return;
-    camera.autoTiltLandscape = landscape;
-    updateCameraOrientation();
-  }
-
-  function toggleCameraOrientation() {
-    camera.manualLandscape = !camera.manualLandscape;
-    updateCameraOrientation();
-    if (camera.message) camera.message.textContent = camera.manualLandscape
-      ? "Landscape interface selected. Tap Auto to return to the phone's orientation."
-      : "Camera interface follows the phone's screen orientation.";
   }
 
   function setPortraitEffect(kind, strength) {
@@ -513,8 +461,7 @@
     camera.railToggle?.setAttribute("aria-expanded",String(camera.railOpen));
     camera.railToggle?.setAttribute("aria-label",camera.railOpen ? "Hide camera tools" : "Show camera tools");
     const icon=camera.railToggle?.querySelector("span");
-    if (icon) icon.textContent=camera.railOpen ? "×" :
-      (isCameraLandscape() ? "☰" : "‹");
+    if (icon) icon.textContent=camera.railOpen ? "×" : "‹";
     if (!camera.railOpen) closeCameraSheet();
   }
 
@@ -567,7 +514,6 @@
     }
     if (camera.frameGuide) camera.frameGuide.hidden = true;
     if (camera.depthOverlay) camera.depthOverlay.hidden = true;
-    camera.autoTiltLandscape = null;
     if (camera.torch) {
       camera.torch.classList.remove("active");
       camera.torch.hidden = true;
@@ -586,8 +532,6 @@
     camera.localTaken = 0;
     camera.filter = "natural";
     camera.timer = 0;
-    camera.manualLandscape = false;
-    camera.autoTiltLandscape = null;
     camera.aspectRatio = "4:3";
     selectCameraAspect("4:3");
     camera.temperatureOffset = 0;
@@ -772,14 +716,6 @@
 
   function localCameraPoint(clientX,clientY,element) {
     const rect=element.getBoundingClientRect();
-    if (camera.session?.classList.contains("is-manual-landscape")) {
-      // The entire camera UI is rotated 90° clockwise when Android rotation
-      // lock is active. Convert screen touches back into local camera space.
-      return {
-        x:clamp(clientY-rect.top,0,element.clientWidth),
-        y:clamp(rect.right-clientX,0,element.clientHeight)
-      };
-    }
     return {x:clamp(clientX-rect.left,0,element.clientWidth),
       y:clamp(clientY-rect.top,0,element.clientHeight)};
   }
@@ -1343,7 +1279,6 @@
   camera.temperature?.addEventListener("input",event=>setCameraTemperature(event.target.value));
   camera.focusDistance?.addEventListener("input",event=>setManualFocus(event.target.value));
   camera.focusAuto?.addEventListener("click",resetAutoFocus);
-  camera.rotate?.addEventListener("click",toggleCameraOrientation);
   camera.beauty?.addEventListener("input",event=>setPortraitEffect("beauty",event.target.value));
   camera.aperture?.addEventListener("input",event=>setPortraitEffect("aperture",event.target.value));
   camera.torch?.addEventListener("click",toggleTorch);
@@ -1367,9 +1302,6 @@
   setupCameraGestures();
   renderEffectCatalog();
   updateCameraOrientation();
-  if (screen.orientation?.addEventListener) {
-    screen.orientation.addEventListener("change",updateCameraOrientation);
-  }
   let resizeFrame=0;
   const onCameraViewportChange=()=>{
     updateCameraOrientation();
@@ -1379,9 +1311,7 @@
     });
   };
   window.addEventListener("resize",onCameraViewportChange,{passive:true});
-  window.addEventListener("orientationchange",onCameraViewportChange,{passive:true});
   window.visualViewport?.addEventListener("resize",onCameraViewportChange,{passive:true});
-  window.addEventListener("deviceorientation",handleCameraDeviceTilt,{passive:true});
 
   const revealObserver = motionOK && !mobilePerformance && "IntersectionObserver" in window
     ? new IntersectionObserver(entries => {
