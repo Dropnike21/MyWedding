@@ -20,6 +20,13 @@ const codeModalClose = document.getElementById("camera-code-close");
 const switchForm = document.getElementById("camera-code-switch-form");
 const switchInput = document.getElementById("camera-code-switch-input");
 const switchStatus = document.getElementById("camera-code-switch-status");
+const invitationLanding=document.getElementById("guest-invitation-landing");
+const landingContinue=document.getElementById("guest-invitation-continue");
+const landingAnotherCode=document.getElementById("guest-invitation-enter-code");
+const landingCode=document.getElementById("guest-invitation-code");
+const landingMode=document.getElementById("guest-invitation-mode");
+const landingDate=document.getElementById("guest-invitation-date");
+const landingStatus=document.getElementById("guest-invitation-status");
 
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 const normalize = value =>
@@ -246,6 +253,7 @@ function stopSharedFilmPolling() {
 
 function enterCameraMode(data = {}) {
   cameraAccess = data;
+  hideInvitationLanding();
   closeCodeModal();
   startSharedFilmPolling();
   gate.hidden = true;
@@ -332,22 +340,62 @@ async function checkRememberedSession() {
   return response.data;
 }
 
+function updateLandingDate() {
+  if (!landingDate) return;
+  const current=document.getElementById("wedding-big-day")?.textContent?.trim();
+  landingDate.textContent=current || "December 23, 2027";
+}
+function showInvitationLanding(code) {
+  if (!CODE_PATTERN.test(code) || !invitationLanding) return;
+  pendingLinkCode=code;
+  input.value=formatted(code);
+  landingCode.textContent=formatted(code);
+  updateLandingDate();
+  landingMode.textContent=rehearsalRequested ? "CAMERA REHEARSAL · TEST INVITATION"
+    : code===previewTestCode ? "DESIGN PREVIEW · TEST INVITATION" : "YOU'RE INVITED";
+  landingStatus.textContent=rehearsalRequested
+    ? "This test pass uses real private uploads after organizer activation."
+    : "Open your camera when you're ready.";
+  invitationLanding.hidden=false;
+  gate.classList.add("has-invitation");
+}
+function hideInvitationLanding() {
+  if(invitationLanding)invitationLanding.hidden=true;
+  gate.classList.remove("has-invitation");
+  pendingLinkCode=null;
+}
 function absorbInvitationUrl() {
-  const fragment = window.location.hash;
+  const fragment=window.location.hash;
   if (!fragment.startsWith("#camera/")) return null;
-  const code = normalize(fragment.slice("#camera/".length));
-  window.history.replaceState(
-    null,
-    "",
-    window.location.pathname + window.location.search + "#camera"
-  );
+  const code=normalize(fragment.slice("#camera/".length));
+  // Remove the bearer code from the visible address once it has been read.
+  window.history.replaceState(null,"",window.location.pathname+window.location.search+"#camera");
   if (!CODE_PATTERN.test(code)) {
-    show("That invitation link does not contain a valid camera code.", "error");
+    show("That invitation link has an invalid camera code.","error");
     return null;
   }
-  input.value = formatted(code);
+  showInvitationLanding(code);
   return code;
 }
+landingContinue?.addEventListener("click",async()=>{
+  const code=pendingLinkCode;
+  if(!CODE_PATTERN.test(code||""))return;
+  landingContinue.disabled=true;
+  landingStatus.textContent="Verifying your invitation…";
+  try {
+    const result=await verifyCode(code,{fromLink:true});
+    if(result)hideInvitationLanding();
+    else landingStatus.textContent=feedback.textContent || "Verification not completed.";
+  } finally {
+    landingContinue.disabled=false;
+  }
+});
+landingAnotherCode?.addEventListener("click",()=>{
+  hideInvitationLanding();
+  show("Enter a different camera code below.");
+  input.focus();
+});
+document.addEventListener("wedding:public-details",updateLandingDate);
 
 async function verifyCode(code, { fromLink = false, switching = false } = {}) {
   const report = switching ? modalShow : show;
@@ -552,10 +600,7 @@ document.addEventListener("wedding:photo-captured", event => {
 
 window.addEventListener("hashchange", () => {
   const code = absorbInvitationUrl();
-  if (code) {
-    verifyCode(code, { fromLink: true });
-    return;
-  }
+  if (code) return;
   if (cameraRequested() && cameraSession.hidden) restoreOnThisDevice();
 });
 
@@ -579,13 +624,7 @@ async function initializeGuestCameraAccess() {
   }
 
   if (!secureGuestEnabled) {
-    if (pendingLinkCode) {
-      const code = pendingLinkCode;
-      pendingLinkCode = null;
-      await verifyCode(code, { fromLink: true });
-    } else {
-      await restoreOnThisDevice();
-    }
+    if (!pendingLinkCode) await restoreOnThisDevice();
     return;
   }
 
@@ -600,9 +639,7 @@ async function initializeGuestCameraAccess() {
   }
 
   if (pendingLinkCode) {
-    const code = pendingLinkCode;
-    pendingLinkCode = null;
-    await verifyCode(code, { fromLink: true });
+    landingStatus.textContent="Your invitation is ready. Tap Open your wedding camera to continue.";
   }
 }
 
