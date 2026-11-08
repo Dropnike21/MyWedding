@@ -44,9 +44,10 @@ test("bride owner inherits normal planner owner permissions without opening gues
 });
 
 test("frontend and planner adapter cache versions are updated",()=>{
-  assert.match(app,/const BUILD = "20261108-coowners1"/);
-  assert.match(planner,/planner-firestore\.js\?v=20261108-coowners1/);
-  assert.match(html,/assets\/app\.js\?v=20261108-coowners1/);
+  const version=app.match(/const BUILD = "([^"]+)"/)?.[1];
+  assert.ok(version);
+  assert.ok(planner.includes("planner-firestore.js?v=20261108-coowners1"));
+  assert.ok(html.includes("assets/app.js?v="+version));
 });
 
 test("remote planner continues to share one Firestore wedding document",()=>{

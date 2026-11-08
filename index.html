@@ -6,11 +6,12 @@
   <meta name="theme-color" content="#edf2f6" />
   <meta name="description" content="Angela & Joseph's wedding website and photo time capsule." />
   <title>Angela & Joseph | Wedding</title>
-  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg?v=20261108-coowners1" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20261108-coowners1" />
+  <link rel="icon" type="image/svg+xml" href="./assets/heart.svg?v=20261108-mobile1" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20261108-mobile1" />
   <link rel="stylesheet" href="./assets/theme-spring-pastels.css?v=20261101-spring1" />
-  <script src="./assets/venue-config.js?v=20261108-coowners1"></script>
-  <script src="./assets/app.js?v=20261108-coowners1" defer></script>
+  <link rel="stylesheet" href="./assets/mobile-layout.css?v=20261108-mobile1" />
+  <script src="./assets/venue-config.js?v=20261108-mobile1"></script>
+  <script src="./assets/app.js?v=20261108-mobile1" defer></script>
 </head>
 <body>
   <div class="global-loader" id="global-loader" hidden aria-live="polite" aria-busy="true">
@@ -28,10 +29,10 @@
   <header class="site-header">
     <a class="brand" href="#home" aria-label="Angela and Joseph, home"><span class="brand-mark">A<span>&</span>J</span><span class="brand-word">THE WEDDING JOURNAL</span></a>
     <nav aria-label="Main navigation" class="main-nav">
-      <button type="button" data-view="home" aria-current="page">Home</button>
-      <button type="button" data-view="planner">Planning Studio</button>
-      <button type="button" data-view="camera">Guest Camera</button>
-      <button type="button" data-view="system">How It Works</button>
+      <button type="button" data-view="home" aria-current="page" aria-label="Home"><span class="nav-full-label">Home</span><span class="nav-mobile-label" aria-hidden="true">Home</span></button>
+      <button type="button" data-view="planner" aria-label="Planning Studio"><span class="nav-full-label">Planning Studio</span><span class="nav-mobile-label" aria-hidden="true">Planner</span></button>
+      <button type="button" data-view="camera" aria-label="Guest Camera"><span class="nav-full-label">Guest Camera</span><span class="nav-mobile-label" aria-hidden="true">Camera</span></button>
+      <button type="button" data-view="system" aria-label="How It Works"><span class="nav-full-label">How It Works</span><span class="nav-mobile-label" aria-hidden="true">Guide</span></button>
     </nav>
     <span class="build-state"><span class="live-dot"></span> EARLY PREVIEW</span>
   </header>
@@ -182,6 +183,22 @@
         </header>
 
         <div class="planner-layout">
+          <div class="planner-mobile-section-picker">
+            <label for="planner-mobile-section">PLANNING SECTIONS</label>
+            <select id="planner-mobile-section" aria-label="Choose Wedding Studio section">
+              <option value="overview">Overview</option>
+              <option value="settings">Event setup</option>
+              <option value="guests">Guests &amp; RSVPs</option>
+              <option value="vendors">Suppliers &amp; bookings</option>
+              <option value="expenses">Wedding expenses</option>
+              <option value="photos">Photo archive</option>
+              <option value="budget">Budget &amp; payments</option>
+              <option value="tasks">Checklist</option>
+              <option value="timeline">Wedding day</option>
+              <option value="decisions">Decisions</option>
+              <option value="team">Coordinator team</option>
+            </select>
+          </div>
           <aside class="planner-sidebar" aria-label="Wedding planning sections">
             <div class="planner-sidebar-title">WEDDING STUDIO</div>
             <button type="button" class="planner-nav active" data-planner-view="overview"><span>◈</span><b>Overview</b><small>At a glance</small></button>

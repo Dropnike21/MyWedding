@@ -581,10 +581,20 @@ function renderCurrent() {
 function switchPlanner(view,clear=true){
   if(!["overview","settings","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
   currentView=view;if(clear){selectedId=null;search="";showArchived=false}
-  document.querySelectorAll("[data-planner-view]").forEach(b=>b.classList.toggle("active",b.dataset.plannerView===view));
+  document.querySelectorAll("[data-planner-view]").forEach(button=>{
+    const active=button.dataset.plannerView===view;
+    button.classList.toggle("active",active);
+    if(active)button.setAttribute("aria-current","page");
+    else button.removeAttribute("aria-current");
+  });
+  const mobileSelector=document.getElementById("planner-mobile-section");
+  if(mobileSelector && mobileSelector.value!==view) mobileSelector.value=view;
   renderCurrent();
 }
 document.querySelectorAll("[data-planner-view]").forEach(b=>b.addEventListener("click",()=>switchPlanner(b.dataset.plannerView)));
+document.getElementById("planner-mobile-section")?.addEventListener("change",event=>{
+  switchPlanner(event.target.value);
+});
 
 function updateToolbar(){
   const strong=document.querySelector(".planner-toolbar strong");
@@ -669,6 +679,11 @@ function applyRoleUI(role){
   if(role==="finance"){["settings","guests","tasks","timeline","decisions","team","photos"].forEach(x=>hidden.add(x));}
   document.querySelectorAll("[data-planner-view]").forEach(btn=>{
     btn.hidden=hidden.has(btn.dataset.plannerView);
+  });
+  document.querySelectorAll("#planner-mobile-section option").forEach(option=>{
+    const restricted=hidden.has(option.value);
+    option.hidden=restricted;
+    option.disabled=restricted;
   });
   let signout=document.getElementById("planner-signout");
   if(!signout){
