@@ -592,7 +592,6 @@ exports.getInvitationDetails = onCall(configuration({maxInstances:8}),async requ
   return {
     partyLabel:optionalText(snap.get("partyLabel"),120),
     invitedSeats:Number(snap.get("invitedSeats")||1),
-    weddingDate:"2027-12-23",
   };
 });
 
