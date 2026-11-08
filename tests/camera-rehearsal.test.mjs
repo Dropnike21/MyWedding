@@ -89,7 +89,7 @@ test("two devices share film status without downloading other photos",()=>{
   assert.match(guest,/wedding:photo-synced/);
   assert.match(app,/addHistoryFrame\(number\)/);
   assert.match(app,/captureSequence\+=1/);
-  assert.match(app,/frame\.node\?\.classList\.add\("is-upload-failed"\)/);
+  assert.match(app,/frame\?\.node\?\.classList\.add\("is-upload-failed"\)/);
 });
 
 test("rehearsal is opt-in, production guest switch remains off",()=>{
