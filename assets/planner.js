@@ -1,5 +1,5 @@
-import { plannerFirestore } from "./planner-firestore.js?v=20261119-guestguide1";
-import { callWeddingFunction } from "./firebase-services.js?v=20261119-guestguide1";
+import { plannerFirestore } from "./planner-firestore.js?v=20261119-guestdetails1";
+import { callWeddingFunction } from "./firebase-services.js?v=20261119-guestdetails1";
 (() => {
 "use strict";
 
