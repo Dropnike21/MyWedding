@@ -25,6 +25,8 @@ const landingMode=document.getElementById("guest-invitation-mode");
 const landingDate=document.getElementById("guest-invitation-date");
 const landingDateNote=document.getElementById("guest-invitation-date-note");
 const landingStatus=document.getElementById("guest-invitation-status");
+const landingDetailsLink=document.getElementById("guest-invitation-details-link");
+const landingSeatSummary=document.getElementById("guest-invitation-seat-summary");
 const landingDetailsToggle=document.getElementById("guest-invitation-details-toggle");
 const landingDetails=document.getElementById("guest-invitation-details");
 const landingDetailDate=document.getElementById("guest-detail-date");
@@ -478,6 +480,8 @@ function showInvitationLanding(code) {
   pendingLinkCode=code;
   input.value=formatted(code);
   landingCode.textContent=formatted(code);
+  if(landingDetailsLink)landingDetailsLink.href="./guest-details.html#"+code;
+  if(landingSeatSummary)landingSeatSummary.textContent="Checking reserved seats…";
   const recipient=document.getElementById("guest-invitation-recipient");
   if(recipient)recipient.textContent="For our invited guests";
   updateLandingDate();
@@ -497,17 +501,10 @@ function showInvitationLanding(code) {
       const recipient=document.getElementById("guest-invitation-recipient");
       if(recipient && response.data?.partyLabel)
         recipient.textContent="For: "+response.data.partyLabel;
-      renderInvitationDetails(response.data||{});
-      renderInvitationRsvp(response.data||{});
       const seats=Number(response.data?.invitedSeats||1);
-      const mode=String(publishedWeddingDetails.rsvpMode||"Both");
-      const confirmation=mode==="Messenger only"
-        ?"Confirm your attendance with us in Messenger."
-        : mode==="Website only"
-          ?"Confirm your attendance on this page."
-          :"Confirm on this page or reply to us in Messenger.";
-      landingStatus.textContent="Private invitation verified for "+seats+
-        " seat"+(seats===1?"":"s")+". "+confirmation+" Then you can open the wedding camera.";
+      if(landingSeatSummary)landingSeatSummary.textContent=
+        seats+" reserved seat"+(seats===1?"":"s")+" for this invitation.";
+      landingStatus.textContent="Invitation verified. View the guest details page first, then return here whenever you're ready to use the wedding camera.";
     })
     .catch(error=>{
       if(pendingLinkCode===code)landingStatus.textContent=
