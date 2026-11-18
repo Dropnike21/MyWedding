@@ -46,8 +46,22 @@ test("bride owner inherits normal planner owner permissions without opening gues
 test("frontend and planner adapter cache versions are updated",()=>{
   const version=app.match(/const BUILD = "([^"]+)"/)?.[1];
   assert.ok(version);
-  assert.match(planner,/planner-firestore\.js\?v=20261108-guest1/);
+  assert.match(planner,/planner-firestore\.js\?v=20261118-plannerreset1/);
   assert.ok(html.includes("assets/app.js?v="+version));
+});
+
+test("only owners can clear Planning Studio records",()=>{
+  for(const section of ["guests","vendors","expenses","payments","budgetCategories","tasks","timeline","decisions","team"]){
+    const block=rules.split("match /"+section+"/{recordId} {")[1]?.split("}")[0];
+    assert.ok(block,section+" rules missing");
+    assert.match(block,/allow delete: if isOwner\(\);/);
+  }
+  assert.match(client,/async reset\(seedData\)/);
+  assert.match(client,/record\.cleared !== true/);
+  assert.match(client,/clearBatch\.set\(ref/);
+  assert.match(planner,/Type CLEAR to continue/);
+  assert.match(planner,/plannerFirestore\.reset\(seed\(\)\)/);
+  assert.match(html,/id="planner-reset">Clear planning data<\/button>/);
 });
 
 test("remote planner continues to share one Firestore wedding document",()=>{
