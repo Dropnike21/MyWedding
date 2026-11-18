@@ -253,6 +253,10 @@ footer small{font-size:9px;color:#aec0b4}
 .planner-page-head h2{font:normal 34px Georgia,serif;letter-spacing:-1px;margin:8px 0 6px;color:#2a493d}
 .planner-page-head p{font-size:11px;line-height:1.7;color:#7a7d75;max-width:670px;margin:0}
 .planner-page-actions{display:flex;gap:7px}
+.planner-finance-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:-8px 0 18px;padding:5px;background:#eef1ec;border:1px solid #dde4dc;border-radius:10px;width:max-content;max-width:100%}
+.planner-finance-tabs button{border:0;background:transparent;color:#637168;border-radius:7px;padding:9px 13px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap}
+.planner-finance-tabs button:hover{background:#f8faf6;color:#355346}
+.planner-finance-tabs button.active{background:#fffefa;color:#2f5142;box-shadow:0 1px 4px rgba(40,65,54,.12)}
 .planner-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:22px}
 .planner-metrics.compact{grid-template-columns:repeat(4,1fr)}
 .planner-metric{background:white;border:1px solid #e4e1d8;border-radius:8px;padding:16px 18px;min-height:100px}
@@ -3816,3 +3820,5 @@ body.page-in-background .camera-preview:after{
   .camera-action-rail{transition:opacity .12s ease,transform .12s ease!important}
   .camera-rail-button{transition:none!important}
 }
+
+@media(max-width:760px){.planner-finance-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap;margin-top:-6px}.planner-finance-tabs button{flex:0 0 auto;min-height:40px}}
