@@ -16,7 +16,7 @@ import {
   getAuth
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
 import { firebaseConfig } from "./firebase-config.js?v=20261031-2330";
-import { guestAccessConfig } from "./guest-config.js?v=20261119-details1";
+import { guestAccessConfig } from "./guest-config.js?v=20261119-guestguide1";
 
 let plannerAppCheckInitialized = false;
 let guestAppCheckInitialized = false;
