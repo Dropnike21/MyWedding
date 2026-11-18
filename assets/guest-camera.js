@@ -54,7 +54,7 @@ let photoUploadQueue = Promise.resolve();
 let guestPollTimer = null;
 let guestPollBusy = false;
 let landingInvitationDetails = null;
-let publishedWeddingDetails = {};
+let publishedWeddingDetails = window.WEDDING_PUBLIC_DETAILS || {};
 const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
 const secureGuestEnabled = guestAccessConfig.enabled;
 
