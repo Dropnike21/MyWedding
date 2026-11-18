@@ -66,9 +66,13 @@ function renderInvitation(){
   party.textContent="For: "+(invitation.partyLabel||"our invited guest");
   const seats=Math.max(1,Number(invitation.invitedSeats||1));
   seatsNode.textContent=seats+" seat"+(seats===1?"":"s");
-  seatSelect.innerHTML=Array.from({length:seats},(_,i)=>{
-    const option=document.createElement("option");option.value=String(i+1);option.textContent=String(i+1);return option;
-  }).reduce((fragment,option)=>{fragment.appendChild(option);return fragment;},document.createDocumentFragment());
+  const options=Array.from({length:seats},(_,i)=>{
+    const option=document.createElement("option");
+    option.value=String(i+1);
+    option.textContent=String(i+1);
+    return option;
+  });
+  seatSelect.replaceChildren(...options);
   const current=String(invitation.rsvp||"Pending");
   form.querySelectorAll('input[name="rsvp"]').forEach(input=>input.checked=input.value===current);
   const yes=current==="Yes";
