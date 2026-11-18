@@ -47,13 +47,14 @@ test("owner can reopen and resend an existing invitation without rotating it",()
   assert.match(backend,/codeVault: encryptCode\(code\)/);
   assert.match(backend,/exports\.listInvitations = onCall\(configuration\(\)/);
   assert.match(backend,/linkRecoverable:Boolean\(code\)/);
-  assert.match(planner,/View link &amp; message/);
-  assert.match(planner,/data-invitation-action="view"/);
-  assert.match(planner,/Existing invitation ready to resend/);
+  assert.match(planner,/data-invitation-action="copy-link"/);
+  assert.match(planner,/data-invitation-action="copy-message"/);
+  assert.match(planner,/Copy Messenger message/);
+  assert.match(planner,/Invitation link copied for/);
 });
-test("legacy invitations require only one rotation before owner recovery is available",()=>{
-  assert.match(planner,/Legacy link · regenerate once/);
-  assert.match(planner,/created before reusable owner links were enabled/);
+test("older unrecoverable invitations do not show legacy UI",()=>{
+  assert.doesNotMatch(planner,/Legacy link/);
+  assert.match(planner,/Regenerate link/);
   assert.match(backend,/codeVault: encryptCode\(code\)/);
 });
 test("owner Messenger copy still uses Planning Studio details",()=>{
