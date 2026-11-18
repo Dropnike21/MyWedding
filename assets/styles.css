@@ -289,6 +289,16 @@ footer small{font-size:9px;color:#aec0b4}
 .planner-table tr{cursor:pointer}.planner-table tbody tr:hover,.planner-table tbody tr.selected{background:#eff5ed}.planner-table tbody tr.selected td:first-child{box-shadow:inset 3px 0 #71917c}
 .planner-editor-card{padding:19px}.planner-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;border-bottom:1px solid #eceae3;padding-bottom:13px;margin-bottom:4px}
 .planner-editor-head h3{font:normal 23px Georgia,serif;margin:5px 0 0;color:#344b40;max-width:340px;word-break:break-word}
+.planner-list-card-full{width:100%}
+.planner-record-modal{border:0;padding:0;background:transparent;width:min(760px,calc(100vw - 40px));max-width:none;max-height:calc(100vh - 40px);overflow:visible}
+.planner-record-modal::backdrop{background:rgba(27,43,37,.58);backdrop-filter:blur(3px)}
+.planner-record-modal .planner-modal-card{width:100%;max-height:calc(100vh - 40px);overflow:auto;padding:24px;border-radius:14px;box-shadow:0 26px 80px rgba(20,38,31,.28)}
+.planner-modal-head{position:sticky;top:-24px;z-index:4;background:#fffefa;padding-top:24px}
+.planner-modal-head-actions{display:flex;align-items:center;gap:6px}
+.planner-modal-close{display:grid;place-items:center;width:34px;height:34px;border:1px solid #d8ddd5;border-radius:50%;background:#f7f7f2;color:#3d5147;font:24px/1 Arial,sans-serif;cursor:pointer}
+.planner-modal-close:hover{background:#eef3ec;border-color:#bfcbbf}
+.planner-record-modal[open]{animation:planner-modal-in .16s ease-out}
+@keyframes planner-modal-in{from{opacity:0;transform:translateY(8px) scale(.99)}to{opacity:1;transform:none}}
 .planner-link-danger{border:0;background:none;color:#9b5845;font-size:10px;text-decoration:underline;text-underline-offset:3px;padding:8px}
 .planner-status{display:inline-block;border-radius:20px;padding:4px 7px;background:#eceee8;color:#607063;font-size:8px;font-weight:800;white-space:nowrap}
 .planner-status-yes,.planner-status-paid,.planner-status-booked,.planner-status-done,.planner-status-confirmed,.planner-status-decided{background:#e1f0e5;color:#346248}
@@ -301,7 +311,7 @@ footer small{font-size:9px;color:#aec0b4}
 .planner-allocation-total{display:flex;justify-content:space-between;align-items:center;margin-top:13px;padding-top:12px;border-top:2px solid #d8d8d0;font-size:11px}.planner-allocation-total strong{font:19px Georgia,serif;color:#355747}
 .planner-payments-split{margin-top:13px}
 @media(max-width:1050px){.planner-layout{grid-template-columns:190px minmax(0,1fr)}.planner-workspace{padding:22px}.planner-metrics{grid-template-columns:repeat(2,1fr)}.planner-metrics.compact{grid-template-columns:repeat(2,1fr)}.planner-split{grid-template-columns:1fr}.planner-editor-card{order:-1}}
-@media(max-width:760px){.planner-app{width:100%;border-radius:0;border-left:0;border-right:0}.planner-toolbar{align-items:flex-start;flex-direction:column}.planner-toolbar-actions{width:100%;justify-content:flex-start}.planner-layout{grid-template-columns:1fr}.planner-sidebar{display:flex;gap:5px;overflow-x:auto;padding:10px;position:sticky;top:0;z-index:3}.planner-sidebar-title,.planner-sidebar-note{display:none}.planner-nav{min-width:122px;padding:9px;grid-template-columns:19px 1fr}.planner-nav small{display:none}.planner-workspace{padding:20px 13px}.planner-page-head{flex-direction:column}.planner-overview-grid,.planner-budget-layout{grid-template-columns:1fr}.planner-form-grid{grid-template-columns:1fr}.planner-field-wide{grid-column:auto}.planner-editor-card{padding:16px}}
+@media(max-width:760px){.planner-app{width:100%;border-radius:0;border-left:0;border-right:0}.planner-toolbar{align-items:flex-start;flex-direction:column}.planner-toolbar-actions{width:100%;justify-content:flex-start}.planner-layout{grid-template-columns:1fr}.planner-sidebar{display:flex;gap:5px;overflow-x:auto;padding:10px;position:sticky;top:0;z-index:3}.planner-sidebar-title,.planner-sidebar-note{display:none}.planner-nav{min-width:122px;padding:9px;grid-template-columns:19px 1fr}.planner-nav small{display:none}.planner-workspace{padding:20px 13px}.planner-page-head{flex-direction:column}.planner-overview-grid,.planner-budget-layout{grid-template-columns:1fr}.planner-form-grid{grid-template-columns:1fr}.planner-field-wide{grid-column:auto}.planner-editor-card{padding:16px}.planner-record-modal{width:calc(100vw - 16px);max-height:calc(100vh - 16px)}.planner-record-modal .planner-modal-card{max-height:calc(100vh - 16px);padding:18px}.planner-modal-head{top:-18px;padding-top:18px}}
 @media(max-width:480px){.planner-metrics,.planner-metrics.compact{grid-template-columns:1fr 1fr;gap:7px}.planner-metric{padding:13px;min-height:88px}.planner-metric strong{font-size:22px}.planner-toolbar-actions .button{flex:1}.planner-page-head h2{font-size:29px}.planner-form-actions{flex-wrap:wrap}.planner-form-actions .button{flex:1}.planner-table{min-width:550px}}
 
 
