@@ -24,6 +24,12 @@ const landingCode=document.getElementById("guest-invitation-code");
 const landingMode=document.getElementById("guest-invitation-mode");
 const landingDate=document.getElementById("guest-invitation-date");
 const landingStatus=document.getElementById("guest-invitation-status");
+const landingRsvpForm=document.getElementById("guest-invitation-rsvp");
+const landingSeatCopy=document.getElementById("guest-invitation-seat-copy");
+const landingSeatWrap=document.getElementById("guest-rsvp-seats-wrap");
+const landingSeatSelect=document.getElementById("guest-rsvp-seats");
+const landingRsvpStatus=document.getElementById("guest-rsvp-status");
+const landingRsvpSave=document.getElementById("guest-rsvp-save");
 
 const CODE_PATTERN = /^[A-HJ-NP-Z2-9]{8}$/;
 const normalize = value =>
@@ -38,6 +44,7 @@ let cameraAccess = null;
 let photoUploadQueue = Promise.resolve();
 let guestPollTimer = null;
 let guestPollBusy = false;
+let landingInvitationDetails = null;
 const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
 const secureGuestEnabled = guestAccessConfig.enabled;
 
@@ -321,6 +328,81 @@ function updateLandingDate() {
   if(venue) venue.textContent=configured && configured!=="Venue to be confirmed"
     ? configured+" · Tentative venue" : "Venue to be confirmed";
 }
+function renderInvitationRsvp(details={}) {
+  if(!landingRsvpForm || !landingSeatSelect)return;
+  const seats=Math.max(1,Number(details.invitedSeats||1));
+  landingInvitationDetails={
+    invitedSeats:seats,
+    rsvp:String(details.rsvp||"Pending"),
+    confirmedSeats:Math.max(0,Number(details.confirmedSeats||0)),
+  };
+  if(landingSeatCopy)landingSeatCopy.textContent=
+    seats+" seat"+(seats===1?" is":"s are")+" reserved for this invitation.";
+  landingSeatSelect.innerHTML=Array.from({length:seats},(_,i)=>{
+    const value=i+1;
+    return '<option value="'+value+'">'+value+'</option>';
+  }).join("");
+  const current=landingInvitationDetails.rsvp;
+  const radio=landingRsvpForm.querySelector('input[name="guest-rsvp"][value="'+current+'"]');
+  landingRsvpForm.querySelectorAll('input[name="guest-rsvp"]').forEach(input=>input.checked=false);
+  if(radio)radio.checked=true;
+  const yes=current==="Yes";
+  if(landingSeatWrap)landingSeatWrap.hidden=!yes;
+  if(yes)landingSeatSelect.value=String(
+    Math.min(seats,Math.max(1,landingInvitationDetails.confirmedSeats||seats))
+  );
+  if(landingRsvpStatus){
+    landingRsvpStatus.textContent=current==="Pending"?"":
+      current==="Yes"
+        ? "Current RSVP: "+landingSeatSelect.value+" attending."
+        : "Current RSVP: "+current+".";
+  }
+  landingRsvpForm.hidden=false;
+}
+
+landingRsvpForm?.addEventListener("change",event=>{
+  if(event.target?.name!=="guest-rsvp")return;
+  const yes=event.target.value==="Yes";
+  if(landingSeatWrap)landingSeatWrap.hidden=!yes;
+});
+
+landingRsvpForm?.addEventListener("submit",async event=>{
+  event.preventDefault();
+  const code=pendingLinkCode;
+  const selected=landingRsvpForm.querySelector('input[name="guest-rsvp"]:checked')?.value;
+  if(!CODE_PATTERN.test(code||"") || !selected){
+    if(landingRsvpStatus)landingRsvpStatus.textContent="Choose Yes, Maybe, or No.";
+    return;
+  }
+  const maxSeats=Math.max(1,Number(landingInvitationDetails?.invitedSeats||1));
+  const attendingSeats=selected==="Yes"?Math.min(maxSeats,Math.max(1,Number(landingSeatSelect?.value||1))):0;
+  if(landingRsvpSave)landingRsvpSave.disabled=true;
+  if(landingRsvpStatus)landingRsvpStatus.textContent="Saving your RSVP…";
+  const token=window.WeddingUI?.begin("Saving RSVP…","Updating your private invitation.",{blocking:true,delay:120});
+  try{
+    // Redemption creates the private guest session required to submit an RSVP.
+    await redeem(code);
+    const response=await callGuestFunction("respondToInvitation")({
+      rsvp:selected,
+      attendingSeats,
+    });
+    const saved=response.data||{};
+    landingInvitationDetails.rsvp=saved.rsvp||selected;
+    landingInvitationDetails.confirmedSeats=Number(saved.confirmedSeats||0);
+    if(landingRsvpStatus)landingRsvpStatus.textContent=
+      selected==="Yes"
+        ? "RSVP saved: "+landingInvitationDetails.confirmedSeats+" of "+maxSeats+" attending."
+        : "RSVP saved: "+selected+".";
+  }catch(error){
+    console.error("RSVP save failed",error);
+    if(landingRsvpStatus)landingRsvpStatus.textContent=
+      "RSVP could not be saved. Please retry from this invitation link.";
+  }finally{
+    if(landingRsvpSave)landingRsvpSave.disabled=false;
+    if(token)window.WeddingUI?.end(token);
+  }
+});
+
 function showInvitationLanding(code) {
   if (!CODE_PATTERN.test(code) || !invitationLanding) return;
   pendingLinkCode=code;
@@ -331,6 +413,9 @@ function showInvitationLanding(code) {
   updateLandingDate();
   landingMode.textContent="YOU'RE INVITED";
   landingStatus.textContent="Checking your invitation details securely…";
+  landingInvitationDetails=null;
+  if(landingRsvpForm)landingRsvpForm.hidden=true;
+  if(landingRsvpStatus)landingRsvpStatus.textContent="";
   invitationLanding.hidden=false;
   gate.classList.add("has-invitation");
   // The link itself is a bearer credential. Fetch only the named party and
@@ -342,8 +427,10 @@ function showInvitationLanding(code) {
       const recipient=document.getElementById("guest-invitation-recipient");
       if(recipient && response.data?.partyLabel)
         recipient.textContent="For: "+response.data.partyLabel;
-      landingStatus.textContent="Invitation for "+Number(response.data?.invitedSeats||1)+
-        " allotted seat(s). Open your camera when you're ready.";
+      renderInvitationRsvp(response.data||{});
+      const seats=Number(response.data?.invitedSeats||1);
+      landingStatus.textContent="Private invitation verified for "+seats+
+        " seat"+(seats===1?"":"s")+". RSVP below, then use the same invitation for the wedding camera.";
     })
     .catch(error=>{
       if(pendingLinkCode===code)landingStatus.textContent=
@@ -353,6 +440,8 @@ function showInvitationLanding(code) {
 }
 function hideInvitationLanding() {
   if(invitationLanding)invitationLanding.hidden=true;
+  if(landingRsvpForm)landingRsvpForm.hidden=true;
+  landingInvitationDetails=null;
   gate.classList.remove("has-invitation");
   pendingLinkCode=null;
 }
