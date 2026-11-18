@@ -33,6 +33,8 @@ const landingDetailVenue=document.getElementById("guest-detail-venue");
 const landingDetailCity=document.getElementById("guest-detail-city");
 const landingDetailSeats=document.getElementById("guest-detail-seats");
 const landingMessenger=document.getElementById("guest-confirmation-messenger");
+const landingGuide=document.getElementById("guest-invite-guide");
+const landingGuideGrid=document.getElementById("guest-invite-guide-grid");
 const landingRsvpForm=document.getElementById("guest-invitation-rsvp");
 const landingSeatCopy=document.getElementById("guest-invitation-seat-copy");
 const landingSeatWrap=document.getElementById("guest-rsvp-seats-wrap");
@@ -338,6 +340,35 @@ function updateLandingDate() {
   const venue=document.getElementById("guest-invitation-venue");
   if(venue)venue.textContent=configured;
 }
+function renderGuestGuide() {
+  if(!landingGuide || !landingGuideGrid)return;
+  const guide=publishedWeddingDetails.guestGuide||{};
+  const sections=[
+    ["attire","Dress code / attire"],
+    ["whatToWear","What to wear"],
+    ["whatToBring","What to bring"],
+    ["preparation","Things to prepare"],
+    ["arrival","Arrival"],
+    ["venueInstructions","Venue instructions"],
+    ["transportParking","Parking / transport"],
+    ["reminders","Important reminders"],
+    ["contact","Who to contact"]
+  ];
+  landingGuideGrid.replaceChildren();
+  for(const [key,label] of sections){
+    const value=String(guide[key]||"").trim();
+    if(!value)continue;
+    const card=document.createElement("article");
+    const heading=document.createElement("span");
+    const copy=document.createElement("p");
+    heading.textContent=label;
+    copy.textContent=value;
+    card.append(heading,copy);
+    landingGuideGrid.appendChild(card);
+  }
+  landingGuide.hidden=!landingGuideGrid.children.length;
+}
+
 function renderInvitationDetails(details={}) {
   const seats=Math.max(1,Number(details.invitedSeats||1));
   landingInvitationDetails={...landingInvitationDetails,...details,invitedSeats:seats};
@@ -354,6 +385,7 @@ function renderInvitationDetails(details={}) {
   if(landingDetails)landingDetails.hidden=false;
   landingDetailsToggle?.setAttribute("aria-expanded","true");
   if(landingDetailsToggle)landingDetailsToggle.textContent="Hide wedding details";
+  renderGuestGuide();
 }
 landingDetailsToggle?.addEventListener("click",()=>{
   if(!landingDetails)return;
