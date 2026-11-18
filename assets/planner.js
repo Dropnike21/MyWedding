@@ -306,7 +306,7 @@ function renderOverview() {
     .sort((a,b)=>(a.pickupDate||a.dueDate||"9999").localeCompare(b.pickupDate||b.dueDate||"9999"))
     .slice(0,5);
   root.innerHTML =
-    header("Wedding Overview",remoteActive?"A consolidated view of your live Firebase wedding plan.":"A consolidated view of the plans stored in this browser.","<button class='button primary planner-compact' data-jump='guests'>+ Add guest</button>")+
+    header("Wedding Overview",remoteActive?"A consolidated view of your live Firebase wedding plan.":"A consolidated view of the plans stored in this browser.","<button class='button primary planner-compact' data-new-view='guests'>+ Add guest</button>")+
     '<div class="planner-metrics">'+
       metric("Days to wedding",daysToWedding(),dateLabel(db.settings.date))+
       metric("Estimated seats",guestSeats(),active(db.guests).length+" guest entries")+
@@ -331,7 +331,16 @@ function renderOverview() {
 }
 function bindJumps(){
   root.querySelectorAll("[data-jump]").forEach(b=>b.addEventListener("click",()=>switchPlanner(b.dataset.jump)));
-  root.querySelectorAll("[data-open-view]").forEach(b=>b.addEventListener("click",()=>{selectedId=b.dataset.openId;switchPlanner(b.dataset.openView,false);}));
+  root.querySelectorAll("[data-new-view]").forEach(b=>b.addEventListener("click",()=>{
+    selectedId=null;
+    recordModalOpen=true;
+    switchPlanner(b.dataset.newView,false);
+  }));
+  root.querySelectorAll("[data-open-view]").forEach(b=>b.addEventListener("click",()=>{
+    selectedId=b.dataset.openId;
+    recordModalOpen=true;
+    switchPlanner(b.dataset.openView,false);
+  }));
 }
 
 function renderSettings() {
