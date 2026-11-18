@@ -47,6 +47,17 @@ test("invitation shows wedding details before camera",()=>{
   assert.ok(html.indexOf('id="guest-invitation-details"') < html.indexOf('id="guest-invitation-continue"'));
   assert.match(guest,/renderInvitationDetails/);
 });
+test("private invitation shows the detailed Guest Guide before confirmation and camera",()=>{
+  assert.match(html,/id="guest-invite-guide"/);
+  assert.match(html,/id="guest-invite-guide-grid"/);
+  assert.ok(html.indexOf('id="guest-invite-guide"') < html.indexOf('class="guest-invite-confirmation"'));
+  assert.ok(html.indexOf('id="guest-invite-guide"') < html.indexOf('id="guest-invitation-continue"'));
+  assert.match(guest,/function renderGuestGuide\(\)/);
+  assert.match(guest,/Dress code \/ attire/);
+  assert.match(guest,/Parking \/ transport/);
+  assert.match(planner,/full wedding guide/);
+});
+
 test("confirmation can use website, Messenger, or both",()=>{
   assert.match(planner,/rsvpMode: "Both"/);
   assert.match(planner,/\["Both","Messenger only","Website only"\]/);
