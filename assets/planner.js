@@ -88,6 +88,7 @@ let currentView = "overview";
 let selectedId = null;
 let search = "";
 let showArchived = false;
+let recordModalOpen = false;
 let remoteActive = false;
 let organizerRole = "local";
 let organizerProfile = null;
@@ -390,30 +391,72 @@ function renderEntity(view) {
   const selected=allRecords.find(r=>r.id===selectedId)||null;
   const filtered=records.filter(r=>JSON.stringify(r).toLowerCase().includes(search.toLowerCase()));
   const formRec=selected||defaultRecord(view);
+  const editorTitle=selected?esc((selected.name||selected.title||selected.role||schema.singular)):"Add "+esc(schema.singular);
+
   root.innerHTML=header(schema.title,schema.subtitle,
       "<button class='button outlined planner-compact' id='planner-archived-toggle'>"+(showArchived?"Hide archived":"Show archived")+"</button>"+
       "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>"+
       (view==="guests"?"<button class='button outlined planner-compact' id='planner-invitation-manage'>Invitations &amp; photo cleanup</button>":""))+
-    '<div class="planner-split">'+
-      '<section class="planner-list-card"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
+    '<section class="planner-list-card planner-list-card-full"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr>'+schema.columns.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+
-        filtered.map(r=>'<tr data-record="'+esc(r.id)+'" class="'+(selectedId===r.id?'selected':'')+'">'+schema.columns.map(c=>'<td>'+cellValue(c[0],r[c[0]],r)+'</td>').join("")+'</tr>').join("")+
-      '</tbody></table></div>':empty("Create the first "+schema.singular+" using the form."))+
+        filtered.map(r=>'<tr data-record="'+esc(r.id)+'">'+schema.columns.map(c=>'<td>'+cellValue(c[0],r[c[0]],r)+'</td>').join("")+'</tr>').join("")+
+      '</tbody></table></div>':empty("Create the first "+schema.singular+" using + New "+schema.singular+"."))+
+    '</section>'+
+    '<dialog class="planner-record-modal" id="planner-record-modal" aria-labelledby="planner-record-modal-title">'+
+      '<section class="planner-editor-card planner-modal-card">'+
+        '<div class="planner-editor-head planner-modal-head"><div><span class="eyebrow">'+(selected?'EDIT RECORD':'NEW RECORD')+'</span><h3 id="planner-record-modal-title">'+editorTitle+'</h3></div>'+
+          '<div class="planner-modal-head-actions">'+
+            (selected?(selected.archived?'<button type="button" class="planner-link-restore" id="planner-restore">Restore</button>':'<button type="button" class="planner-link-danger" id="planner-archive">Archive</button>'):'')+
+            '<button type="button" class="planner-modal-close" id="planner-modal-close" aria-label="Close">×</button>'+
+          '</div>'+
+        '</div>'+
+        '<form id="planner-entity-form" class="planner-form-grid">'+schema.fields.map(f=>formField(f[0],f[1],f[2],formRec[f[0]],f[3],f[4])).join("")+
+          '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?'Save changes':'Add '+esc(schema.singular))+'</button><button class="button subtle" type="button" id="planner-cancel">Cancel</button></div>'+
+        '</form>'+
       '</section>'+
-      '<section class="planner-editor-card"><div class="planner-editor-head"><div><span class="eyebrow">'+(selected?'EDIT RECORD':'NEW RECORD')+'</span><h3>'+(selected?esc((selected.name||selected.title||selected.role||schema.singular)):"Add "+esc(schema.singular))+'</h3></div>'+(selected?(selected.archived?'<button type="button" class="planner-link-restore" id="planner-restore">Restore</button>':'<button type="button" class="planner-link-danger" id="planner-archive">Archive</button>'):'')+'</div>'+
-      '<form id="planner-entity-form" class="planner-form-grid">'+schema.fields.map(f=>formField(f[0],f[1],f[2],formRec[f[0]],f[3],f[4])).join("")+
-      '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?'Save changes':'Add '+esc(schema.singular))+'</button><button class="button subtle" type="button" id="planner-cancel">Clear</button><span id="planner-entity-msg"></span></div></form></section>'+
-    '</div>';
-  root.querySelector("#planner-new").addEventListener("click",()=>{selectedId=null;renderEntity(view)});
-  root.querySelector("#planner-invitation-manage")?.addEventListener("click",()=>switchPlanner("photos"));
-  root.querySelector("#planner-archived-toggle").addEventListener("click",()=>{showArchived=!showArchived;selectedId=null;renderEntity(view)});
-  root.querySelector("#planner-cancel").addEventListener("click",()=>{selectedId=null;renderEntity(view)});
-  root.querySelector("#planner-search").addEventListener("input",e=>{
-    search=e.target.value;renderEntity(view);
-    const box=root.querySelector("#planner-search");if(box){box.focus();box.setSelectionRange(box.value.length,box.value.length)}
+    '</dialog>';
+
+  const modal=root.querySelector("#planner-record-modal");
+  const closeModal=()=>{
+    recordModalOpen=false;
+    selectedId=null;
+    if(modal?.open)modal.close();
+    renderEntity(view);
+  };
+
+  root.querySelector("#planner-new").addEventListener("click",()=>{
+    selectedId=null;
+    recordModalOpen=true;
+    renderEntity(view);
   });
-  root.querySelectorAll("[data-record]").forEach(row=>row.addEventListener("click",()=>{selectedId=row.dataset.record;renderEntity(view)}));
-  root.querySelector("#planner-entity-form").addEventListener("submit",e=>{
+  root.querySelector("#planner-invitation-manage")?.addEventListener("click",()=>switchPlanner("photos"));
+  root.querySelector("#planner-archived-toggle").addEventListener("click",()=>{
+    showArchived=!showArchived;
+    selectedId=null;
+    recordModalOpen=false;
+    renderEntity(view);
+  });
+  root.querySelector("#planner-search").addEventListener("input",e=>{
+    search=e.target.value;
+    renderEntity(view);
+    const box=root.querySelector("#planner-search");
+    if(box){box.focus();box.setSelectionRange(box.value.length,box.value.length)}
+  });
+  root.querySelectorAll("[data-record]").forEach(row=>row.addEventListener("click",()=>{
+    selectedId=row.dataset.record;
+    recordModalOpen=true;
+    renderEntity(view);
+  }));
+
+  if(modal && recordModalOpen){
+    modal.showModal();
+    modal.addEventListener("cancel",e=>{e.preventDefault();closeModal()});
+    modal.addEventListener("click",e=>{if(e.target===modal)closeModal()});
+    root.querySelector("#planner-modal-close")?.addEventListener("click",closeModal);
+    root.querySelector("#planner-cancel")?.addEventListener("click",closeModal);
+  }
+
+  root.querySelector("#planner-entity-form")?.addEventListener("submit",e=>{
     e.preventDefault();if(!e.currentTarget.reportValidity())return;
     const fd=new FormData(e.currentTarget), record={...(selected||defaultRecord(view))};
     schema.fields.forEach(f=>record[f[0]]=recordValue(view,f[0],fd.get(f[0])));
@@ -430,24 +473,43 @@ function renderEntity(view) {
       record.paid=Math.max(0,num(record.paid));
       ensureBudgetCategory(record.category);
     }
-    if(selected){if(selected.archived)return;Object.assign(selected,record)}else{record.id=uid(view.slice(0,2));db[schema.collection].push(record);selectedId=record.id}
-    save();renderEntity(view);updateToolbar();
-    const msg=root.querySelector("#planner-entity-msg");if(msg)msg.textContent=remoteActive?"Saved to Firebase.":"Saved locally.";
+    if(selected){
+      if(selected.archived)return;
+      Object.assign(selected,record);
+    }else{
+      record.id=uid(view.slice(0,2));
+      db[schema.collection].push(record);
+    }
+    recordModalOpen=false;
+    selectedId=null;
+    save();
+    renderEntity(view);
+    updateToolbar();
   });
+
   const archive=root.querySelector("#planner-archive");
   if(archive) archive.addEventListener("click",()=>{
     if(!confirm("Archive this "+schema.singular+"? It will be excluded from active summaries but kept in the exported backup."))return;
-    selected.archived=true;selectedId=null;save();renderEntity(view);updateToolbar();
+    selected.archived=true;
+    recordModalOpen=false;
+    selectedId=null;
+    save();
+    renderEntity(view);
+    updateToolbar();
   });
   const restore=root.querySelector("#planner-restore");
   if(restore) restore.addEventListener("click",()=>{
-    selected.archived=false;save();renderEntity(view);updateToolbar();
+    selected.archived=false;
+    recordModalOpen=false;
+    selectedId=null;
+    save();
+    renderEntity(view);
+    updateToolbar();
   });
   if(selected?.archived){
     root.querySelectorAll("#planner-entity-form input,#planner-entity-form select,#planner-entity-form textarea,#planner-entity-form button").forEach(x=>x.disabled=true);
   }
 }
-
 function renderBudget() {
   const vendorOptions=active(db.vendors);
   const filtered=active(db.payments).filter(p=>JSON.stringify(p).toLowerCase().includes(search.toLowerCase()));
@@ -795,7 +857,7 @@ function renderCurrent() {
 }
 function switchPlanner(view,clear=true){
   if(!["overview","settings","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
-  currentView=view;if(clear){selectedId=null;search="";showArchived=false}
+  currentView=view;if(clear){selectedId=null;search="";showArchived=false;recordModalOpen=false}
   document.querySelectorAll("[data-planner-view]").forEach(button=>{
     const active=button.dataset.plannerView===view;
     button.classList.toggle("active",active);
