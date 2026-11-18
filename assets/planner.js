@@ -27,9 +27,12 @@ function seed() {
       date: "",
       budget: 0,
       venue: "",
-      ceremony: "",
+      ceremony: "Civil wedding",
       city: "",
       guestTarget: 0,
+      gardenSavingsTarget: 0,
+      gardenSavingsSaved: 0,
+      gardenSavingsNotes: "",
       notes: ""
     },
     budgetCategories: [
@@ -89,6 +92,7 @@ let selectedId = null;
 let search = "";
 let showArchived = false;
 let recordModalOpen = false;
+let savingsModalOpen = false;
 let remoteActive = false;
 let organizerRole = "local";
 let organizerProfile = null;
@@ -261,7 +265,7 @@ const schemas = {
     fields:[
       ["title","Task","textarea",true],
       ["workstream","Workstream","text",false],
-      ["owner","Owner","select",false,["","Angela","Joseph","Both","Coordinator","Other"]],
+      ["owner","Owner","select",false,["","Angela","Joseph","Both","Other"]],
       ["dueDate","Target date","date",false],
       ["priority","Priority","select",true,["Critical","High","Medium","Low"]],
       ["status","Status","select",true,["Not started","In progress","Waiting","Done"]],
@@ -287,7 +291,7 @@ const schemas = {
     subtitle:"Track unresolved choices, who owns them, and the final decision once made.",
     fields:[
       ["title","Decision needed","textarea",true],
-      ["owner","Owner","select",false,["","Angela","Joseph","Both","Coordinator"]],
+      ["owner","Owner","select",false,["","Angela","Joseph","Both"]],
       ["dueDate","Decide by","date",false],
       ["status","Status","select",true,["Open","Researching","Decided","Deferred"]],
       ["decision","Final decision","textarea",false],
@@ -295,18 +299,6 @@ const schemas = {
     ],
     columns:[["title","Decision"],["owner","Owner"],["dueDate","Due"],["status","Status"]]
   },
-  team:{
-    title:"Coordinator Team",singular:"team member",collection:"team",
-    subtitle:"Keep responsibilities and contact information for the people helping run the wedding.",
-    fields:[
-      ["name","Name","text",true],
-      ["role","Role / responsibility","text",true],
-      ["contact","Contact","text",false],
-      ["status","Status","select",true,["Active","Backup","Confirmed","Unavailable"]],
-      ["notes","Notes","textarea",false]
-    ],
-    columns:[["name","Name"],["role","Role"],["contact","Contact"],["status","Status"]]
-  }
 };
 
 function renderOverview() {
@@ -362,7 +354,7 @@ function renderSettings() {
   formField("date","Wedding date","date",db.settings.date,true)+
   formField("budget","Total budget (PHP)","number",db.settings.budget,true)+
   formField("guestTarget","Target maximum guests","number",db.settings.guestTarget,false)+
-  formField("ceremony","Ceremony type","text",db.settings.ceremony,false)+
+  formField("ceremony","Ceremony type","select",db.settings.ceremony,true,["Civil wedding","Church wedding","Other"])+
   formField("venue","Reception venue","text",db.settings.venue,false)+
   formField("city","Ceremony city / municipality","text",db.settings.city,false)+
   '<div class="planner-field planner-field-wide"><label for="f-notes">Planning notes</label><textarea id="f-notes" name="notes" rows="4">'+esc(db.settings.notes||"")+'</textarea></div>'+
@@ -392,7 +384,6 @@ function defaultRecord(view){
   if(view==="tasks") return {title:"",workstream:"",owner:"Both",dueDate:"",priority:"Medium",status:"Not started",notes:"",archived:false};
   if(view==="timeline") return {time:"",title:"",location:"",owner:"",status:"Draft",notes:"",archived:false};
   if(view==="decisions") return {title:"",owner:"Both",dueDate:"",status:"Open",decision:"",notes:"",archived:false};
-  if(view==="team") return {name:"",role:"",contact:"",status:"Active",notes:"",archived:false};
   return {};
 }
 function recordValue(view,field,val){
@@ -544,6 +535,10 @@ function renderBudget() {
   const allocated=db.budgetCategories.reduce((s,c)=>s+num(c.allocated),0);
   const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
   const committed=totalCommitted(), paid=totalPaid();
+  const gardenGoal=Math.max(0,num(db.settings.gardenSavingsTarget));
+  const gardenSaved=Math.max(0,num(db.settings.gardenSavingsSaved));
+  const gardenRemaining=Math.max(0,gardenGoal-gardenSaved);
+  const gardenProgress=gardenGoal?Math.min(100,Math.round(gardenSaved/gardenGoal*100)):0;
 
   root.innerHTML=header(
       "Budget & Spending",
@@ -551,7 +546,13 @@ function renderBudget() {
       "<button class='button primary planner-compact' id='planner-new-payment'>+ Record payment</button>"
     )+
     financeTabs("budget")+
-    '<div class="planner-metrics compact">'+metric("Total budget",money.format(db.settings.budget),"Event setup")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Suppliers + wedding expenses")+metric("Paid",money.format(paid),"All recorded spending")+'</div>'+
+    '<div class="planner-metrics compact">'+metric("Civil wedding budget",money.format(db.settings.budget),"Current wedding plan")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Suppliers + direct expenses")+metric("Paid",money.format(paid),"Current wedding spending")+'</div>'+
+    '<section class="planner-card planner-savings-card"><div class="planner-card-head"><div><span class="eyebrow">FUTURE PLAN</span><h3>Garden Wedding Fund</h3></div><button type="button" id="garden-savings-edit">Update savings</button></div>'+
+      '<p class="planner-muted">Kept separate from the civil-wedding budget so saving for the future garden celebration does not count as current wedding spending.</p>'+
+      '<div class="planner-savings-values"><div><span>Saved</span><strong>'+money.format(gardenSaved)+'</strong></div><div><span>Goal</span><strong>'+(gardenGoal?money.format(gardenGoal):"Set a goal")+'</strong></div><div><span>Still needed</span><strong>'+money.format(gardenRemaining)+'</strong></div></div>'+
+      '<div class="planner-progress planner-savings-progress"><i style="width:'+gardenProgress+'%"></i></div>'+
+      (db.settings.gardenSavingsNotes?'<p class="planner-savings-note">'+esc(db.settings.gardenSavingsNotes)+'</p>':"")+
+    '</section>'+
     '<div class="planner-budget-layout"><section class="planner-card"><div class="planner-card-head"><h3>Category allocation</h3><span>Editable</span></div><div class="planner-allocation-list">'+
       db.budgetCategories.map(c=>'<label><span>'+esc(c.name)+'</span><input type="number" min="0" step="500" value="'+num(c.allocated)+'" data-budget-id="'+esc(c.id)+'" /></label>').join("")+
       '</div><div class="planner-allocation-total"><span>Allocation total</span><strong>'+money.format(allocated)+'</strong></div></section>'+
@@ -564,6 +565,17 @@ function renderBudget() {
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Payment</th><th>Supplier</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody>'+
       filtered.map(x=>{const v=vendorOptions.find(v=>v.id===x.vendorId);return '<tr data-payment="'+esc(x.id)+'"><td>'+esc(x.description)+'</td><td>'+esc(v?.name||"—")+'</td><td>'+money.format(x.amount)+'</td><td>'+dateLabel(x.dueDate)+'</td><td>'+statusBadge(x.status)+'</td></tr>'}).join("")+'</tbody></table></div>':empty("Use + Record payment when you are ready to add a deposit or balance."))+
     '</section>'+
+    '<dialog class="planner-record-modal" id="garden-savings-modal" aria-labelledby="garden-savings-modal-title">'+
+      '<section class="planner-editor-card planner-modal-card">'+
+        '<div class="planner-editor-head planner-modal-head"><div><span class="eyebrow">FUTURE GARDEN WEDDING</span><h3 id="garden-savings-modal-title">Savings goal</h3></div><button type="button" class="planner-modal-close" id="garden-savings-close" aria-label="Close">×</button></div>'+
+        '<form id="garden-savings-form" class="planner-form-grid">'+
+          formField("gardenSavingsTarget","Savings goal (PHP)","number",gardenGoal,false)+
+          formField("gardenSavingsSaved","Saved so far (PHP)","number",gardenSaved,false)+
+          formField("gardenSavingsNotes","Notes","textarea",db.settings.gardenSavingsNotes||"",false)+
+          '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">Save garden fund</button><button class="button subtle" id="garden-savings-cancel" type="button">Cancel</button></div>'+
+        '</form>'+
+      '</section>'+
+    '</dialog>'+
     '<dialog class="planner-record-modal" id="planner-payment-modal" aria-labelledby="planner-payment-modal-title">'+
       '<section class="planner-editor-card planner-modal-card">'+
         '<div class="planner-editor-head planner-modal-head"><div><span class="eyebrow">'+(selected?'EDIT PAYMENT':'NEW PAYMENT')+'</span><h3 id="planner-payment-modal-title">'+(selected?esc(selected.description):"Record payment")+'</h3></div>'+
@@ -582,6 +594,37 @@ function renderBudget() {
         '</form>'+
       '</section>'+
     '</dialog>';
+
+  const savingsModal=root.querySelector("#garden-savings-modal");
+  const closeSavings=()=>{
+    savingsModalOpen=false;
+    if(savingsModal?.open)savingsModal.close();
+    renderBudget();
+  };
+  root.querySelector("#garden-savings-edit")?.addEventListener("click",()=>{
+    savingsModalOpen=true;
+    recordModalOpen=false;
+    selectedId=null;
+    renderBudget();
+  });
+  if(savingsModal && savingsModalOpen){
+    savingsModal.showModal();
+    savingsModal.addEventListener("cancel",e=>{e.preventDefault();closeSavings()});
+    savingsModal.addEventListener("click",e=>{if(e.target===savingsModal)closeSavings()});
+    root.querySelector("#garden-savings-close")?.addEventListener("click",closeSavings);
+    root.querySelector("#garden-savings-cancel")?.addEventListener("click",closeSavings);
+  }
+  root.querySelector("#garden-savings-form")?.addEventListener("submit",e=>{
+    e.preventDefault();
+    const fd=new FormData(e.currentTarget);
+    db.settings.gardenSavingsTarget=Math.max(0,num(fd.get("gardenSavingsTarget")));
+    db.settings.gardenSavingsSaved=Math.max(0,num(fd.get("gardenSavingsSaved")));
+    db.settings.gardenSavingsNotes=String(fd.get("gardenSavingsNotes")||"").trim();
+    savingsModalOpen=false;
+    save();
+    renderBudget();
+    updateToolbar();
+  });
 
   const modal=root.querySelector("#planner-payment-modal");
   const closeModal=()=>{
@@ -954,7 +997,7 @@ function renderCurrent() {
 function switchPlanner(view,clear=true){
   if(!["overview","settings","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
   if(view==="budget" && organizerRole==="coordinator")view="vendors";
-  currentView=view;if(clear){selectedId=null;search="";showArchived=false;recordModalOpen=false}
+  currentView=view;if(clear){selectedId=null;search="";showArchived=false;recordModalOpen=false;savingsModalOpen=false}
   const navView=(view==="vendors"||view==="expenses")?"budget":view;
   document.querySelectorAll("[data-planner-view]").forEach(button=>{
     const active=button.dataset.plannerView===navView;
@@ -1152,8 +1195,11 @@ async function initializePlanner(){
       organizerProfile=await plannerFirestore.organizerProfile(user);
       db=await plannerFirestore.load(seed());
       if(!Array.isArray(db.expenses))db.expenses=[];
+      const applyCivilWedding=!String(db.settings.ceremony||"").trim();
+      if(applyCivilWedding)db.settings.ceremony="Civil wedding";
       localStorage.removeItem(STORAGE_KEY);
       remoteActive=true;
+      if(applyCivilWedding)plannerFirestore.queue(db).catch(error=>console.warn("Could not save civil-wedding default:",error?.code||error));
       applyRoleUI(organizerProfile.role);
       selectedId=null;search="";showArchived=false;
       updateToolbar();
