@@ -93,55 +93,55 @@ service cloud.firestore {
       match /guests/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canOperate();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /vendors/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if isOwner() || isCoordinator() || isFinance();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /expenses/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if isOwner() || isCoordinator() || isFinance();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /payments/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canFinance();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /budgetCategories/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canFinance();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /tasks/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canOperate();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /timeline/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canOperate();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /decisions/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canOperate();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /team/{recordId} {
         allow read: if canReadPlanning();
         allow create, update: if canOperate();
-        allow delete: if false;
+        allow delete: if isOwner();
       }
 
       match /audit/{recordId} {
