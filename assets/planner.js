@@ -30,6 +30,7 @@ function seed() {
       ceremony: "Civil wedding",
       city: "",
       guestTarget: 0,
+      rsvpMode: "Both",
       gardenSavingsTarget: 0,
       gardenSavingsSaved: 0,
       gardenSavingsNotes: "",
@@ -355,13 +356,14 @@ function renderSettings() {
   formField("budget","Total budget (PHP)","number",db.settings.budget,true)+
   formField("guestTarget","Target maximum guests","number",db.settings.guestTarget,false)+
   formField("ceremony","Ceremony type","select",db.settings.ceremony,true,["Civil wedding","Church wedding","Other"])+
-  formField("venue","Reception venue","text",db.settings.venue,false)+
-  formField("city","Ceremony city / municipality","text",db.settings.city,false)+
+  formField("venue","Wedding venue","text",db.settings.venue,false)+
+  formField("city","City / municipality","text",db.settings.city,false)+
+  formField("rsvpMode","Guest confirmation","select",db.settings.rsvpMode||"Both",true,["Both","Messenger only","Website only"])+
   '<div class="planner-field planner-field-wide"><label for="f-notes">Planning notes</label><textarea id="f-notes" name="notes" rows="4">'+esc(db.settings.notes||"")+'</textarea></div>'+
   '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">Save event setup</button><span id="planner-settings-msg"></span></div></form></div>';
   root.querySelector("#planner-settings-form").addEventListener("submit",e=>{
     e.preventDefault();const fd=new FormData(e.currentTarget);
-    db.settings={...db.settings,date:fd.get("date"),budget:num(fd.get("budget")),guestTarget:num(fd.get("guestTarget")),ceremony:String(fd.get("ceremony")||""),venue:String(fd.get("venue")||""),city:String(fd.get("city")||""),notes:String(fd.get("notes")||"")};save();
+    db.settings={...db.settings,date:fd.get("date"),budget:num(fd.get("budget")),guestTarget:num(fd.get("guestTarget")),ceremony:String(fd.get("ceremony")||""),venue:String(fd.get("venue")||""),city:String(fd.get("city")||""),rsvpMode:String(fd.get("rsvpMode")||"Both"),notes:String(fd.get("notes")||"")};save();
     root.querySelector("#planner-settings-msg").textContent=remoteActive?"Saved to Firebase.":"Saved locally.";
     updateToolbar();
   });
@@ -780,6 +782,12 @@ function bindInvitationManager() {
     const venue=String(db.settings.venue||"Venue to be confirmed").trim()||"Venue to be confirmed";
     const city=String(db.settings.city||"Location to be confirmed").trim()||"Location to be confirmed";
     const seats=Math.max(1,Number(guest?.seats)||1);
+    const mode=String(db.settings.rsvpMode||"Both");
+    const confirmation=mode==="Website only"
+      ? "Please open the link and confirm your attendance on the invitation page."
+      : mode==="Messenger only"
+        ? "Please reply to this Messenger conversation to confirm if you can attend and how many of the reserved seats you will use."
+        : "You can confirm on the invitation page, or simply reply here in Messenger with whether you can attend and how many reserved seats you will use.";
     return [
       "Hi "+(guest?.name||"there")+"!",
       "",
@@ -794,7 +802,7 @@ function bindInvitationManager() {
       "Wedding details and your private wedding-camera pass:",
       link,
       "",
-      "Please reply to this Messenger conversation to confirm if you can attend and how many of the reserved seats you will use.",
+      confirmation,
       "",
       "Thank you — we hope to celebrate with you. 🤍"
     ].join("\n");
@@ -816,7 +824,7 @@ function bindInvitationManager() {
     const invitations=result.items||[];
     if(!invitations.length){panel.innerHTML='<p class="planner-muted">No invitations issued yet.</p>';return;}
     panel.innerHTML='<div class="planner-table-wrap"><table class="planner-table">'+
-      '<thead><tr><th>Guest / family</th><th>Seats</th><th>Manual confirmation</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
+      '<thead><tr><th>Guest / family</th><th>Seats</th><th>Attendance</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
       invitations.map(item=>{const linked=db.guests.find(g=>g.id===item.sourceGuestId);const attendance=linked?.rsvp||"Pending";const confirmed=Number(linked?.confirmed||0);return '<tr><td>'+esc(item.partyLabel)+
         (item.status==="deleting"?' · DELETION PENDING':'')+
         '</td><td>'+esc(item.invitedSeats)+'</td><td>'+esc(attendance)+
