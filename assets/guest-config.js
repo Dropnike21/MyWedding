@@ -6,7 +6,6 @@
  */
 export const guestAccessConfig = Object.freeze({
   enabled: true,
-  previewTestEnabled: false,
   plannerEnabled: true,
   region: "asia-southeast1",
   callableName: "redeemInvitation",
