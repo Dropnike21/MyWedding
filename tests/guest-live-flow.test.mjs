@@ -47,6 +47,17 @@ test("invitation link lands first and loads only safe personalized details",()=>
   assert.match(backend,/return \{\s*partyLabel:optionalText/);
   assert.doesNotMatch(backend,/weddingDate:"2027-12-23"/);
 });
+test("real guest invitation supports family RSVP and planner synchronization",()=>{
+  assert.match(html,/id="guest-invitation-rsvp"/);
+  assert.match(html,/id="guest-rsvp-seats"/);
+  assert.match(guest,/respondToInvitation/);
+  assert.match(guest,/RSVP saved:/);
+  assert.match(backend,/sourceGuestId=optionalText\(invitation\.get\("sourceGuestId"\),100\)/);
+  assert.match(backend,/tx\.update\(planningGuestRef/);
+  assert.match(planner,/item\.rsvp==="Yes"/);
+  assert.match(planner,/guest\.confirmed=nextConfirmed/);
+});
+
 test("camera access belongs to each invitation and has no one-hour timer",()=>{
   assert.match(backend,/exports\.setInvitationCameraAccess = onCall/);
   assert.match(backend,/cameraAccessEnabled:request\.data\.enabled/);
