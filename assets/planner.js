@@ -122,7 +122,7 @@ function save() {
         if (plannerFirestore.publicDetailsError) {
           setSyncState("PLANNER SYNCED");
           const note=document.querySelector(".planner-toolbar small");
-          if(note) note.textContent="Plan saved. Public date/venue update is pending Firebase rules publication.";
+          if(note) note.textContent="Plan saved. Public wedding details update is pending Firebase rules publication.";
         } else {
           setSyncState("FIREBASE SYNCED");
         }
