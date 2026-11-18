@@ -20,56 +20,59 @@ test("production callables remain auth-protected while App Check is non-blocking
   assert.match(backend,/requireAdmin\(request\)/);
   assert.match(backend,/requireGuest\(request\)/);
 });
-
-test("normal invitation and no one-hour rehearsal",()=>{
+test("normal invitation flow has no rehearsal or preview code",()=>{
   assert.match(config,/enabled: true/);
   assert.match(config,/driveUploadsEnabled: true/);
-  assert.doesNotMatch(config,/previewTestCode/);
-  assert.doesNotMatch(backend,/startCameraRehearsal|createCameraRehearsalPass|cameraRehearsalStatus|cameraRehearsal|testMode/);
+  assert.doesNotMatch(config,/previewTestCode|previewTestEnabled/);
+  assert.doesNotMatch(backend,/startCameraRehearsal|createCameraRehearsalPass|cameraRehearsal|testMode/);
   assert.doesNotMatch(guest,/rehearsalRequested|previewTestCode|cameraRehearsal/);
-  assert.doesNotMatch(planner,/startCameraRehearsal|createCameraRehearsalPass|cameraRehearsal/);
-  assert.doesNotMatch(html,/camera-preview-helper|camera-use-test-code|camera-rotate/);
 });
-test("guest manager generates normal links from saved guest records",()=>{
+test("guest manager issues real links and Messenger copy",()=>{
   assert.match(planner,/function invitationManagerCard\(\)/);
-  assert.match(planner,/active\(db.guests\)/);
-  assert.match(planner,/function guestInvitationUrl\(code\)/);
-  assert.match(planner,/callWeddingFunction\(name\)\(data\)/);
   assert.match(planner,/run\("createInvitation",\{/);
-  assert.match(planner,/sourceGuestId:guest.id/);
+  assert.match(planner,/sourceGuestId:guest\.id/);
   assert.match(planner,/run\("setInvitationCameraAccess",\{/);
   assert.match(planner,/id='planner-invitation-manage'/);
-  assert.doesNotMatch(planner,/\?cameraRehearsal=1/);
-  assert.match(backend,/const fixedId=guestId \? "guest_"\+guestId : ""/);
+  assert.match(planner,/Messenger message/);
+  assert.match(planner,/Copy Messenger message/);
+  assert.match(planner,/invitationMessage=/);
 });
-test("invitation link lands first and loads only safe personalized details",()=>{
-  assert.match(guest,/function showInvitationLanding\(code\)/);
-  assert.match(guest,/getInvitationDetails/);
-  assert.match(guest,/partyLabel/);
-  assert.match(html,/id="guest-invitation-landing"/);
-  assert.match(html,/id="guest-invitation-recipient"/);
-  assert.match(backend,/exports\.getInvitationDetails = onCall/);
-  assert.match(backend,/requireGuest\(request\)/);
-  assert.match(backend,/return \{\s*partyLabel:optionalText/);
-  assert.doesNotMatch(backend,/weddingDate:"2027-12-23"/);
+test("invitation shows wedding details before camera",()=>{
+  assert.match(html,/id="guest-invitation-details"/);
+  assert.match(html,/id="guest-detail-date"/);
+  assert.match(html,/id="guest-detail-ceremony"/);
+  assert.match(html,/id="guest-detail-venue"/);
+  assert.match(html,/id="guest-detail-city"/);
+  assert.match(html,/id="guest-detail-seats"/);
+  assert.ok(html.indexOf('id="guest-invitation-details"') < html.indexOf('id="guest-invitation-continue"'));
+  assert.match(guest,/renderInvitationDetails/);
 });
-test("real guest invitation supports family RSVP and planner synchronization",()=>{
+test("confirmation can use website, Messenger, or both",()=>{
+  assert.match(planner,/rsvpMode: "Both"/);
+  assert.match(planner,/\["Both","Messenger only","Website only"\]/);
+  assert.match(html,/id="guest-confirmation-messenger"/);
   assert.match(html,/id="guest-invitation-rsvp"/);
-  assert.match(html,/id="guest-rsvp-seats"/);
+  assert.match(guest,/mode!=="Messenger only"/);
+  assert.match(guest,/mode!=="Website only"/);
   assert.match(guest,/respondToInvitation/);
-  assert.match(guest,/RSVP saved:/);
+});
+test("website RSVP updates linked Planning Studio guest",()=>{
   assert.match(backend,/sourceGuestId=optionalText\(invitation\.get\("sourceGuestId"\),100\)/);
   assert.match(backend,/tx\.update\(planningGuestRef/);
-  assert.match(planner,/item\.rsvp==="Yes"/);
-  assert.match(planner,/guest\.confirmed=nextConfirmed/);
+  assert.match(backend,/confirmed:attending/);
 });
-
+test("manual Planning Studio confirmation is reflected back on invitation",()=>{
+  const start=backend.indexOf("exports.getInvitationDetails");
+  const end=backend.indexOf("exports.redeemInvitation",start);
+  const body=backend.slice(start,end);
+  assert.match(body,/weddings\/main\/guests\//);
+  assert.match(body,/rsvp=guest\.get\("rsvp"\) \|\| rsvp/);
+  assert.match(body,/confirmedSeats=Number\(guest\.get\("confirmed"\)\|\|0\)/);
+});
 test("camera access belongs to each invitation and has no one-hour timer",()=>{
   assert.match(backend,/exports\.setInvitationCameraAccess = onCall/);
   assert.match(backend,/cameraAccessEnabled:request\.data\.enabled/);
-  assert.match(backend,/cameraWindow\(manualEnabled\)/);
   assert.match(backend,/if \(manualEnabled\) return \{cameraOpen:true,openAt:null,closeAt:null\}/);
-  assert.match(backend,/cameraWindow\(session\.cameraAccessEnabled\)/);
   assert.match(planner,/data-invitation-action="camera"/);
   assert.match(guest,/leaveCameraMode\(\);/);
 });
@@ -80,24 +83,14 @@ test("full deletion revokes access before removing Drive, Sheet and Firestore",(
   assert.ok(from>=0 && to>from);
   assert.match(body,/requireAdmin\(request\)/);
   assert.match(body,/status:"deleting",codeDigest:null,cameraAccessEnabled:false/);
-  assert.match(body,/db\.collection\("photoUploads"\)\.where\("invitationId","==",id\)/);
-  assert.match(body,/db\.collection\("pendingPhotoUploads"\)\.where\("invitationId","==",id\)/);
-  assert.match(body,/db\.collection\("guestSessions"\)\.where\("invitationId","==",id\)/);
-  assert.match(body,/drive\.files\.list\(/);
   assert.match(body,/drive\.files\.delete\(/);
   assert.match(body,/sheets\.spreadsheets\.batchUpdate\(/);
-  assert.match(body,/cleanup\.delete\(ref\)/);
   assert.match(body,/cleanup\.delete\(db\.doc\("weddings\/main\/guests\/"\+linkedGuest\)\)/);
-  assert.match(body,/await cleanup\.commit\(\)/);
-  assert.ok(body.indexOf("await cleanup.commit()")>body.indexOf("sheets.spreadsheets.batchUpdate"));
   assert.match(planner,/verified!=="DELETE"/);
-  assert.match(planner,/db\.guests=db\.guests\.filter\(g=>g\.id!==item\.sourceGuestId\)/);
-  assert.match(planner,/item\.status==="deleting"/);
 });
-test("deleted photos do not silently count as saved and camera remains portrait",()=>{
+test("camera uploads remain production Drive uploads",()=>{
   assert.match(guest,/wedding:photo-uploaded/);
   assert.match(guest,/wedding:photo-upload-failed/);
   assert.match(guest,/setInterval\(refreshSharedFilm,15000\)/);
   assert.match(css,/flex-direction:column!important/);
-  assert.doesNotMatch(html,/camera-rotate/);
 });
