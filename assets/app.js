@@ -1649,15 +1649,13 @@
   }
 
   function setupVenueJourney() {
-    const config = window.WEDDING_VENUE;
     const section = document.getElementById("venue-journey");
-    if (!config || !section) return;
+    if (!section) return;
 
     const venueName = document.getElementById("venue-name");
     const address = document.getElementById("venue-address");
     const note = document.getElementById("venue-note");
     const mapTitle = document.getElementById("venue-map-title");
-    const immersiveName = document.getElementById("venue-immersive-name");
     const mapFrame = document.getElementById("venue-map-frame");
     const form = document.getElementById("venue-route-form");
     const originInput = document.getElementById("venue-origin");
@@ -1665,266 +1663,132 @@
     const openMaps = document.getElementById("venue-open-maps");
     const status = document.getElementById("venue-route-status");
     const modeWrap = document.getElementById("venue-travel-modes");
-    const scene = document.getElementById("venue-immersive-scene");
-    const photo = document.getElementById("venue-immersive-photo");
-    const tiltButton = document.getElementById("venue-tilt-button");
 
     let travelMode = "driving";
     let geoOrigin = "";
+    let destination = "";
     let routePreviewed = false;
-    let tiltEnabled = false;
-    let baseBeta = null;
-    let baseGamma = null;
-    let smoothX = 0;
-    let smoothY = 0;
-    let tiltFrame = 0;
-    let lastVenueTilt=0;
-
-    const destination = config.mapsQuery || config.address || config.name;
-    const encodedDestination = encodeURIComponent(destination);
-
-    if (venueName) venueName.textContent = config.shortName || config.name;
-    if (address) address.textContent = config.address;
-    if (note) note.textContent = config.note || "";
-    if (mapTitle) mapTitle.textContent = config.name;
-    if (immersiveName) immersiveName.textContent = String(config.shortName || config.name).toUpperCase();
-
-    let venueAssetsLoaded = false;
-    function ensureVenueAssets() {
-      if (venueAssetsLoaded) return;
-      venueAssetsLoaded = true;
-      if (photo && config.heroImage) photo.style.backgroundImage = 'url("' + config.heroImage + '")';
-      if (mapFrame && !mapFrame.getAttribute("src")) mapFrame.src = destinationEmbed();
-    }
-
-    if ("IntersectionObserver" in window) {
-      const venueObserver = new IntersectionObserver(entries => {
-        if (!entries.some(entry => entry.isIntersecting)) return;
-        ensureVenueAssets();
-        venueObserver.disconnect();
-      }, { rootMargin: mobilePerformance ? "80px 0px" : "300px 0px" });
-      venueObserver.observe(section);
-    } else {
-      ensureVenueAssets();
-    }
 
     function modeFlag(mode) {
       return mode === "walking" ? "w" : mode === "transit" ? "r" : "d";
     }
-
     function currentOrigin() {
       return geoOrigin || originInput?.value.trim() || "";
     }
-
     function mapsDirectionsUrl(origin = currentOrigin()) {
-      const params = new URLSearchParams({
-        api: "1",
-        destination,
-        travelmode: travelMode,
-      });
+      const params = new URLSearchParams({api:"1",destination,travelmode:travelMode});
       if (origin) params.set("origin", origin);
       return "https://www.google.com/maps/dir/?" + params.toString();
     }
-
     function destinationEmbed() {
-      return "https://www.google.com/maps?q=" + encodedDestination + "&output=embed";
+      return "https://www.google.com/maps?q=" + encodeURIComponent(destination) + "&output=embed";
     }
-
     function routeEmbed(origin) {
       return "https://www.google.com/maps?output=embed&saddr=" +
-        encodeURIComponent(origin) + "&daddr=" + encodedDestination +
+        encodeURIComponent(origin) + "&daddr=" + encodeURIComponent(destination) +
         "&dirflg=" + modeFlag(travelMode);
     }
-
     function updateMapsLink() {
-      if (openMaps) openMaps.href = mapsDirectionsUrl();
+      if (!openMaps || !destination) return;
+      openMaps.href = mapsDirectionsUrl();
+    }
+    function applyVenue(detail = {}) {
+      const name=String(detail.venueName||"").trim();
+      const city=String(detail.city||"").trim();
+      destination=[name,city].filter(Boolean).join(", ");
+      section.hidden=!destination;
+      if (!destination) {
+        if(mapFrame)mapFrame.removeAttribute("src");
+        return;
+      }
+      if(venueName)venueName.textContent=name || "Wedding venue";
+      if(address)address.textContent=city || "Location to be confirmed";
+      if(note)note.textContent="Venue and location are published from Planning Studio.";
+      if(mapTitle)mapTitle.textContent=name || city || "Wedding venue";
+      if(mapFrame)mapFrame.src=destinationEmbed();
+      routePreviewed=false;
+      updateMapsLink();
+      if(status)status.textContent="Enter your starting point to preview directions.";
     }
 
-    updateMapsLink();
+    document.addEventListener("wedding:public-details",event=>applyVenue(event.detail||{}));
 
-    originInput?.addEventListener("input", () => {
-      geoOrigin = "";
-      routePreviewed = false;
+    originInput?.addEventListener("input",()=>{
+      geoOrigin="";
+      routePreviewed=false;
       updateMapsLink();
-      if (status) status.textContent = "Ready to preview your route.";
+      if(status)status.textContent="Ready to preview your route.";
     });
 
-    modeWrap?.querySelectorAll("[data-travel-mode]").forEach(button => {
-      button.addEventListener("click", () => {
-        travelMode = button.dataset.travelMode || "driving";
-        modeWrap.querySelectorAll("[data-travel-mode]").forEach(node =>
-          node.classList.toggle("active", node === button)
+    modeWrap?.querySelectorAll("[data-travel-mode]").forEach(button=>{
+      button.addEventListener("click",()=>{
+        travelMode=button.dataset.travelMode||"driving";
+        modeWrap.querySelectorAll("[data-travel-mode]").forEach(node=>
+          node.classList.toggle("active",node===button)
         );
         updateMapsLink();
-        const origin = currentOrigin();
-        if (routePreviewed && origin && mapFrame) {
-          mapFrame.src = routeEmbed(origin);
-          if (status) status.textContent =
-            "Updated " + travelMode + " route preview to " + config.shortName + ".";
+        const origin=currentOrigin();
+        if(routePreviewed && origin && mapFrame && destination){
+          mapFrame.src=routeEmbed(origin);
+          if(status)status.textContent="Updated "+travelMode+" route preview.";
         }
       });
     });
 
-    form?.addEventListener("submit", event => {
+    form?.addEventListener("submit",event=>{
       event.preventDefault();
-      const origin = currentOrigin();
-      if (!origin) {
-        if (status) status.textContent = "Enter where you're coming from first.";
+      if(!destination){
+        if(status)status.textContent="Wedding venue has not been added in Planning Studio yet.";
+        return;
+      }
+      const origin=currentOrigin();
+      if(!origin){
+        if(status)status.textContent="Enter where you're coming from first.";
         originInput?.focus();
         return;
       }
-      routePreviewed = true;
-      ensureVenueAssets();
-      const loaderToken = WeddingUI.begin("Building your route…", "Loading the map preview.", { blocking: false, delay: 180 });
-      if (mapFrame) {
-        const done = () => WeddingUI.end(loaderToken);
-        mapFrame.addEventListener("load", done, { once: true });
-        setTimeout(done, 7000);
-        mapFrame.src = routeEmbed(origin);
-      } else {
-        WeddingUI.end(loaderToken);
-      }
+      routePreviewed=true;
+      const token=WeddingUI.begin("Building your route…","Loading the map preview.",{blocking:false,delay:180});
+      if(mapFrame){
+        const done=()=>WeddingUI.end(token);
+        mapFrame.addEventListener("load",done,{once:true});
+        setTimeout(done,7000);
+        mapFrame.src=routeEmbed(origin);
+      }else WeddingUI.end(token);
       updateMapsLink();
-      if (status) {
-        status.textContent =
-          "Showing a " + travelMode + " route preview. Open Maps for live traffic and turn-by-turn navigation.";
-      }
-      mapFrame?.scrollIntoView({ behavior: motionOK ? "smooth" : "auto", block: "nearest" });
+      if(status)status.textContent="Showing a "+travelMode+" route preview. Open Maps for live navigation.";
+      mapFrame?.scrollIntoView({behavior:motionOK?"smooth":"auto",block:"nearest"});
     });
 
-    useLocation?.addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        if (status) status.textContent = "Location access isn't available in this browser. Type your starting point instead.";
+    useLocation?.addEventListener("click",()=>{
+      if(!navigator.geolocation){
+        if(status)status.textContent="Location access isn't available. Type your starting point instead.";
         return;
       }
-      useLocation.disabled = true;
-      if (status) status.textContent = "Requesting your current location…";
-      const locationLoader = WeddingUI.begin("Finding your location…", "Your browser may ask for location permission.", { blocking: false, delay: 180 });
-
-      navigator.geolocation.getCurrentPosition(position => {
-        geoOrigin = position.coords.latitude.toFixed(6) + "," + position.coords.longitude.toFixed(6);
-        if (originInput) originInput.value = "Current location";
-        routePreviewed = true;
-        ensureVenueAssets();
-        if (mapFrame) mapFrame.src = routeEmbed(geoOrigin);
+      if(!destination){
+        if(status)status.textContent="Wedding venue has not been added in Planning Studio yet.";
+        return;
+      }
+      useLocation.disabled=true;
+      if(status)status.textContent="Requesting your current location…";
+      const token=WeddingUI.begin("Finding your location…","Your browser may ask for location permission.",{blocking:false,delay:180});
+      navigator.geolocation.getCurrentPosition(position=>{
+        geoOrigin=position.coords.latitude.toFixed(6)+","+position.coords.longitude.toFixed(6);
+        if(originInput)originInput.value="Current location";
+        routePreviewed=true;
+        if(mapFrame)mapFrame.src=routeEmbed(geoOrigin);
         updateMapsLink();
-        if (status) {
-          status.textContent =
-            "Current location added. Open Maps for live traffic and turn-by-turn navigation.";
-        }
-        useLocation.disabled = false;
-        WeddingUI.end(locationLoader);
-      }, error => {
-        geoOrigin = "";
-        if (status) {
-          status.textContent = error.code === 1
-            ? "Location permission was not granted. You can type your starting point instead."
-            : "We couldn't get your location. Type your starting point instead.";
-        }
-        useLocation.disabled = false;
-        WeddingUI.end(locationLoader);
-      }, {
-        enableHighAccuracy: false,
-        timeout: 9000,
-        maximumAge: 120000,
-      });
-    });
-
-    function paintVenueMotion(x, y) {
-      if (!scene) return;
-      scene.style.setProperty("--venue-x", x.toFixed(3));
-      scene.style.setProperty("--venue-y", y.toFixed(3));
-      scene.style.setProperty("--venue-shift-x", (x * -34).toFixed(1) + "px");
-      scene.style.setProperty("--venue-shift-y", (y * -22).toFixed(1) + "px");
-      scene.style.setProperty("--venue-near-x", (x * 24).toFixed(1) + "px");
-      scene.style.setProperty("--venue-near-y", (y * 15).toFixed(1) + "px");
-      scene.style.setProperty("--venue-far-x", (x * -13).toFixed(1) + "px");
-      scene.style.setProperty("--venue-far-y", (y * -8).toFixed(1) + "px");
-      scene.classList.toggle("is-looking", Math.abs(x) + Math.abs(y) > .05);
-    }
-
-    if (scene && finePointer && motionOK) {
-      scene.addEventListener("pointermove", event => {
-        const rect = scene.getBoundingClientRect();
-        const x = ((event.clientX - rect.left) / rect.width - .5) * 2;
-        const y = ((event.clientY - rect.top) / rect.height - .5) * 2;
-        paintVenueMotion(Math.max(-1, Math.min(1, x)), Math.max(-1, Math.min(1, y)));
-      });
-      scene.addEventListener("pointerleave", () => paintVenueMotion(0, 0));
-    }
-
-    const orientationSupported = motionOK && window.isSecureContext &&
-      typeof window.DeviceOrientationEvent !== "undefined";
-    const mobileLike = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
-
-    function resetVenueTilt() {
-      baseBeta = null;
-      baseGamma = null;
-      smoothX = 0;
-      smoothY = 0;
-      paintVenueMotion(0, 0);
-    }
-
-    function onVenueOrientation(event) {
-      if (!tiltEnabled || document.hidden || document.body.dataset.activeView !== "home") return;
-      const now=performance.now();
-      if (now-lastVenueTilt<55) return;
-      lastVenueTilt=now;
-      if (typeof event.beta !== "number" || typeof event.gamma !== "number") return;
-      if (baseBeta === null || baseGamma === null) {
-        baseBeta = event.beta;
-        baseGamma = event.gamma;
-        return;
-      }
-
-      const targetX = Math.max(-1, Math.min(1, (event.gamma - baseGamma) / 24));
-      const targetY = Math.max(-1, Math.min(1, (event.beta - baseBeta) / 30));
-      smoothX += (targetX - smoothX) * .14;
-      smoothY += (targetY - smoothY) * .14;
-
-      if (!tiltFrame) {
-        tiltFrame = requestAnimationFrame(() => {
-          tiltFrame = 0;
-          paintVenueMotion(smoothX, smoothY);
-        });
-      }
-    }
-
-    if (tiltButton && orientationSupported && mobileLike) {
-      tiltButton.hidden = false;
-      tiltButton.addEventListener("click", async () => {
-        if (tiltEnabled) {
-          tiltEnabled = false;
-          window.removeEventListener("deviceorientation", onVenueOrientation);
-          resetVenueTilt();
-          tiltButton.classList.remove("is-on");
-          tiltButton.setAttribute("aria-pressed", "false");
-          tiltButton.querySelector("strong").textContent = "Enable venue tilt";
-          return;
-        }
-
-        tiltButton.disabled = true;
-        try {
-          if (typeof DeviceOrientationEvent.requestPermission === "function") {
-            const permission = await DeviceOrientationEvent.requestPermission();
-            if (permission !== "granted") throw new Error("Motion permission not granted");
-          }
-          tiltEnabled = true;
-          resetVenueTilt();
-          window.addEventListener("deviceorientation", onVenueOrientation, { passive: true });
-          tiltButton.classList.add("is-on");
-          tiltButton.setAttribute("aria-pressed", "true");
-          tiltButton.querySelector("strong").textContent = "Venue tilt is on";
-        } catch {
-          tiltButton.querySelector("strong").textContent = "Motion not enabled";
-        } finally {
-          tiltButton.disabled = false;
-        }
-      });
-    }
-
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden && tiltEnabled) resetVenueTilt();
+        if(status)status.textContent="Current location added. Open Maps for live navigation.";
+        useLocation.disabled=false;
+        WeddingUI.end(token);
+      },error=>{
+        geoOrigin="";
+        if(status)status.textContent=error.code===1
+          ?"Location permission was not granted. Type your starting point instead."
+          :"We couldn't get your location. Type your starting point instead.";
+        useLocation.disabled=false;
+        WeddingUI.end(token);
+      },{enableHighAccuracy:false,timeout:9000,maximumAge:120000});
     });
   }
 
