@@ -9,7 +9,7 @@ const app=read("assets/app.js");
 const planner=read("assets/planner.js");
 
 test("new build reaches mobile devices",()=>{
-  assert.match(app,/const BUILD = "20261118-invitation1"/);
+  assert.match(app,/const BUILD = "20261119-details1"/);
   assert.match(html,/assets\/app\.js\?v=20261108-funcfix1/);
 });
 test("planner script parses and explains callable errors",()=>{
