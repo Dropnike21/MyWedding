@@ -175,6 +175,19 @@ export class PlannerFirestoreStore {
       throw new Error("Select a valid wedding date before publishing public details.");
     const rawMode=String(settings?.rsvpMode || "Both");
     const rsvpMode=["Both","Messenger only","Website only"].includes(rawMode)?rawMode:"Both";
+    const sourceGuide=settings?.guestGuide || {};
+    const guideText=key=>String(sourceGuide[key] || "").trim().slice(0,1200);
+    const guestGuide={
+      attire:guideText("attire"),
+      whatToWear:guideText("whatToWear"),
+      whatToBring:guideText("whatToBring"),
+      preparation:guideText("preparation"),
+      arrival:guideText("arrival"),
+      venueInstructions:guideText("venueInstructions"),
+      transportParking:guideText("transportParking"),
+      reminders:guideText("reminders"),
+      contact:guideText("contact"),
+    };
     return {
       date,
       dateTentative:true,
@@ -183,6 +196,7 @@ export class PlannerFirestoreStore {
       city:String(settings?.city || "").trim().slice(0,120),
       venueTentative:true,
       rsvpMode,
+      guestGuide,
     };
   }
 
@@ -191,7 +205,7 @@ export class PlannerFirestoreStore {
     const details=this.publicProjection(settings);
     const ref=doc(this.db,"publicWeddingDetails","current");
     const snap=await getDoc(ref);
-    if (snap.exists() && Object.keys(details).every(key=>snap.data()[key] === details[key])) {
+    if (snap.exists() && Object.keys(details).every(key=>stable(snap.data()[key]) === stable(details[key]))) {
       this.publicDetailsError=null;
       return true;
     }
