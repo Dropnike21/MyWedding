@@ -31,6 +31,17 @@ function seed() {
       city: "",
       guestTarget: 0,
       rsvpMode: "Both",
+      guestGuide: {
+        attire: "",
+        whatToWear: "",
+        whatToBring: "",
+        preparation: "",
+        arrival: "",
+        venueInstructions: "",
+        transportParking: "",
+        reminders: "",
+        contact: ""
+      },
       gardenSavingsTarget: 0,
       gardenSavingsSaved: 0,
       gardenSavingsNotes: "",
@@ -365,6 +376,49 @@ function renderSettings() {
     e.preventDefault();const fd=new FormData(e.currentTarget);
     db.settings={...db.settings,date:fd.get("date"),budget:num(fd.get("budget")),guestTarget:num(fd.get("guestTarget")),ceremony:String(fd.get("ceremony")||""),venue:String(fd.get("venue")||""),city:String(fd.get("city")||""),rsvpMode:String(fd.get("rsvpMode")||"Both"),notes:String(fd.get("notes")||"")};save();
     root.querySelector("#planner-settings-msg").textContent=remoteActive?"Saved to Firebase.":"Saved locally.";
+    updateToolbar();
+  });
+}
+
+function renderGuestGuide(){
+  const guide=db.settings.guestGuide||{};
+  root.innerHTML=header(
+    "Guest Guide",
+    "Everything invited guests should know before the wedding. These details are published to the private invitation experience."
+  )+
+  '<section class="planner-card planner-guest-guide-card">'+
+    '<form id="planner-guest-guide-form" class="planner-form-grid">'+
+      formField("attire","Dress code / attire","textarea",guide.attire||"",false)+
+      formField("whatToWear","What to wear","textarea",guide.whatToWear||"",false)+
+      formField("whatToBring","What to bring","textarea",guide.whatToBring||"",false)+
+      formField("preparation","Things to prepare beforehand","textarea",guide.preparation||"",false)+
+      formField("arrival","Arrival time / when to be there","textarea",guide.arrival||"",false)+
+      formField("venueInstructions","Venue instructions","textarea",guide.venueInstructions||"",false)+
+      formField("transportParking","Parking / transport instructions","textarea",guide.transportParking||"",false)+
+      formField("reminders","Important reminders","textarea",guide.reminders||"",false)+
+      formField("contact","Who to contact on the day","textarea",guide.contact||"",false)+
+      '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">Save guest guide</button><span id="planner-guest-guide-msg"></span></div>'+
+    '</form>'+
+  '</section>';
+  root.querySelector("#planner-guest-guide-form")?.addEventListener("submit",e=>{
+    e.preventDefault();
+    const fd=new FormData(e.currentTarget);
+    db.settings={
+      ...db.settings,
+      guestGuide:{
+        attire:String(fd.get("attire")||"").trim(),
+        whatToWear:String(fd.get("whatToWear")||"").trim(),
+        whatToBring:String(fd.get("whatToBring")||"").trim(),
+        preparation:String(fd.get("preparation")||"").trim(),
+        arrival:String(fd.get("arrival")||"").trim(),
+        venueInstructions:String(fd.get("venueInstructions")||"").trim(),
+        transportParking:String(fd.get("transportParking")||"").trim(),
+        reminders:String(fd.get("reminders")||"").trim(),
+        contact:String(fd.get("contact")||"").trim()
+      }
+    };
+    save();
+    root.querySelector("#planner-guest-guide-msg").textContent=remoteActive?"Saved to Firebase.":"Saved locally.";
     updateToolbar();
   });
 }
@@ -1042,12 +1096,13 @@ function renderCurrent() {
   selectedId = selectedId && currentView!=="overview" ? selectedId : selectedId;
   if(currentView==="overview")renderOverview();
   else if(currentView==="settings")renderSettings();
+  else if(currentView==="guestguide")renderGuestGuide();
   else if(currentView==="budget")renderBudget();
   else if(currentView==="photos")renderPhotoArchive();
   else renderEntity(currentView);
 }
 function switchPlanner(view,clear=true){
-  if(!["overview","settings","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
+  if(!["overview","settings","guestguide","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
   if(view==="budget" && organizerRole==="coordinator")view="vendors";
   currentView=view;if(clear){selectedId=null;search="";showArchived=false;recordModalOpen=false;savingsModalOpen=false}
   const navView=(view==="vendors"||view==="expenses")?"budget":view;
@@ -1176,8 +1231,8 @@ function unlockPlanner() {
 function applyRoleUI(role){
   organizerRole=role;
   const hidden=new Set();
-  if(role==="coordinator"){hidden.add("settings");hidden.add("photos");}
-  if(role==="finance"){["settings","guests","tasks","timeline","decisions","photos"].forEach(x=>hidden.add(x));}
+  if(role==="coordinator"){hidden.add("settings");hidden.add("guestguide");hidden.add("photos");}
+  if(role==="finance"){["settings","guestguide","guests","tasks","timeline","decisions","photos"].forEach(x=>hidden.add(x));}
   document.querySelectorAll("[data-planner-view]").forEach(btn=>{
     btn.hidden=hidden.has(btn.dataset.plannerView);
   });
