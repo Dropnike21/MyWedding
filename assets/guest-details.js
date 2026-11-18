@@ -1,6 +1,6 @@
-import { guestAccessConfig } from "./guest-config.js?v=20261119-guestguide1";
-import { getGuestClient, callGuestFunction } from "./firebase-services.js?v=20261119-guestguide1";
-import { start as startPublicWedding } from "./public-wedding.js?v=20261119-guestguide1";
+import { guestAccessConfig } from "./guest-config.js?v=20261119-guestdetails1";
+import { getGuestClient, callGuestFunction } from "./firebase-services.js?v=20261119-guestdetails1";
+import { start as startPublicWedding } from "./public-wedding.js?v=20261119-guestdetails1";
 
 const CODE_PATTERN=/^[A-HJ-NP-Z2-9]{8}$/;
 const normalize=value=>String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,8);
