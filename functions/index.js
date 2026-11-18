@@ -3,8 +3,8 @@
 /**
  * MyWedding production invitation service.
  *
- * A guest uses a short bearer code. The raw code is shown once to the
- * authorized organizer; Firestore contains HMAC digests, never plain codes.
+ * A guest uses a short bearer code. Firestore stores an HMAC digest for
+ * verification plus an encrypted owner-only recovery copy, never plaintext.
  * Regeneration atomically removes the old code index and increments a
  * revision. Every camera request must recheck that revision on the server.
  */
@@ -12,7 +12,7 @@ const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp, getApps } = require("firebase-admin/app");
 const { getFirestore, FieldValue, Timestamp } = require("firebase-admin/firestore");
-const { createHmac, randomBytes } = require("node:crypto");
+const { createHmac, createHash, createCipheriv, createDecipheriv, randomBytes } = require("node:crypto");
 const { google } = require("googleapis");
 
 if (!getApps().length) initializeApp();
@@ -37,6 +37,32 @@ const DEFAULT_OWNER_EMAILS = new Set([
 
 function hash(value) {
   return createHmac("sha256", CODE_SECRET.value()).update(String(value)).digest("hex");
+}
+function codeVaultKey() {
+  return createHash("sha256").update("owner-invitation-vault:"+CODE_SECRET.value()).digest();
+}
+function encryptCode(code) {
+  const iv=randomBytes(12);
+  const cipher=createCipheriv("aes-256-gcm",codeVaultKey(),iv);
+  const encrypted=Buffer.concat([cipher.update(String(code),"utf8"),cipher.final()]);
+  const tag=cipher.getAuthTag();
+  return [iv,tag,encrypted].map(value=>value.toString("base64")).join(".");
+}
+function decryptCode(vault) {
+  if(!vault)return "";
+  try{
+    const [iv64,tag64,data64]=String(vault).split(".");
+    if(!iv64||!tag64||!data64)return "";
+    const decipher=createDecipheriv("aes-256-gcm",codeVaultKey(),Buffer.from(iv64,"base64"));
+    decipher.setAuthTag(Buffer.from(tag64,"base64"));
+    const code=Buffer.concat([
+      decipher.update(Buffer.from(data64,"base64")),decipher.final()
+    ]).toString("utf8");
+    return CODE_PATTERN.test(code)?code:"";
+  }catch(error){
+    console.warn("Could not decrypt invitation code for owner view:",error?.message);
+    return "";
+  }
 }
 function generateCode() {
   return Array.from(randomBytes(8), byte => ALPHABET[byte & 31]).join("");
@@ -327,8 +353,9 @@ function oneTimeCodeResponse(id, code, revision) {
 }
 
 /**
- * Issue an invitation. No plaintext code is stored in Firestore.
- * A retry handles the extraordinarily unlikely random-code collision.
+ * Issue an invitation. The bearer code is HMAC-indexed for verification and
+ * encrypted for owner-only recovery. A retry handles the extraordinarily
+ * unlikely random-code collision.
  */
 exports.createInvitation = onCall(configuration(), async request => {
   requireAdmin(request);
@@ -354,6 +381,7 @@ exports.createInvitation = onCall(configuration(), async request => {
     batch.create(invitation, {
       ...values,
       codeDigest: digest,
+      codeVault: encryptCode(code),
       revision: 1,
       status: "active",
       confirmedSeats: 0,
@@ -379,11 +407,15 @@ exports.createInvitation = onCall(configuration(), async request => {
   throw new HttpsError("internal", "Could not issue a unique code.");
 });
 
-/** Private invitation register. This NEVER returns plaintext codes. */
-exports.listInvitations = onCall(configuration({}, false), async request => {
+/** Private owner invitation register. Codes are decrypted only after owner auth. */
+exports.listInvitations = onCall(configuration(), async request => {
   requireAdmin(request);
   const snapshot = await db.collection("invitationRegistry").orderBy("createdAt", "desc").limit(300).get();
-  return { items: snapshot.docs.map(publicInvitation) };
+  return { items: snapshot.docs.map(snapshot=>{
+    const item=publicInvitation(snapshot);
+    const code=item.status==="active" ? decryptCode(snapshot.get("codeVault")) : "";
+    return {...item,code,linkRecoverable:Boolean(code)};
+  }) };
 });
 
 /** Update guest/family information without changing the existing code. */
@@ -436,6 +468,7 @@ exports.rotateInvitation = onCall(configuration(), async request => {
         tx.create(nextIndex, { invitationId: id, revision: nextRevision, status: "active" });
         tx.update(ref, {
           codeDigest: digest,
+          codeVault: encryptCode(code),
           status: "active",
           revision: nextRevision,
           rotatedAt: FieldValue.serverTimestamp(),
@@ -465,6 +498,7 @@ exports.revokeInvitation = onCall(configuration({}, false), async request => {
     tx.update(ref, {
       status: "revoked",
       codeDigest: null,
+      codeVault: null,
       revision: Number(old.revision || 1) + 1,
       updatedAt: FieldValue.serverTimestamp(),
       revokedAt: FieldValue.serverTimestamp(),
@@ -510,7 +544,7 @@ exports.deleteInvitationAndPhotos = onCall(configuration({
     const digest=snap.get("codeDigest");
     if(digest)tx.delete(db.collection("invitationCodes").doc(digest));
     tx.update(ref,{
-      status:"deleting",codeDigest:null,cameraAccessEnabled:false,
+      status:"deleting",codeDigest:null,codeVault:null,cameraAccessEnabled:false,
       revision:Number(snap.get("revision")||1)+1,
       deletionStartedAt:FieldValue.serverTimestamp(),
     });
