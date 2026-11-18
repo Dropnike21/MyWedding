@@ -7,7 +7,7 @@ const status = document.querySelector("#firebase-status");
 
 try {
   const app = getApps().find(item => item.name === "[DEFAULT]") || initializeApp(firebaseConfig);
-  if (status) status.textContent = "Firebase client ready. Planner access is available; guest camera backend and Drive uploads are still pending.";
+  if (status) status.textContent = "Firebase client ready. Planner, invitation, RSVP and guest-camera services are configured; live availability depends on the deployed Functions and Drive connection.";
   console.info("Firebase app initialized:", app.name);
 } catch (error) {
   if (status) status.textContent = "Firebase setup needs attention";
