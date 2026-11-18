@@ -557,8 +557,8 @@ function renderBudget() {
       db.budgetCategories.map(c=>'<label><span>'+esc(c.name)+'</span><input type="number" min="0" step="500" value="'+num(c.allocated)+'" data-budget-id="'+esc(c.id)+'" /></label>').join("")+
       '</div><div class="planner-allocation-total"><span>Allocation total</span><strong>'+money.format(allocated)+'</strong></div></section>'+
       '<section class="planner-card"><div class="planner-card-head"><h3>Commitments</h3><span>'+money.format(committed)+'</span></div>'+
-        '<div class="planner-budget-lines"><div><span>Suppliers</span><strong>'+money.format(supplierCommitted)+'</strong></div><div><span>Wedding expenses</span><strong>'+money.format(personalCommitted)+'</strong></div></div>'+
-        '<div class="planner-card-head planner-subhead"><h3>Wedding expenses</h3><button data-jump="expenses">Manage expenses →</button></div><div class="planner-mini-list">'+
+        '<div class="planner-budget-lines"><div><span>Suppliers</span><strong>'+money.format(supplierCommitted)+'</strong></div><div><span>Direct expenses</span><strong>'+money.format(personalCommitted)+'</strong></div></div>'+
+        '<div class="planner-card-head planner-subhead"><h3>Direct expenses</h3><button data-jump="expenses">Manage expenses →</button></div><div class="planner-mini-list">'+
         (expenseOptions.length?expenseOptions.slice(0,6).map(x=>'<button data-open-view="expenses" data-open-id="'+esc(x.id)+'"><span>'+esc(x.name)+'</span><small>'+esc(x.category)+'</small><strong>'+money.format(x.actualCost||x.expectedCost)+'</strong></button>').join(""):'<p>No direct wedding expenses yet.</p>')+
       '</div></section></div>'+
     '<section class="planner-list-card planner-list-card-full planner-payments-list"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search payments" value="'+esc(search)+'" /><span>'+filtered.length+' transactions</span></div>'+
@@ -1125,7 +1125,7 @@ function applyRoleUI(role){
   organizerRole=role;
   const hidden=new Set();
   if(role==="coordinator"){hidden.add("settings");hidden.add("photos");}
-  if(role==="finance"){["settings","guests","tasks","timeline","decisions","team","photos"].forEach(x=>hidden.add(x));}
+  if(role==="finance"){["settings","guests","tasks","timeline","decisions","photos"].forEach(x=>hidden.add(x));}
   document.querySelectorAll("[data-planner-view]").forEach(btn=>{
     btn.hidden=hidden.has(btn.dataset.plannerView);
   });
