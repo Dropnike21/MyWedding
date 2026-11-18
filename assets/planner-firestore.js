@@ -151,6 +151,7 @@ export class PlannerFirestoreStore {
       data[name] = snap
         ? snap.docs.map(x => ({ id:x.id, ...x.data() }))
             .map(({createdAt,updatedAt,...rest})=>rest)
+            .filter(record => record.cleared !== true)
         : [];
     }
 
@@ -235,9 +236,25 @@ export class PlannerFirestoreStore {
     // Firestore batches support at most 500 writes. Keep reset batches below
     // that limit so a large guest list can still be cleared safely.
     for (let i=0; i<refs.length; i+=400) {
+      const chunk = refs.slice(i,i+400);
       const deleteBatch = writeBatch(this.db);
-      for (const ref of refs.slice(i,i+400)) deleteBatch.delete(ref);
-      await deleteBatch.commit();
+      for (const ref of chunk) deleteBatch.delete(ref);
+      try {
+        await deleteBatch.commit();
+      } catch(error) {
+        // Older live rules denied deletes. Replace each document with a
+        // content-free tombstone instead; load() filters these records out.
+        if (!String(error?.code || "").includes("permission-denied")) throw error;
+        const clearBatch = writeBatch(this.db);
+        for (const ref of chunk) {
+          clearBatch.set(ref, {
+            cleared:true,
+            archived:true,
+            updatedAt:serverTimestamp()
+          });
+        }
+        await clearBatch.commit();
+      }
     }
 
     const batch = writeBatch(this.db);
