@@ -715,7 +715,7 @@ function invitationServiceError(error, service = "invitation service") {
   }
   if(code==="unauthenticated" || code==="permission-denied")
     return "Firebase did not authorize the "+service+" request ("+code+
-      "). Sign in as a verified wedding owner and verify App Check and Function permissions."+hint;
+      "). Sign in as a verified wedding owner. If this persists after the latest Functions deployment, check the Cloud Run/Functions invocation permissions."+hint;
   if(code==="failed-precondition")
     return "The "+service+" needs additional Firebase or Google Drive setup ("+
       code+")."+hint;
