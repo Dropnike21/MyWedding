@@ -10,7 +10,7 @@ const planner=read("assets/planner.js");
 
 test("new build reaches mobile devices",()=>{
   assert.match(app,/const BUILD = "20261119-details1"/);
-  assert.match(html,/assets\/app\.js\?v=20261108-funcfix1/);
+  assert.match(html,/assets\/app\.js\?v=20261119-details1/);
 });
 test("planner script parses and explains callable errors",()=>{
   assert.doesNotThrow(()=>new Script(planner.replace(/^import .*\n/gm,"")));
