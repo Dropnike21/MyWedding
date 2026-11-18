@@ -206,12 +206,12 @@ function bindFinanceTabs(){
 const schemas = {
   guests:{
     title:"Guests & RSVPs",singular:"guest",collection:"guests",
-    subtitle:"Keep individual and family invitations organized before secure invitation links go live.",
+    subtitle:"Keep invitations organized and record attendance manually from your Messenger confirmations.",
     fields:[
       ["name","Guest / family name","text",true],
       ["side","Invited by","select",true,["Angela","Joseph","Shared"]],
       ["seats","Estimated seats","number",true],
-      ["rsvp","RSVP","select",true,["Pending","Yes","No","Maybe"]],
+      ["rsvp","Attendance","select",true,["Pending","Yes","No","Maybe"]],
       ["confirmed","Confirmed attending","number",false],
       ["relationship","Relationship","select",false,["","Immediate family","Relative","Friend","Coworker","Sponsor","Family group","Other"]],
       ["priority","Priority","select",false,["","Must invite","Preferred","Optional"]],
@@ -219,7 +219,7 @@ const schemas = {
       ["contact","Contact / Messenger","text",false],
       ["notes","Notes","textarea",false]
     ],
-    columns:[["name","Guest"],["side","Side"],["seats","Seats"],["rsvp","RSVP"],["confirmed","Confirmed"]]
+    columns:[["name","Guest"],["side","Side"],["seats","Seats"],["rsvp","Attendance"],["confirmed","Confirmed"]]
   },
   vendors:{
     title:"Suppliers & Bookings",singular:"supplier",collection:"vendors",
@@ -725,6 +725,7 @@ function invitationServiceError(error, service = "invitation service") {
 }
 
 let issuedInvitationLink="";
+let issuedInvitationMessage="";
 function guestInvitationUrl(code) {
   return window.location.origin+window.location.pathname+"#camera/"+String(code);
 }
@@ -751,8 +752,11 @@ function invitationManagerCard() {
     '<div id="invitation-generated-link" class="planner-invitation-link" hidden>'+
       '<label for="invitation-link-value">New private invitation link — copy now</label>'+
       '<input type="text" id="invitation-link-value" readonly autocomplete="off" />'+
+      '<label for="invitation-message-value">Messenger message</label>'+
+      '<textarea id="invitation-message-value" rows="10" readonly></textarea>'+
       '<div class="planner-invitation-actions">'+
-        '<button type="button" class="button outlined" id="invitation-copy">Copy link</button>'+
+        '<button type="button" class="button outlined" id="invitation-copy-message">Copy Messenger message</button>'+
+        '<button type="button" class="button outlined" id="invitation-copy">Copy link only</button>'+
         '<a class="button primary" id="invitation-open" target="_blank" rel="noopener noreferrer">Open guest invitation</a>'+
       '</div>'+
     '</div>'+
@@ -770,10 +774,38 @@ function bindInvitationManager() {
     for(const button of root.querySelectorAll("#invitation-create,#invitation-refresh,[data-invitation-action]"))
       button.disabled=value;
   };
-  const displayLink=code=>{
+  const invitationMessage=(guest,link)=>{
+    const date=db.settings.date?dateLabel(db.settings.date):"Date to be confirmed";
+    const ceremony=String(db.settings.ceremony||"Civil wedding").trim()||"Civil wedding";
+    const venue=String(db.settings.venue||"Venue to be confirmed").trim()||"Venue to be confirmed";
+    const city=String(db.settings.city||"Location to be confirmed").trim()||"Location to be confirmed";
+    const seats=Math.max(1,Number(guest?.seats)||1);
+    return [
+      "Hi "+(guest?.name||"there")+"!",
+      "",
+      "Angela & Joseph would love to invite you to our "+ceremony.toLowerCase()+".",
+      "",
+      "Date: "+date,
+      "Ceremony: "+ceremony,
+      "Venue: "+venue,
+      "Location: "+city,
+      "Seats reserved: "+seats,
+      "",
+      "Wedding details and your private wedding-camera pass:",
+      link,
+      "",
+      "Please reply to this Messenger conversation to confirm if you can attend and how many of the reserved seats you will use.",
+      "",
+      "Thank you — we hope to celebrate with you. 🤍"
+    ].join("\n");
+  };
+  const displayLink=(code,guest)=>{
     issuedInvitationLink=guestInvitationUrl(code);
+    issuedInvitationMessage=invitationMessage(guest,issuedInvitationLink);
     const output=root.querySelector("#invitation-link-value");
     if(output)output.value=issuedInvitationLink;
+    const message=root.querySelector("#invitation-message-value");
+    if(message)message.value=issuedInvitationMessage;
     const anchor=root.querySelector("#invitation-open");
     if(anchor)anchor.href=issuedInvitationLink;
     const area=root.querySelector("#invitation-generated-link");
@@ -782,27 +814,13 @@ function bindInvitationManager() {
   const refresh=async()=>{
     const result=await run("listInvitations",{});
     const invitations=result.items||[];
-    let plannerChanged=false;
-    for(const item of invitations){
-      if(!item.sourceGuestId)continue;
-      const guest=db.guests.find(g=>g.id===item.sourceGuestId);
-      if(!guest)continue;
-      const nextRsvp=String(item.rsvp||"Pending");
-      const nextConfirmed=Math.max(0,Number(item.confirmedSeats||0));
-      if(guest.rsvp!==nextRsvp || Number(guest.confirmed||0)!==nextConfirmed){
-        guest.rsvp=nextRsvp;
-        guest.confirmed=nextConfirmed;
-        plannerChanged=true;
-      }
-    }
-    if(plannerChanged)save();
     if(!invitations.length){panel.innerHTML='<p class="planner-muted">No invitations issued yet.</p>';return;}
     panel.innerHTML='<div class="planner-table-wrap"><table class="planner-table">'+
-      '<thead><tr><th>Guest / family</th><th>Seats</th><th>RSVP</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
-      invitations.map(item=>'<tr><td>'+esc(item.partyLabel)+
+      '<thead><tr><th>Guest / family</th><th>Seats</th><th>Manual confirmation</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
+      invitations.map(item=>{const linked=db.guests.find(g=>g.id===item.sourceGuestId);const attendance=linked?.rsvp||"Pending";const confirmed=Number(linked?.confirmed||0);return '<tr><td>'+esc(item.partyLabel)+
         (item.status==="deleting"?' · DELETION PENDING':'')+
-        '</td><td>'+esc(item.invitedSeats)+'</td><td>'+esc(item.rsvp||"Pending")+
-        ((item.rsvp==="Yes")?" · "+esc(item.confirmedSeats||0)+"/"+esc(item.invitedSeats):"")+
+        '</td><td>'+esc(item.invitedSeats)+'</td><td>'+esc(attendance)+
+        ((attendance==="Yes")?" · "+esc(confirmed)+"/"+esc(item.invitedSeats):"")+
         '</td><td>'+esc(item.photosUsed)+' / '+esc(item.photoLimit)+
         '</td><td>'+esc(item.cameraAccessEnabled?"Open":"Closed")+
         '</td><td><div class="planner-invite-actions">'+
@@ -812,7 +830,7 @@ function bindInvitationManager() {
             '<button type="button" data-invitation-action="rotate" data-invitation-id="'+esc(item.id)+'">Regenerate link</button>'
           : "")+
         '<button type="button" class="planner-link-danger" data-invitation-action="delete" data-invitation-id="'+esc(item.id)+'">Delete guest &amp; photos</button>'+
-        '</div></td></tr>').join("")+
+        '</div></td></tr>'}).join("")+
       '</tbody></table></div>';
     panel.querySelectorAll("[data-invitation-action]").forEach(button=>{
       button.addEventListener("click",async()=>{
@@ -838,7 +856,7 @@ function bindInvitationManager() {
               " for "+item.partyLabel+".";
           }else if(action==="rotate"){
             const result=await run("rotateInvitation",{invitationId:item.id});
-            displayLink(result.code);
+            displayLink(result.code,db.guests.find(g=>g.id===item.sourceGuestId)||{name:item.partyLabel,seats:item.invitedSeats});
             status.textContent="New invitation link issued. Copy it now; the old code is invalid.";
           }else{
             await run("deleteInvitationAndPhotos",{invitationId:item.id});
@@ -878,7 +896,7 @@ function bindInvitationManager() {
         invitedSeats:Math.min(30,Math.max(1,Number(guest.seats)||1)),
         notes:"",rsvp:"Pending",sourceGuestId:guest.id
       });
-      displayLink(issued.code);
+      displayLink(issued.code,guest);
       try {
         await run("setInvitationCameraAccess",{
           invitationId:issued.invitationId,enabled:true
@@ -897,6 +915,16 @@ function bindInvitationManager() {
   root.querySelector("#invitation-refresh")?.addEventListener("click",()=>{
     refresh().catch(error=>{status.textContent="Could not load invitations: "+
       invitationServiceError(error,"invitation list");});
+  });
+  root.querySelector("#invitation-copy-message")?.addEventListener("click",async()=>{
+    if(!issuedInvitationMessage)return;
+    try{
+      await navigator.clipboard.writeText(issuedInvitationMessage);
+      status.textContent="Messenger message copied. Paste it into your PM conversation with the guest.";
+    }catch{
+      root.querySelector("#invitation-message-value")?.select();
+      status.textContent="Copy the selected Messenger message using your browser.";
+    }
   });
   root.querySelector("#invitation-copy")?.addEventListener("click",async()=>{
     if(!issuedInvitationLink)return;
