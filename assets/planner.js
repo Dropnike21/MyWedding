@@ -853,7 +853,7 @@ function bindInvitationManager() {
       "Location: "+city,
       "Seats reserved: "+seats,
       "",
-      "Wedding details and your private wedding-camera pass:",
+      "Open this private link for the full wedding guide — attire, what to bring, preparation, venue instructions, reminders — and your wedding-camera pass:",
       link,
       "",
       confirmation,
