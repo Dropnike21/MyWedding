@@ -793,7 +793,7 @@ function invitationManagerCard() {
     '<h3 id="invitation-manager-title">Invitation links &amp; camera access</h3>'+
     '<p>Create a guest under <strong>Guests &amp; RSVPs</strong>, then select them here to issue a real invitation link. '+
     'The camera can be opened or closed separately for each invitation, without a time limit. '+
-    'A new code is visible only once; existing links cannot be retrieved, but may be regenerated.</p>'+
+    'Issued links and Messenger messages can be reopened and copied again from the invitation list.</p>'+
     '<label for="invitation-guest-select">Saved guest or family</label>'+
     '<select id="invitation-guest-select" class="planner-invite-select">'+
       '<option value="">Choose a saved guest</option>'+
@@ -806,7 +806,7 @@ function invitationManagerCard() {
     '<p id="invitation-manager-status" class="planner-invitation-status" role="status" aria-live="polite">'+
       'Only verified owners can issue links or remove guests. Guest verification uses Firebase.</p>'+
     '<div id="invitation-generated-link" class="planner-invitation-link" hidden>'+
-      '<label for="invitation-link-value">New private invitation link — copy now</label>'+
+      '<label for="invitation-link-value">Private invitation link</label>'+
       '<input type="text" id="invitation-link-value" readonly autocomplete="off" />'+
       '<label for="invitation-message-value">Messenger message</label>'+
       '<textarea id="invitation-message-value" rows="10" readonly></textarea>'+
@@ -887,7 +887,10 @@ function bindInvitationManager() {
         '</td><td>'+esc(item.cameraAccessEnabled?"Open":"Closed")+
         '</td><td><div class="planner-invite-actions">'+
         (item.status==="active"
-          ? '<button type="button" data-invitation-action="camera" data-invitation-id="'+esc(item.id)+'">'+
+          ? (item.code
+              ? '<button type="button" data-invitation-action="view" data-invitation-id="'+esc(item.id)+'">View link &amp; message</button>'
+              : '<span class="planner-invite-legacy">Legacy link · regenerate once</span>')+
+            '<button type="button" data-invitation-action="camera" data-invitation-id="'+esc(item.id)+'">'+
               (item.cameraAccessEnabled?"Close camera":"Open camera")+'</button>'+
             '<button type="button" data-invitation-action="rotate" data-invitation-id="'+esc(item.id)+'">Regenerate link</button>'
           : "")+
@@ -901,7 +904,17 @@ function bindInvitationManager() {
         if(!item)return;
         const action=button.dataset.invitationAction;
         const actionLabel=action==="camera"?(item.cameraAccessEnabled?"close":"open"):
-          action==="rotate"?"regenerate":"delete";
+          action==="rotate"?"regenerate":action==="view"?"view":"delete";
+        if(action==="view"){
+          const guest=db.guests.find(g=>g.id===item.sourceGuestId)||{name:item.partyLabel,seats:item.invitedSeats};
+          if(!item.code){
+            status.textContent="This invitation was created before reusable owner links were enabled. Regenerate it once to make future resends available.";
+            return;
+          }
+          displayLink(item.code,guest);
+          status.textContent="Existing invitation ready to resend. The guest's current link remains unchanged.";
+          return;
+        }
         if(action==="delete"){
           const verified=prompt("Permanently delete this invitation, its camera access, BOTH Drive photo copies, the Sheet log rows and its linked planning guest? Type DELETE to confirm: "+
             item.partyLabel);
@@ -919,7 +932,7 @@ function bindInvitationManager() {
           }else if(action==="rotate"){
             const result=await run("rotateInvitation",{invitationId:item.id});
             displayLink(result.code,db.guests.find(g=>g.id===item.sourceGuestId)||{name:item.partyLabel,seats:item.invitedSeats});
-            status.textContent="New invitation link issued. Copy it now; the old code is invalid.";
+            status.textContent="New invitation link issued and saved for future resends. The old code is invalid.";
           }else{
             await run("deleteInvitationAndPhotos",{invitationId:item.id});
             if(item.sourceGuestId){
@@ -963,7 +976,7 @@ function bindInvitationManager() {
         await run("setInvitationCameraAccess",{
           invitationId:issued.invitationId,enabled:true
         });
-        status.textContent="Invitation link ready. Camera enabled for this guest until you close or delete it.";
+        status.textContent="Invitation link ready and saved for future resends. Camera enabled for this guest until you close or delete it.";
       }catch(error){
         status.textContent="Invitation created, but camera access could not be enabled: "+
           invitationServiceError(error,"camera access")+
