@@ -8,7 +8,7 @@ const app=readFileSync(new URL("../assets/app.js",import.meta.url),"utf8");
 const planner=readFileSync(new URL("../assets/planner.js",import.meta.url),"utf8");
 
 const plannerViews=[
-  "overview","settings","guests","photos","budget",
+  "overview","settings","guestguide","guests","photos","budget",
   "tasks","timeline","decisions"
 ];
 
@@ -63,6 +63,14 @@ test("money-related planner navigation is unified under Budget & spending",()=>{
   assert.match(planner,/Summary & payments/);
   assert.match(planner,/Direct expenses/);
   assert.match(planner,/const navView=\(view==="vendors"\|\|view==="expenses"\)\?"budget":view/);
+});
+
+test("Guest Guide is a first-class Planning Studio section",()=>{
+  assert.match(html,/data-planner-view="guestguide"/);
+  assert.match(html,/<option value="guestguide">Guest guide<\/option>/);
+  assert.match(planner,/function renderGuestGuide\(\)/);
+  assert.match(planner,/Things to prepare beforehand/);
+  assert.match(planner,/Parking \/ transport instructions/);
 });
 
 test("planner reflects civil wedding now and future garden wedding savings",()=>{
