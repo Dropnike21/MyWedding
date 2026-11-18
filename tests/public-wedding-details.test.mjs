@@ -70,7 +70,7 @@ test("venue map is driven by published Planning Studio values",()=>{
 });
 
 test("current dynamic detail cache version is used",()=>{
-  assert.match(app,/const BUILD = "20261119-guestguide1"/);
-  assert.match(html,/assets\/app\.js\?v=20261119-guestguide1/);
-  assert.match(planner,/planner-firestore\.js\?v=20261119-guestguide1/);
+  assert.match(app,/const BUILD = "20261119-guestdetails1"/);
+  assert.match(html,/assets\/app\.js\?v=20261119-guestdetails1/);
+  assert.match(planner,/planner-firestore\.js\?v=20261119-guestdetails1/);
 });
