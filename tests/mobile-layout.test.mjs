@@ -9,7 +9,7 @@ const planner=readFileSync(new URL("../assets/planner.js",import.meta.url),"utf8
 
 const plannerViews=[
   "overview","settings","guests","photos","budget",
-  "tasks","timeline","decisions","team"
+  "tasks","timeline","decisions"
 ];
 
 test("top navigation remains accessible without a floating bottom overlay",()=>{
@@ -63,6 +63,16 @@ test("money-related planner navigation is unified under Budget & spending",()=>{
   assert.match(planner,/Summary & payments/);
   assert.match(planner,/Direct expenses/);
   assert.match(planner,/const navView=\(view==="vendors"\|\|view==="expenses"\)\?"budget":view/);
+});
+
+test("planner reflects civil wedding now and future garden wedding savings",()=>{
+  assert.doesNotMatch(html,/Coordinator team/);
+  assert.doesNotMatch(html,/data-planner-view="team"/);
+  assert.match(planner,/ceremony: "Civil wedding"/);
+  assert.match(planner,/Garden Wedding Fund/);
+  assert.match(planner,/gardenSavingsTarget/);
+  assert.match(planner,/gardenSavingsSaved/);
+  assert.doesNotMatch(planner,/\["","Angela","Joseph","Both","Coordinator"/);
 });
 
 test("mobile planner has readable fields and compact dashboard cards",()=>{
