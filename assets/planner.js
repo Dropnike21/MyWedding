@@ -782,12 +782,28 @@ function bindInvitationManager() {
   const refresh=async()=>{
     const result=await run("listInvitations",{});
     const invitations=result.items||[];
+    let plannerChanged=false;
+    for(const item of invitations){
+      if(!item.sourceGuestId)continue;
+      const guest=db.guests.find(g=>g.id===item.sourceGuestId);
+      if(!guest)continue;
+      const nextRsvp=String(item.rsvp||"Pending");
+      const nextConfirmed=Math.max(0,Number(item.confirmedSeats||0));
+      if(guest.rsvp!==nextRsvp || Number(guest.confirmed||0)!==nextConfirmed){
+        guest.rsvp=nextRsvp;
+        guest.confirmed=nextConfirmed;
+        plannerChanged=true;
+      }
+    }
+    if(plannerChanged)save();
     if(!invitations.length){panel.innerHTML='<p class="planner-muted">No invitations issued yet.</p>';return;}
     panel.innerHTML='<div class="planner-table-wrap"><table class="planner-table">'+
-      '<thead><tr><th>Guest / family</th><th>Seats</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
+      '<thead><tr><th>Guest / family</th><th>Seats</th><th>RSVP</th><th>Film</th><th>Camera</th><th>Actions</th></tr></thead><tbody>'+
       invitations.map(item=>'<tr><td>'+esc(item.partyLabel)+
         (item.status==="deleting"?' · DELETION PENDING':'')+
-        '</td><td>'+esc(item.invitedSeats)+'</td><td>'+esc(item.photosUsed)+' / '+esc(item.photoLimit)+
+        '</td><td>'+esc(item.invitedSeats)+'</td><td>'+esc(item.rsvp||"Pending")+
+        ((item.rsvp==="Yes")?" · "+esc(item.confirmedSeats||0)+"/"+esc(item.invitedSeats):"")+
+        '</td><td>'+esc(item.photosUsed)+' / '+esc(item.photoLimit)+
         '</td><td>'+esc(item.cameraAccessEnabled?"Open":"Closed")+
         '</td><td><div class="planner-invite-actions">'+
         (item.status==="active"
