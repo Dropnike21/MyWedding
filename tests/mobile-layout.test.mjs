@@ -8,7 +8,7 @@ const app=readFileSync(new URL("../assets/app.js",import.meta.url),"utf8");
 const planner=readFileSync(new URL("../assets/planner.js",import.meta.url),"utf8");
 
 const plannerViews=[
-  "overview","settings","guests","vendors","expenses","photos","budget",
+  "overview","settings","guests","photos","budget",
   "tasks","timeline","decisions","team"
 ];
 
@@ -47,11 +47,22 @@ test("native section picker mirrors all planner sidebar views",()=>{
 
 test("section changes, selected state and role filtering stay synchronized",()=>{
   assert.ok(planner.includes('document.getElementById("planner-mobile-section")?.addEventListener("change"'));
-  assert.ok(planner.includes("if(mobileSelector && mobileSelector.value!==view) mobileSelector.value=view"));
+  assert.ok(planner.includes("if(mobileSelector && mobileSelector.value!==navView) mobileSelector.value=navView"));
   assert.ok(planner.includes("option.hidden=restricted"));
   assert.ok(planner.includes("option.disabled=restricted"));
   assert.ok(planner.includes('button.setAttribute("aria-current","page")'));
   assert.ok(planner.includes('button.removeAttribute("aria-current")'));
+});
+
+test("money-related planner navigation is unified under Budget & spending",()=>{
+  assert.doesNotMatch(html,/data-planner-view="vendors"/);
+  assert.doesNotMatch(html,/data-planner-view="expenses"/);
+  assert.match(html,/data-planner-view="budget"/);
+  assert.match(html,/Budget &amp; spending/);
+  assert.match(planner,/function financeTabs\(view\)/);
+  assert.match(planner,/Summary & payments/);
+  assert.match(planner,/Direct expenses/);
+  assert.match(planner,/const navView=\(view==="vendors"\|\|view==="expenses"\)\?"budget":view/);
 });
 
 test("mobile planner has readable fields and compact dashboard cards",()=>{
