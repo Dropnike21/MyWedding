@@ -169,7 +169,11 @@ async function cameraWindow(manualEnabled) {
 function configuration(options = {}, withSecret = true) {
   return {
     region: REGION,
-    enforceAppCheck: true,
+    // Firebase Auth/session checks remain enforced in each callable handler.
+    // App Check is temporarily non-blocking because invalid web attestations
+    // were preventing legitimate owner and guest calls with HTTP 401.
+    // Re-enable after the production GitHub Pages domain is verified in App Check.
+    enforceAppCheck: false,
     maxInstances: 6,
     timeoutSeconds: 30,
     ...(withSecret ? { secrets: [CODE_SECRET] } : {}),
