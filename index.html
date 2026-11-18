@@ -55,7 +55,7 @@
             <button class="button primary" type="button" data-go="camera">Explore the photo experience <span aria-hidden="true">↗</span></button>
             <button class="button subtle" type="button" data-go="planner">See the planning studio <span aria-hidden="true">→</span></button>
           </div>
-          <p class="hero-note">The guest portal and live RSVPs will open closer to the wedding. This is a working preview, not a live invitation.</p>
+          <p class="hero-note">Private guest invitation links, RSVPs and wedding-camera access are managed through Wedding Studio.</p>
         </div>
         <div class="hero-art" aria-label="Illustration of an instant photograph and wedding flower">
           <div class="art-ring ring-a"></div><div class="art-ring ring-b"></div>
@@ -231,10 +231,25 @@
             <p class="guest-invite-venue" id="guest-invitation-venue">Venue to be confirmed</p>
             <p class="guest-invite-recipient" id="guest-invitation-recipient">To our invited guests</p>
             <p class="guest-invite-message" id="guest-invitation-message">We're delighted to share our wedding memories with you. Your private camera pass is ready below.</p>
+            <form class="guest-invite-rsvp" id="guest-invitation-rsvp" hidden>
+              <span class="guest-invite-rsvp-title">RSVP</span>
+              <p id="guest-invitation-seat-copy">Tell us if you can join us.</p>
+              <div class="guest-rsvp-options" role="group" aria-label="RSVP response">
+                <label><input type="radio" name="guest-rsvp" value="Yes" required /><span>Yes</span></label>
+                <label><input type="radio" name="guest-rsvp" value="Maybe" required /><span>Maybe</span></label>
+                <label><input type="radio" name="guest-rsvp" value="No" required /><span>No</span></label>
+              </div>
+              <label class="guest-rsvp-seats" id="guest-rsvp-seats-wrap" for="guest-rsvp-seats" hidden>
+                <span>How many are attending?</span>
+                <select id="guest-rsvp-seats" name="guest-rsvp-seats"></select>
+              </label>
+              <button type="submit" class="button outlined guest-rsvp-save" id="guest-rsvp-save">Save RSVP</button>
+              <p id="guest-rsvp-status" role="status" aria-live="polite"></p>
+            </form>
             <div class="guest-invite-pass">
               <span>YOUR PRIVATE CAMERA PASS</span>
               <strong id="guest-invitation-code">••••-••••</strong>
-              <small>Each code shares the film allowance assigned to its invitation.</small>
+              <small>This private code belongs to this invitation and its seat allotment.</small>
             </div>
             <button type="button" class="button primary guest-invite-continue" id="guest-invitation-continue">Open your wedding camera</button>
             <button type="button" class="guest-invite-enter-manually" id="guest-invitation-enter-code">Enter a different code</button>
