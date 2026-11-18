@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#f7f2e8" />
+  <title>Guest Details · Angela & Joseph</title>
+  <link rel="stylesheet" href="./assets/guest-details.css?v=20261119-guestdetails1" />
+</head>
+<body>
+  <main class="guest-details-shell">
+    <header class="guest-details-hero">
+      <a class="guest-details-brand" href="./index.html#home" aria-label="Angela and Joseph wedding home">
+        <span>A <em>&amp;</em> J</span>
+        <small>THE WEDDING JOURNAL</small>
+      </a>
+      <span class="guest-details-kicker">PRIVATE GUEST GUIDE</span>
+      <h1>Everything you need<br><em>for our day.</em></h1>
+      <p id="guest-details-party">Verifying your invitation…</p>
+      <p class="guest-details-status" id="guest-details-status" role="status" aria-live="polite">Loading wedding details…</p>
+    </header>
+
+    <section class="guest-details-section" aria-labelledby="guest-details-summary-title">
+      <div class="guest-details-section-head">
+        <span>01</span>
+        <div><small>THE ESSENTIALS</small><h2 id="guest-details-summary-title">Wedding details</h2></div>
+      </div>
+      <div class="guest-details-summary">
+        <article><span>Date</span><strong id="details-date">Date to be confirmed</strong></article>
+        <article><span>Ceremony</span><strong id="details-ceremony">Ceremony to be confirmed</strong></article>
+        <article><span>Venue</span><strong id="details-venue">Venue to be confirmed</strong></article>
+        <article><span>Location</span><strong id="details-city">Location to be confirmed</strong></article>
+        <article><span>Reserved seats</span><strong id="details-seats">—</strong></article>
+      </div>
+    </section>
+
+    <section class="guest-details-section" id="guest-guide-section" aria-labelledby="guest-guide-title">
+      <div class="guest-details-section-head">
+        <span>02</span>
+        <div><small>BEFORE YOU GO</small><h2 id="guest-guide-title">Guest guide</h2></div>
+      </div>
+      <div class="guest-guide-grid" id="guest-guide-grid"></div>
+      <p class="guest-guide-empty" id="guest-guide-empty">More guest instructions will appear here once they are finalized.</p>
+    </section>
+
+    <section class="guest-details-section" id="guest-rsvp-section" aria-labelledby="guest-rsvp-title">
+      <div class="guest-details-section-head">
+        <span>03</span>
+        <div><small>ATTENDANCE</small><h2 id="guest-rsvp-title">Confirm your attendance</h2></div>
+      </div>
+
+      <div class="guest-confirmation-choice" id="guest-messenger-confirmation">
+        <strong>Reply through Messenger</strong>
+        <p>You may reply in the Messenger conversation where you received your invitation link. Tell us whether you can attend and how many reserved seats you will use.</p>
+      </div>
+
+      <form class="guest-rsvp-form" id="guest-details-rsvp-form">
+        <span class="guest-rsvp-label">OR CONFIRM HERE</span>
+        <div class="guest-rsvp-options" role="group" aria-label="Attendance response">
+          <label><input type="radio" name="rsvp" value="Yes" required><span>Yes</span></label>
+          <label><input type="radio" name="rsvp" value="Maybe" required><span>Maybe</span></label>
+          <label><input type="radio" name="rsvp" value="No" required><span>No</span></label>
+        </div>
+        <label class="guest-rsvp-seats" id="guest-details-seats-wrap" hidden>
+          <span>How many are attending?</span>
+          <select id="guest-details-seat-select"></select>
+        </label>
+        <button type="submit">Save attendance</button>
+        <p id="guest-details-rsvp-status" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section class="guest-details-next">
+      <span>WHEN THE MOMENT ARRIVES</span>
+      <h2>Your invitation is also<br><em>your camera pass.</em></h2>
+      <p>Return to the private invitation whenever you're ready to capture wedding-day memories.</p>
+      <a class="guest-camera-link" id="guest-details-camera-link" href="./index.html#camera">Open wedding camera →</a>
+    </section>
+  </main>
+
+  <script type="module" src="./assets/guest-details.js?v=20261119-guestdetails1"></script>
+</body>
+</html>
