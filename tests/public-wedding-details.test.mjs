@@ -45,12 +45,21 @@ test("public Firestore rules allow only guest-safe Event Setup fields",()=>{
   assert.match(rules,/allow get: if true;/);
   assert.match(rules,/allow list: if false;/);
   assert.match(rules,/allow create, update: if isOwner\(\)/);
-  for(const field of ["date","dateTentative","ceremony","venueName","city","venueTentative","rsvpMode","updatedAt"])
+  for(const field of ["date","dateTentative","ceremony","venueName","city","venueTentative","rsvpMode","guestGuide","updatedAt"])
     assert.match(rules,new RegExp('"'+field+'"'));
   assert.match(rules,/request\.resource\.data\.date == ""/);
   assert.match(rules,/request\.resource\.data\.rsvpMode in \["Both", "Messenger only", "Website only"\]/);
   assert.match(rules,/allow delete: if false;/);
   assert.equal((rules.match(/{/g)||[]).length,(rules.match(/}/g)||[]).length);
+});
+
+test("Guest Guide is included in the guest-safe public projection",()=>{
+  assert.match(store,/guestGuide/);
+  assert.match(store,/whatToBring/);
+  assert.match(store,/venueInstructions/);
+  assert.match(rules,/request\.resource\.data\.guestGuide is map/);
+  assert.match(rules,/transportParking/);
+  assert.match(details,/guestGuide/);
 });
 
 test("venue map is driven by published Planning Studio values",()=>{
@@ -61,7 +70,7 @@ test("venue map is driven by published Planning Studio values",()=>{
 });
 
 test("current dynamic detail cache version is used",()=>{
-  assert.match(app,/const BUILD = "20261119-details1"/);
-  assert.match(html,/assets\/app\.js\?v=20261119-details1/);
-  assert.match(planner,/planner-firestore\.js\?v=20261119-details1/);
+  assert.match(app,/const BUILD = "20261119-guestguide1"/);
+  assert.match(html,/assets\/app\.js\?v=20261119-guestguide1/);
+  assert.match(planner,/planner-firestore\.js\?v=20261119-guestguide1/);
 });
