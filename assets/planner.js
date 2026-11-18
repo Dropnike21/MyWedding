@@ -186,6 +186,19 @@ function header(title,sub,actions="") {
 }
 function empty(message){return '<div class="planner-empty"><strong>Nothing here yet.</strong><p>'+esc(message)+'</p></div>';}
 
+function financeTabs(view){
+  const current=view==="vendors"?"vendors":view==="expenses"?"expenses":"budget";
+  const items=organizerRole==="coordinator"
+    ? [["vendors","Suppliers"],["expenses","Direct expenses"]]
+    : [["budget","Summary & payments"],["vendors","Suppliers"],["expenses","Direct expenses"]];
+  return '<nav class="planner-finance-tabs" aria-label="Budget and spending sections">'+
+    items.map(([key,label])=>'<button type="button" data-finance-view="'+key+'" class="'+(current===key?"active":"")+'"'+(current===key?' aria-current="page"':'')+'>'+label+'</button>').join("")+
+    '</nav>';
+}
+function bindFinanceTabs(){
+  root.querySelectorAll("[data-finance-view]").forEach(button=>button.addEventListener("click",()=>switchPlanner(button.dataset.financeView)));
+}
+
 const schemas = {
   guests:{
     title:"Guests & RSVPs",singular:"guest",collection:"guests",
@@ -221,8 +234,8 @@ const schemas = {
     columns:[["name","Supplier"],["category","Category"],["quote","Quote"],["agreed","Agreed"],["status","Status"]]
   },
   expenses:{
-    title:"Wedding Expenses",singular:"expense",collection:"expenses",
-    subtitle:"Track personal purchases, wedding essentials, favors, attire, rings, legal fees and other non-supplier spending.",
+    title:"Direct Expenses",singular:"expense",collection:"expenses",
+    subtitle:"Track one-off purchases and services that are not managed as supplier bookings, such as attire, rings, favors and legal fees.",
     fields:[
       ["name","Item / expense","text",true],
       ["category","Budget category","select",true,categories],
@@ -396,6 +409,7 @@ function cellValue(field,val,record=null){
 
 function renderEntity(view) {
   const schema=schemas[view], allRecords=db[schema.collection]||[];
+  const financeSection=view==="vendors"||view==="expenses";
   const records=showArchived ? allRecords : active(allRecords);
   const selected=allRecords.find(r=>r.id===selectedId)||null;
   const filtered=records.filter(r=>JSON.stringify(r).toLowerCase().includes(search.toLowerCase()));
@@ -406,6 +420,7 @@ function renderEntity(view) {
       "<button class='button outlined planner-compact' id='planner-archived-toggle'>"+(showArchived?"Hide archived":"Show archived")+"</button>"+
       "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>"+
       (view==="guests"?"<button class='button outlined planner-compact' id='planner-invitation-manage'>Invitations &amp; photo cleanup</button>":""))+
+    (financeSection?financeTabs(view):"")+
     '<section class="planner-list-card planner-list-card-full"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr>'+schema.columns.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+
         filtered.map(r=>'<tr data-record="'+esc(r.id)+'">'+schema.columns.map(c=>'<td>'+cellValue(c[0],r[c[0]],r)+'</td>').join("")+'</tr>').join("")+
@@ -518,6 +533,7 @@ function renderEntity(view) {
   if(selected?.archived){
     root.querySelectorAll("#planner-entity-form input,#planner-entity-form select,#planner-entity-form textarea,#planner-entity-form button").forEach(x=>x.disabled=true);
   }
+  if(financeSection)bindFinanceTabs();
 }
 function renderBudget() {
   const vendorOptions=active(db.vendors);
@@ -530,10 +546,11 @@ function renderBudget() {
   const committed=totalCommitted(), paid=totalPaid();
 
   root.innerHTML=header(
-      "Budget & Payments",
-      "Category caps, supplier payments, and direct wedding expenses roll into one financial position.",
+      "Budget & Spending",
+      "One financial hub for category budgets, supplier commitments, direct expenses and payments.",
       "<button class='button primary planner-compact' id='planner-new-payment'>+ Record payment</button>"
     )+
+    financeTabs("budget")+
     '<div class="planner-metrics compact">'+metric("Total budget",money.format(db.settings.budget),"Event setup")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Suppliers + wedding expenses")+metric("Paid",money.format(paid),"All recorded spending")+'</div>'+
     '<div class="planner-budget-layout"><section class="planner-card"><div class="planner-card-head"><h3>Category allocation</h3><span>Editable</span></div><div class="planner-allocation-list">'+
       db.budgetCategories.map(c=>'<label><span>'+esc(c.name)+'</span><input type="number" min="0" step="500" value="'+num(c.allocated)+'" data-budget-id="'+esc(c.id)+'" /></label>').join("")+
@@ -638,6 +655,7 @@ function renderBudget() {
     renderBudget();
     updateToolbar();
   });
+  bindFinanceTabs();
   bindJumps();
 }
 // Firebase callable failures are often generic in a mobile browser.
@@ -935,15 +953,17 @@ function renderCurrent() {
 }
 function switchPlanner(view,clear=true){
   if(!["overview","settings","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
+  if(view==="budget" && organizerRole==="coordinator")view="vendors";
   currentView=view;if(clear){selectedId=null;search="";showArchived=false;recordModalOpen=false}
+  const navView=(view==="vendors"||view==="expenses")?"budget":view;
   document.querySelectorAll("[data-planner-view]").forEach(button=>{
-    const active=button.dataset.plannerView===view;
+    const active=button.dataset.plannerView===navView;
     button.classList.toggle("active",active);
     if(active)button.setAttribute("aria-current","page");
     else button.removeAttribute("aria-current");
   });
   const mobileSelector=document.getElementById("planner-mobile-section");
-  if(mobileSelector && mobileSelector.value!==view) mobileSelector.value=view;
+  if(mobileSelector && mobileSelector.value!==navView) mobileSelector.value=navView;
   renderCurrent();
 }
 document.querySelectorAll("[data-planner-view]").forEach(b=>b.addEventListener("click",()=>switchPlanner(b.dataset.plannerView)));
@@ -1061,7 +1081,7 @@ function unlockPlanner() {
 function applyRoleUI(role){
   organizerRole=role;
   const hidden=new Set();
-  if(role==="coordinator"){hidden.add("settings");hidden.add("budget");hidden.add("photos");}
+  if(role==="coordinator"){hidden.add("settings");hidden.add("photos");}
   if(role==="finance"){["settings","guests","tasks","timeline","decisions","team","photos"].forEach(x=>hidden.add(x));}
   document.querySelectorAll("[data-planner-view]").forEach(btn=>{
     btn.hidden=hidden.has(btn.dataset.plannerView);
