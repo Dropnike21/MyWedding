@@ -220,12 +220,31 @@ function driveOAuthClient() {
   let config;
   try {
     config = JSON.parse(DRIVE_OAUTH_SECRET.value());
+    if(typeof config==="string" && config.trim().startsWith("{"))
+      config=JSON.parse(config);
   } catch {
-    throw new HttpsError("failed-precondition", "Google Drive OAuth is not configured.");
+    throw new HttpsError(
+      "failed-precondition",
+      "Google Drive OAuth is not configured. Set GOOGLE_DRIVE_OAUTH to valid JSON."
+    );
   }
-  const { clientId, clientSecret, refreshToken } = config || {};
-  if (!clientId || !clientSecret || !refreshToken)
-    throw new HttpsError("failed-precondition", "Google Drive OAuth is incomplete.");
+  const nested=(config && (config.web || config.installed)) || {};
+  const clientId=config?.clientId || config?.client_id || nested.clientId || nested.client_id;
+  const clientSecret=config?.clientSecret || config?.client_secret ||
+    nested.clientSecret || nested.client_secret;
+  const refreshToken=config?.refreshToken || config?.refresh_token ||
+    nested.refreshToken || nested.refresh_token;
+  if (!clientId || !clientSecret || !refreshToken) {
+    const missing=[
+      !clientId?"clientId/client_id":"",
+      !clientSecret?"clientSecret/client_secret":"",
+      !refreshToken?"refreshToken/refresh_token":""
+    ].filter(Boolean).join(", ");
+    throw new HttpsError(
+      "failed-precondition",
+      "Google Drive OAuth is incomplete. Missing: "+missing+"."
+    );
+  }
   const auth = new google.auth.OAuth2(clientId, clientSecret);
   auth.setCredentials({ refresh_token: refreshToken });
   return auth;
