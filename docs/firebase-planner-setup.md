@@ -50,7 +50,7 @@ Before publishing, review the file. It does the following:
 - coordinator: guests, vendors, tasks, timeline, decisions, team
 - finance: vendors, budget categories and payments
 - all organizer roles: planner reads
-- no document deletes through the browser (archive instead)
+- ordinary record removal uses archive/restore; verified owners may permanently clear Planning Studio through the dedicated reset action
 - invitation codes, guest sessions and camera settings remain deny-all to browsers
 
 Publish via Firebase Console > Firestore > Rules, or with Firebase CLI after confirming the correct project.
@@ -197,7 +197,9 @@ While Firebase mode is active:
 - Firestore is primary.
 - The browser keeps a local cache as an emergency convenience only.
 - **Export backup** remains available.
-- **Import backup** and **Reset demo** are disabled to avoid accidentally replacing live data.
+- **Import backup** remains disabled to avoid accidentally replacing live data.
+- Verified owners have a dedicated **Clear planning data** action. It requires typing `CLEAR`, blanks event setup, clears planning collections, and resets standard budget allocations to zero.
+- The reset first attempts permanent deletes. If older published rules still deny deletes, it replaces old records with content-free tombstones that the planner filters out; publishing the current rules enables permanent deletion on later resets.
 - Google Sheets synchronization is not yet active.
 
 ## Troubleshooting
