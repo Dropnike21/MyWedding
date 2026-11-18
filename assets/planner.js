@@ -355,7 +355,7 @@ function renderSettings() {
   formField("date","Wedding date","date",db.settings.date,true)+
   formField("budget","Total budget (PHP)","number",db.settings.budget,true)+
   formField("guestTarget","Target maximum guests","number",db.settings.guestTarget,false)+
-  formField("ceremony","Ceremony type","select",db.settings.ceremony,true,["Civil wedding","Church wedding","Other"])+
+  formField("ceremony","Ceremony / event type","text",db.settings.ceremony,true)+
   formField("venue","Wedding venue","text",db.settings.venue,false)+
   formField("city","City / municipality","text",db.settings.city,false)+
   formField("rsvpMode","Guest confirmation","select",db.settings.rsvpMode||"Both",true,["Both","Messenger only","Website only"])+
