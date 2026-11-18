@@ -861,6 +861,17 @@ function bindInvitationManager() {
       "Thank you — we hope to celebrate with you. 🤍"
     ].join("\n");
   };
+  const copyText=async(value,fallbackSelector="")=>{
+    if(!value)return false;
+    try{
+      await navigator.clipboard.writeText(value);
+      return true;
+    }catch{
+      const fallback=fallbackSelector?root.querySelector(fallbackSelector):null;
+      if(fallback?.select)fallback.select();
+      return false;
+    }
+  };
   const displayLink=(code,guest)=>{
     issuedInvitationLink=guestInvitationUrl(code);
     issuedInvitationMessage=invitationMessage(guest,issuedInvitationLink);
@@ -888,8 +899,10 @@ function bindInvitationManager() {
         '</td><td><div class="planner-invite-actions">'+
         (item.status==="active"
           ? (item.code
-              ? '<button type="button" data-invitation-action="view" data-invitation-id="'+esc(item.id)+'">View link &amp; message</button>'
-              : '<span class="planner-invite-legacy">Legacy link · regenerate once</span>')+
+              ? '<button type="button" data-invitation-action="copy-link" data-invitation-id="'+esc(item.id)+'">Copy link</button>'+
+                '<button type="button" data-invitation-action="copy-message" data-invitation-id="'+esc(item.id)+'">Copy Messenger message</button>'+
+                '<button type="button" data-invitation-action="open" data-invitation-id="'+esc(item.id)+'">Open invitation</button>'
+              : '')+
             '<button type="button" data-invitation-action="camera" data-invitation-id="'+esc(item.id)+'">'+
               (item.cameraAccessEnabled?"Close camera":"Open camera")+'</button>'+
             '<button type="button" data-invitation-action="rotate" data-invitation-id="'+esc(item.id)+'">Regenerate link</button>'
@@ -904,15 +917,25 @@ function bindInvitationManager() {
         if(!item)return;
         const action=button.dataset.invitationAction;
         const actionLabel=action==="camera"?(item.cameraAccessEnabled?"close":"open"):
-          action==="rotate"?"regenerate":action==="view"?"view":"delete";
-        if(action==="view"){
-          const guest=db.guests.find(g=>g.id===item.sourceGuestId)||{name:item.partyLabel,seats:item.invitedSeats};
+          action==="rotate"?"regenerate":action==="copy-link"?"copy link":
+          action==="copy-message"?"copy message":action==="open"?"open":"delete";
+        if(action==="copy-link" || action==="copy-message" || action==="open"){
           if(!item.code){
-            status.textContent="This invitation was created before reusable owner links were enabled. Regenerate it once to make future resends available.";
+            status.textContent="This older invitation cannot be copied from the owner list. Use Regenerate link once, then future copies will remain available.";
             return;
           }
-          displayLink(item.code,guest);
-          status.textContent="Existing invitation ready to resend. The guest's current link remains unchanged.";
+          const guest=db.guests.find(g=>g.id===item.sourceGuestId)||{name:item.partyLabel,seats:item.invitedSeats};
+          const link=guestInvitationUrl(item.code);
+          if(action==="open"){
+            window.open(link,"_blank","noopener,noreferrer");
+            status.textContent="Opened "+item.partyLabel+"'s current invitation.";
+            return;
+          }
+          const value=action==="copy-link"?link:invitationMessage(guest,link);
+          const copied=await copyText(value);
+          status.textContent=copied
+            ? (action==="copy-link"?"Invitation link copied for ":"Messenger message copied for ")+item.partyLabel+"."
+            : "Your browser blocked automatic copying. Open the invitation panel and copy it manually.";
           return;
         }
         if(action==="delete"){
@@ -993,23 +1016,17 @@ function bindInvitationManager() {
   });
   root.querySelector("#invitation-copy-message")?.addEventListener("click",async()=>{
     if(!issuedInvitationMessage)return;
-    try{
-      await navigator.clipboard.writeText(issuedInvitationMessage);
-      status.textContent="Messenger message copied. Paste it into your PM conversation with the guest.";
-    }catch{
-      root.querySelector("#invitation-message-value")?.select();
-      status.textContent="Copy the selected Messenger message using your browser.";
-    }
+    const copied=await copyText(issuedInvitationMessage,"#invitation-message-value");
+    status.textContent=copied
+      ?"Messenger message copied. Paste it into your PM conversation with the guest."
+      :"Copy the selected Messenger message using your browser.";
   });
   root.querySelector("#invitation-copy")?.addEventListener("click",async()=>{
     if(!issuedInvitationLink)return;
-    try {
-      await navigator.clipboard.writeText(issuedInvitationLink);
-      status.textContent="Invitation link copied. It can be opened on another phone.";
-    }catch{
-      root.querySelector("#invitation-link-value")?.select();
-      status.textContent="Copy the selected link using your browser.";
-    }
+    const copied=await copyText(issuedInvitationLink,"#invitation-link-value");
+    status.textContent=copied
+      ?"Invitation link copied. It can be opened on another phone."
+      :"Copy the selected link using your browser.";
   });
   refresh().catch(error=>{
     panel.textContent="Invitation list unavailable. Open Firebase Console > Functions to verify deployment.";
@@ -1049,11 +1066,14 @@ async function renderPhotoArchive() {
       "Drive storage: "+invitationServiceError(statusResult.reason,"Google Drive connection"));
     if(!archiveReady)issues.push(
       "Photo records: "+invitationServiceError(listResult.reason,"photo archive"));
+    const onlyDriveSetupIssue=!storageReady && archiveReady;
     const issuesHtml=issues.length
-      ? '<section class="planner-card planner-error-card"><h3>Backend services need attention</h3>'+
+      ? '<section class="planner-card '+(onlyDriveSetupIssue?"planner-warning-card":"planner-error-card")+'"><h3>'+
+          (onlyDriveSetupIssue?"Photo storage setup needed":"Backend services need attention")+'</h3>'+
           issues.map(message=>'<p>'+esc(message)+'</p>').join("")+
-          '<p>Check Cloud Functions in project mywedding-1ad09 (asia-southeast1). '+
-          'This does not mean your existing photos or guest records were deleted.</p>'+
+          '<p>'+(onlyDriveSetupIssue
+            ?"Invitations, guest records and attendance can still work while Google Drive photo storage is being configured."
+            :"Check Cloud Functions in project mywedding-1ad09 (asia-southeast1). This does not mean your existing photos or guest records were deleted.")+'</p>'+
         '</section>'
       : '';
     const rawBytes = items.reduce((sum,item)=>sum+num(item.rawBytes),0);
