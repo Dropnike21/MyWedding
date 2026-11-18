@@ -118,6 +118,9 @@
   font-size:13px!important;
   touch-action:manipulation;
 }
+.guest-invite-seat-summary{margin:12px 0 15px!important;font:normal 16px/1.45 Georgia,serif;color:#415348}
+.guest-invite-details-link{display:flex!important;width:100%;min-height:48px;margin:0 0 15px;align-items:center;justify-content:center;text-decoration:none}
+.planner-invite-legacy{display:inline-flex;align-items:center;min-height:39px;padding:8px 10px;border:1px dashed #cbbfae;border-radius:8px;color:#7c7063;font-size:10px}
 .guest-invite-enter-manually{
   min-height:44px;
   padding:9px;
