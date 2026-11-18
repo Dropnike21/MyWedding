@@ -310,6 +310,15 @@ footer small{font-size:9px;color:#aec0b4}
 .planner-status-pending,.planner-status-planned,.planner-status-to-inquire,.planner-status-open,.planner-status-draft,.planner-status-not-started{background:#f3eee1;color:#836b3e}
 .planner-status-maybe,.planner-status-waiting,.planner-status-researching,.planner-status-considering{background:#e9ecf3;color:#59677d}
 .planner-status-high,.planner-status-in-progress,.planner-status-quoted{background:#e8f0f1;color:#426874}
+.planner-savings-card{margin:0 0 13px;background:linear-gradient(135deg,#fffefa 0%,#f7f3e9 100%)}
+.planner-savings-card .planner-card-head{margin-bottom:8px}
+.planner-savings-card .planner-card-head>div .eyebrow{display:block;margin-bottom:5px}
+.planner-savings-values{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0 8px}
+.planner-savings-values>div{padding:12px;border:1px solid #e6e0d3;border-radius:8px;background:rgba(255,255,255,.72)}
+.planner-savings-values span{display:block;font-size:8px;text-transform:uppercase;letter-spacing:.8px;color:#8f8b80;font-weight:800}
+.planner-savings-values strong{display:block;margin-top:6px;font:normal 19px Georgia,serif;color:#45584d;overflow-wrap:anywhere}
+.planner-savings-progress{margin-top:10px}
+.planner-savings-note{margin:10px 0 0;font-size:10px;line-height:1.6;color:#70776e}
 .planner-budget-layout{margin-bottom:13px}.planner-allocation-list{display:flex;flex-direction:column}
 .planner-allocation-list label{display:flex;align-items:center;justify-content:space-between;gap:13px;border-bottom:1px solid #eeece5;padding:7px 0;font-size:10px;color:#59635b}.planner-allocation-list input{width:110px;border:1px solid #d6dad2;padding:7px;border-radius:5px;text-align:right}
 .planner-allocation-total{display:flex;justify-content:space-between;align-items:center;margin-top:13px;padding-top:12px;border-top:2px solid #d8d8d0;font-size:11px}.planner-allocation-total strong{font:19px Georgia,serif;color:#355747}
@@ -3822,3 +3831,5 @@ body.page-in-background .camera-preview:after{
 }
 
 @media(max-width:760px){.planner-finance-tabs{width:100%;overflow-x:auto;flex-wrap:nowrap;margin-top:-6px}.planner-finance-tabs button{flex:0 0 auto;min-height:40px}}
+
+@media(max-width:600px){.planner-savings-values{grid-template-columns:1fr}.planner-savings-card .planner-card-head{align-items:flex-start;flex-direction:column}}
