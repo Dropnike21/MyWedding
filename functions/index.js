@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * MyWedding invitation service (source only — not deployed).
+ * MyWedding production invitation service.
  *
  * A guest uses a short bearer code. The raw code is shown once to the
  * authorized organizer; Firestore contains HMAC digests, never plain codes.
@@ -611,6 +611,8 @@ exports.getInvitationDetails = onCall(configuration({maxInstances:8}),async requ
   return {
     partyLabel:optionalText(snap.get("partyLabel"),120),
     invitedSeats:Number(snap.get("invitedSeats")||1),
+    rsvp:snap.get("rsvp") || "Pending",
+    confirmedSeats:Number(snap.get("confirmedSeats")||0),
   };
 });
 
