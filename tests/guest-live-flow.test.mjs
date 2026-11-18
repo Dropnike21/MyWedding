@@ -15,6 +15,12 @@ test("guest, planner and backend scripts parse",()=>{
   assert.doesNotThrow(()=>new Script(guest.replace(/^import .*\n/gm,"")));
   assert.doesNotThrow(()=>new Script(planner.replace(/^import .*\n/gm,"")));
 });
+test("production callables remain auth-protected while App Check is non-blocking",()=>{
+  assert.match(backend,/enforceAppCheck: false/);
+  assert.match(backend,/requireAdmin\(request\)/);
+  assert.match(backend,/requireGuest\(request\)/);
+});
+
 test("normal invitation and no one-hour rehearsal",()=>{
   assert.match(config,/enabled: true/);
   assert.match(config,/driveUploadsEnabled: true/);
