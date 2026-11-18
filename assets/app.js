@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261118-plannerreset1";
+  const BUILD = "20261118-modals1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
