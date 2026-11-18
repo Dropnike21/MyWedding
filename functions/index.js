@@ -1096,6 +1096,15 @@ exports.respondToInvitation = onCall(configuration({}, false), async request => 
     if (rsvp === "Yes" &&
         (!Number.isInteger(attending) || attending < 1 || attending > maxSeats))
       throw new HttpsError("invalid-argument", "Choose 1 to " + maxSeats + " attending.");
+
+    const sourceGuestId=optionalText(invitation.get("sourceGuestId"),100);
+    let planningGuestRef=null;
+    let planningGuest=null;
+    if(sourceGuestId && /^[A-Za-z0-9_-]{1,100}$/.test(sourceGuestId)){
+      planningGuestRef=db.doc("weddings/main/guests/"+sourceGuestId);
+      planningGuest=await tx.get(planningGuestRef);
+    }
+
     // One guest/family response is stored on the invitation, not per device.
     // A family may submit a later correction from any device with its code.
     tx.update(invitationRef, {
@@ -1104,6 +1113,14 @@ exports.respondToInvitation = onCall(configuration({}, false), async request => 
       respondedAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+    // Keep the linked Planning Studio guest row in sync immediately.
+    if(planningGuestRef && planningGuest?.exists){
+      tx.update(planningGuestRef,{
+        rsvp,
+        confirmed:attending,
+        updatedAt:FieldValue.serverTimestamp(),
+      });
+    }
     return { rsvp, confirmedSeats: attending };
   });
   return { saved: true, ...result };
