@@ -171,12 +171,14 @@ export class PlannerFirestoreStore {
 
   publicProjection(settings) {
     const date=String(settings?.date || "").trim();
-    if (!/^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(date))
+    if (date && !/^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(date))
       throw new Error("Select a valid wedding date before publishing public details.");
     return {
       date,
       dateTentative:true,
+      ceremony:String(settings?.ceremony || "Civil wedding").trim().slice(0,80),
       venueName:String(settings?.venue || "").trim().slice(0,120),
+      city:String(settings?.city || "").trim().slice(0,120),
       venueTentative:true,
     };
   }
