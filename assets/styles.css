@@ -3136,6 +3136,9 @@ body:not([data-active-view="home"]) .ambient-heart{
 .planner-error-card{border-color:#d6aaa3!important;background:#fff5f1!important}
 .planner-error-card h3{color:#8f564a}
 .planner-error-card p{color:#735f58;line-height:1.7}
+.planner-warning-card{border-color:#d9caa8!important;background:#fffaf0!important}
+.planner-warning-card h3{color:#7d6840}
+.planner-warning-card p{color:#716758;line-height:1.7}
 
 /* Wedding Camera: manual rotation + responsive landscape shooting controls. */
 .camera-depth-overlay{
