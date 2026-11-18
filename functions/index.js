@@ -612,11 +612,21 @@ exports.getInvitationDetails = onCall(configuration({maxInstances:8}),async requ
      snap.get("codeDigest")!==digest ||
      Number(snap.get("revision"))!==Number(index.get("revision")))
     throw new HttpsError("permission-denied","Invitation link expired.");
+  let rsvp=snap.get("rsvp") || "Pending";
+  let confirmedSeats=Number(snap.get("confirmedSeats")||0);
+  const sourceGuestId=optionalText(snap.get("sourceGuestId"),100);
+  if(sourceGuestId && /^[A-Za-z0-9_-]{1,100}$/.test(sourceGuestId)){
+    const guest=await db.doc("weddings/main/guests/"+sourceGuestId).get();
+    if(guest.exists){
+      rsvp=guest.get("rsvp") || rsvp;
+      confirmedSeats=Number(guest.get("confirmed")||0);
+    }
+  }
   return {
     partyLabel:optionalText(snap.get("partyLabel"),120),
     invitedSeats:Number(snap.get("invitedSeats")||1),
-    rsvp:snap.get("rsvp") || "Pending",
-    confirmedSeats:Number(snap.get("confirmedSeats")||0),
+    rsvp,
+    confirmedSeats,
   };
 });
 
