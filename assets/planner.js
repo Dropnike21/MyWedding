@@ -514,12 +514,17 @@ function renderBudget() {
   const vendorOptions=active(db.vendors);
   const filtered=active(db.payments).filter(p=>JSON.stringify(p).toLowerCase().includes(search.toLowerCase()));
   const selected=active(db.payments).find(p=>p.id===selectedId)||null;
-  const p=selected||{vendorId:"",description:"",amount:0,dueDate:"",status:"Planned",paidDate:"",method:"",notes:"",archived:false};
+  const payment=selected||{vendorId:"",description:"",amount:0,dueDate:"",status:"Planned",paidDate:"",method:"",notes:"",archived:false};
   const expenseOptions=active(db.expenses);
   const allocated=db.budgetCategories.reduce((s,c)=>s+num(c.allocated),0);
   const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
   const committed=totalCommitted(), paid=totalPaid();
-  root.innerHTML=header("Budget & Payments","Category caps, supplier payments, and direct wedding expenses roll into one financial position.")+
+
+  root.innerHTML=header(
+      "Budget & Payments",
+      "Category caps, supplier payments, and direct wedding expenses roll into one financial position.",
+      "<button class='button primary planner-compact' id='planner-new-payment'>+ Record payment</button>"
+    )+
     '<div class="planner-metrics compact">'+metric("Total budget",money.format(db.settings.budget),"Event setup")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Suppliers + wedding expenses")+metric("Paid",money.format(paid),"All recorded spending")+'</div>'+
     '<div class="planner-budget-layout"><section class="planner-card"><div class="planner-card-head"><h3>Category allocation</h3><span>Editable</span></div><div class="planner-allocation-list">'+
       db.budgetCategories.map(c=>'<label><span>'+esc(c.name)+'</span><input type="number" min="0" step="500" value="'+num(c.allocated)+'" data-budget-id="'+esc(c.id)+'" /></label>').join("")+
@@ -529,39 +534,103 @@ function renderBudget() {
         '<div class="planner-card-head planner-subhead"><h3>Wedding expenses</h3><button data-jump="expenses">Manage expenses →</button></div><div class="planner-mini-list">'+
         (expenseOptions.length?expenseOptions.slice(0,6).map(x=>'<button data-open-view="expenses" data-open-id="'+esc(x.id)+'"><span>'+esc(x.name)+'</span><small>'+esc(x.category)+'</small><strong>'+money.format(x.actualCost||x.expectedCost)+'</strong></button>').join(""):'<p>No direct wedding expenses yet.</p>')+
       '</div></section></div>'+
-    '<div class="planner-split planner-payments-split"><section class="planner-list-card"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search payments" value="'+esc(search)+'" /><span>'+filtered.length+' transactions</span></div>'+
+    '<section class="planner-list-card planner-list-card-full planner-payments-list"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search payments" value="'+esc(search)+'" /><span>'+filtered.length+' transactions</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Payment</th><th>Supplier</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody>'+
-      filtered.map(x=>{const v=vendorOptions.find(v=>v.id===x.vendorId);return '<tr data-payment="'+esc(x.id)+'" class="'+(selectedId===x.id?'selected':'')+'"><td>'+esc(x.description)+'</td><td>'+esc(v?.name||"—")+'</td><td>'+money.format(x.amount)+'</td><td>'+dateLabel(x.dueDate)+'</td><td>'+statusBadge(x.status)+'</td></tr>'}).join("")+'</tbody></table></div>':empty("Record deposits and balances here."))+'</section>'+
-    '<section class="planner-editor-card"><div class="planner-editor-head"><div><span class="eyebrow">'+(selected?'EDIT PAYMENT':'NEW PAYMENT')+'</span><h3>'+(selected?esc(selected.description):"Record payment")+'</h3></div>'+(selected?'<button type="button" class="planner-link-danger" id="planner-archive">Archive</button>':'')+'</div>'+
-    '<form id="planner-payment-form" class="planner-form-grid">'+
-      formField("vendorId","Supplier","select",p.vendorId,true,[...vendorOptions.map(v=>v.id)])+
-      formField("description","Description","text",p.description,true)+formField("amount","Amount (PHP)","number",p.amount,true)+
-      formField("dueDate","Due date","date",p.dueDate,false)+formField("status","Status","select",p.status,true,["Planned","Due","Paid","Cancelled"])+
-      formField("paidDate","Paid date","date",p.paidDate,false)+formField("method","Method","select",p.method,false,["","Cash","Bank transfer","GCash","Maya","Card","Other"])+
-      formField("notes","Notes","textarea",p.notes,false)+
-      '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?"Save payment":"Add payment")+'</button><button class="button subtle" id="planner-cancel" type="button">Clear</button></div></form></section></div>';
-  // Replace vendor IDs shown in select with names without changing values.
+      filtered.map(x=>{const v=vendorOptions.find(v=>v.id===x.vendorId);return '<tr data-payment="'+esc(x.id)+'"><td>'+esc(x.description)+'</td><td>'+esc(v?.name||"—")+'</td><td>'+money.format(x.amount)+'</td><td>'+dateLabel(x.dueDate)+'</td><td>'+statusBadge(x.status)+'</td></tr>'}).join("")+'</tbody></table></div>':empty("Use + Record payment when you are ready to add a deposit or balance."))+
+    '</section>'+
+    '<dialog class="planner-record-modal" id="planner-payment-modal" aria-labelledby="planner-payment-modal-title">'+
+      '<section class="planner-editor-card planner-modal-card">'+
+        '<div class="planner-editor-head planner-modal-head"><div><span class="eyebrow">'+(selected?'EDIT PAYMENT':'NEW PAYMENT')+'</span><h3 id="planner-payment-modal-title">'+(selected?esc(selected.description):"Record payment")+'</h3></div>'+
+          '<div class="planner-modal-head-actions">'+
+            (selected?'<button type="button" class="planner-link-danger" id="planner-archive">Archive</button>':'')+
+            '<button type="button" class="planner-modal-close" id="planner-modal-close" aria-label="Close">×</button>'+
+          '</div>'+
+        '</div>'+
+        '<form id="planner-payment-form" class="planner-form-grid">'+
+          formField("vendorId","Supplier","select",payment.vendorId,true,[...vendorOptions.map(v=>v.id)])+
+          formField("description","Description","text",payment.description,true)+formField("amount","Amount (PHP)","number",payment.amount,true)+
+          formField("dueDate","Due date","date",payment.dueDate,false)+formField("status","Status","select",payment.status,true,["Planned","Due","Paid","Cancelled"])+
+          formField("paidDate","Paid date","date",payment.paidDate,false)+formField("method","Method","select",payment.method,false,["","Cash","Bank transfer","GCash","Maya","Card","Other"])+
+          formField("notes","Notes","textarea",payment.notes,false)+
+          '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?"Save payment":"Add payment")+'</button><button class="button subtle" id="planner-cancel" type="button">Cancel</button></div>'+
+        '</form>'+
+      '</section>'+
+    '</dialog>';
+
+  const modal=root.querySelector("#planner-payment-modal");
+  const closeModal=()=>{
+    recordModalOpen=false;
+    selectedId=null;
+    if(modal?.open)modal.close();
+    renderBudget();
+  };
+
   const select=root.querySelector("#f-vendorId");
   if(select){[...select.options].forEach(opt=>{const v=vendorOptions.find(v=>v.id===opt.value);if(v)opt.textContent=v.name})}
+
+  root.querySelector("#planner-new-payment")?.addEventListener("click",()=>{
+    selectedId=null;
+    recordModalOpen=true;
+    renderBudget();
+  });
   root.querySelectorAll("[data-budget-id]").forEach(input=>input.addEventListener("change",()=>{
-    const cat=db.budgetCategories.find(c=>c.id===input.dataset.budgetId);if(cat)cat.allocated=Math.max(0,num(input.value));save();renderBudget();
+    const cat=db.budgetCategories.find(c=>c.id===input.dataset.budgetId);
+    if(cat)cat.allocated=Math.max(0,num(input.value));
+    save();
+    renderBudget();
   }));
   root.querySelector("#planner-search").addEventListener("input",e=>{
-    search=e.target.value;renderBudget();
-    const box=root.querySelector("#planner-search");if(box){box.focus();box.setSelectionRange(box.value.length,box.value.length)}
+    search=e.target.value;
+    renderBudget();
+    const box=root.querySelector("#planner-search");
+    if(box){box.focus();box.setSelectionRange(box.value.length,box.value.length)}
   });
-  root.querySelectorAll("[data-payment]").forEach(row=>row.addEventListener("click",()=>{selectedId=row.dataset.payment;renderBudget()}));
-  root.querySelector("#planner-cancel").addEventListener("click",()=>{selectedId=null;renderBudget()});
-  root.querySelector("#planner-payment-form").addEventListener("submit",e=>{
-    e.preventDefault();if(!e.currentTarget.reportValidity())return;const fd=new FormData(e.currentTarget);
+  root.querySelectorAll("[data-payment]").forEach(row=>row.addEventListener("click",()=>{
+    selectedId=row.dataset.payment;
+    recordModalOpen=true;
+    renderBudget();
+  }));
+
+  if(modal && recordModalOpen){
+    modal.showModal();
+    modal.addEventListener("cancel",e=>{e.preventDefault();closeModal()});
+    modal.addEventListener("click",e=>{if(e.target===modal)closeModal()});
+    root.querySelector("#planner-modal-close")?.addEventListener("click",closeModal);
+    root.querySelector("#planner-cancel")?.addEventListener("click",closeModal);
+  }
+
+  root.querySelector("#planner-payment-form")?.addEventListener("submit",e=>{
+    e.preventDefault();
+    if(!e.currentTarget.reportValidity())return;
+    const fd=new FormData(e.currentTarget);
     const rec=selected||{id:uid("pay"),archived:false};
-    rec.vendorId=String(fd.get("vendorId"));rec.description=String(fd.get("description")).trim();rec.amount=Math.max(0,num(fd.get("amount")));rec.dueDate=String(fd.get("dueDate")||"");rec.status=String(fd.get("status"));rec.paidDate=String(fd.get("paidDate")||"");rec.method=String(fd.get("method")||"");rec.notes=String(fd.get("notes")||"").trim();
-    if(!selected)db.payments.push(rec);selectedId=rec.id;save();renderBudget();updateToolbar();
+    rec.vendorId=String(fd.get("vendorId"));
+    rec.description=String(fd.get("description")).trim();
+    rec.amount=Math.max(0,num(fd.get("amount")));
+    rec.dueDate=String(fd.get("dueDate")||"");
+    rec.status=String(fd.get("status"));
+    rec.paidDate=String(fd.get("paidDate")||"");
+    rec.method=String(fd.get("method")||"");
+    rec.notes=String(fd.get("notes")||"").trim();
+    if(!selected)db.payments.push(rec);
+    recordModalOpen=false;
+    selectedId=null;
+    save();
+    renderBudget();
+    updateToolbar();
   });
-  const archive=root.querySelector("#planner-archive");if(archive)archive.addEventListener("click",()=>{if(confirm("Archive this payment record?")){selected.archived=true;selectedId=null;save();renderBudget()}});
+  const archive=root.querySelector("#planner-archive");
+  if(archive)archive.addEventListener("click",()=>{
+    if(!confirm("Archive this payment record?"))return;
+    selected.archived=true;
+    recordModalOpen=false;
+    selectedId=null;
+    save();
+    renderBudget();
+    updateToolbar();
+  });
   bindJumps();
 }
-
 // Firebase callable failures are often generic in a mobile browser.
 function invitationServiceError(error, service = "invitation service") {
   const code=String(error?.code || "unknown").replace(/^functions\//,"").toLowerCase();
