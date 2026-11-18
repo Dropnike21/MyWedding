@@ -70,7 +70,7 @@ service cloud.firestore {
       allow create, update: if isOwner()
         && request.resource.data.keys().hasOnly([
           "date", "dateTentative", "ceremony", "venueName", "city",
-          "venueTentative", "rsvpMode", "updatedAt"
+          "venueTentative", "rsvpMode", "guestGuide", "updatedAt"
         ])
         && request.resource.data.keys().hasAll([
           "date", "dateTentative", "ceremony", "venueName", "city",
@@ -90,6 +90,33 @@ service cloud.firestore {
         && request.resource.data.city.size() <= 120
         && request.resource.data.venueTentative is bool
         && request.resource.data.rsvpMode in ["Both", "Messenger only", "Website only"]
+        && request.resource.data.guestGuide is map
+        && request.resource.data.guestGuide.keys().hasOnly([
+          "attire", "whatToWear", "whatToBring", "preparation", "arrival",
+          "venueInstructions", "transportParking", "reminders", "contact"
+        ])
+        && request.resource.data.guestGuide.keys().hasAll([
+          "attire", "whatToWear", "whatToBring", "preparation", "arrival",
+          "venueInstructions", "transportParking", "reminders", "contact"
+        ])
+        && request.resource.data.guestGuide.attire is string
+        && request.resource.data.guestGuide.attire.size() <= 1200
+        && request.resource.data.guestGuide.whatToWear is string
+        && request.resource.data.guestGuide.whatToWear.size() <= 1200
+        && request.resource.data.guestGuide.whatToBring is string
+        && request.resource.data.guestGuide.whatToBring.size() <= 1200
+        && request.resource.data.guestGuide.preparation is string
+        && request.resource.data.guestGuide.preparation.size() <= 1200
+        && request.resource.data.guestGuide.arrival is string
+        && request.resource.data.guestGuide.arrival.size() <= 1200
+        && request.resource.data.guestGuide.venueInstructions is string
+        && request.resource.data.guestGuide.venueInstructions.size() <= 1200
+        && request.resource.data.guestGuide.transportParking is string
+        && request.resource.data.guestGuide.transportParking.size() <= 1200
+        && request.resource.data.guestGuide.reminders is string
+        && request.resource.data.guestGuide.reminders.size() <= 1200
+        && request.resource.data.guestGuide.contact is string
+        && request.resource.data.guestGuide.contact.size() <= 1200
         && request.resource.data.updatedAt == request.time;
       allow delete: if false;
     }
