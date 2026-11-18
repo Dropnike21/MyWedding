@@ -64,6 +64,7 @@ function apply(data) {
   const normalized=normalize(data);
   if (!normalized) return;
   details=normalized;
+  window.WEDDING_PUBLIC_DETAILS={...details};
   const ceremony=details.ceremony || "Ceremony to be confirmed";
   const venue=details.venueName || "Venue to be confirmed";
   const city=details.city || "Location to be confirmed";
