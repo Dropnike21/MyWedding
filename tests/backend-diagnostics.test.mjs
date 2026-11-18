@@ -9,8 +9,8 @@ const app=read("assets/app.js");
 const planner=read("assets/planner.js");
 
 test("new build reaches mobile devices",()=>{
-  assert.match(app,/const BUILD = "20261119-guestdetails1"/);
-  assert.match(html,/assets\/app\.js\?v=20261119-guestdetails1/);
+  assert.match(app,/const BUILD = "20261119-invitecopy1"/);
+  assert.match(html,/assets\/app\.js\?v=20261119-invitecopy1/);
 });
 test("planner script parses and explains callable errors",()=>{
   assert.doesNotThrow(()=>new Script(planner.replace(/^import .*\n/gm,"")));
