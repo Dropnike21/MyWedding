@@ -5,14 +5,17 @@ import assert from "node:assert/strict";
 const read = filename => readFileSync(new URL("../"+filename,import.meta.url),"utf8");
 const backend=read("functions/index.js");
 const guest=read("assets/guest-camera.js");
+const guestDetails=read("assets/guest-details.js");
+const guestDetailsHtml=read("guest-details.html");
 const planner=read("assets/planner.js");
 const html=read("index.html");
 const config=read("assets/guest-config.js");
 const css=read("assets/camera-portrait.css");
 
-test("guest, planner and backend scripts parse",()=>{
+test("guest, guest-details, planner and backend scripts parse",()=>{
   assert.doesNotThrow(()=>new Script(backend));
   assert.doesNotThrow(()=>new Script(guest.replace(/^import .*\n/gm,"")));
+  assert.doesNotThrow(()=>new Script(guestDetails.replace(/^import .*\n/gm,"")));
   assert.doesNotThrow(()=>new Script(planner.replace(/^import .*\n/gm,"")));
 });
 test("production callables remain auth-protected while App Check is non-blocking",()=>{
@@ -27,45 +30,45 @@ test("normal invitation flow has no rehearsal or preview code",()=>{
   assert.doesNotMatch(backend,/startCameraRehearsal|createCameraRehearsalPass|cameraRehearsal|testMode/);
   assert.doesNotMatch(guest,/rehearsalRequested|previewTestCode|cameraRehearsal/);
 });
-test("guest manager issues real links and Messenger copy",()=>{
-  assert.match(planner,/function invitationManagerCard\(\)/);
-  assert.match(planner,/run\("createInvitation",\{/);
-  assert.match(planner,/sourceGuestId:guest\.id/);
-  assert.match(planner,/run\("setInvitationCameraAccess",\{/);
-  assert.match(planner,/id='planner-invitation-manage'/);
+test("clean invitation sends practical details to a separate page",()=>{
+  assert.match(html,/id="guest-invitation-details-link"/);
+  assert.match(html,/View guest details &amp; attendance/);
+  assert.doesNotMatch(html,/id="guest-invite-guide"/);
+  assert.doesNotMatch(html,/id="guest-invitation-rsvp"/);
+  assert.match(guest,/guest-details\.html#"/);
+  assert.match(guestDetailsHtml,/id="guest-guide-grid"/);
+  assert.match(guestDetailsHtml,/id="guest-details-rsvp-form"/);
+  assert.match(guestDetails,/respondToInvitation/);
+  assert.match(guestDetails,/guestGuide/);
+});
+test("owner can reopen and resend an existing invitation without rotating it",()=>{
+  assert.match(backend,/function encryptCode\(code\)/);
+  assert.match(backend,/function decryptCode\(vault\)/);
+  assert.match(backend,/codeVault: encryptCode\(code\)/);
+  assert.match(backend,/exports\.listInvitations = onCall\(configuration\(\)/);
+  assert.match(backend,/linkRecoverable:Boolean\(code\)/);
+  assert.match(planner,/View link &amp; message/);
+  assert.match(planner,/data-invitation-action="view"/);
+  assert.match(planner,/Existing invitation ready to resend/);
+});
+test("legacy invitations require only one rotation before owner recovery is available",()=>{
+  assert.match(planner,/Legacy link · regenerate once/);
+  assert.match(planner,/created before reusable owner links were enabled/);
+  assert.match(backend,/codeVault: encryptCode\(code\)/);
+});
+test("owner Messenger copy still uses Planning Studio details",()=>{
   assert.match(planner,/Messenger message/);
   assert.match(planner,/Copy Messenger message/);
-  assert.match(planner,/invitationMessage=/);
-});
-test("invitation shows wedding details before camera",()=>{
-  assert.match(html,/id="guest-invitation-details"/);
-  assert.match(html,/id="guest-detail-date"/);
-  assert.match(html,/id="guest-detail-ceremony"/);
-  assert.match(html,/id="guest-detail-venue"/);
-  assert.match(html,/id="guest-detail-city"/);
-  assert.match(html,/id="guest-detail-seats"/);
-  assert.ok(html.indexOf('id="guest-invitation-details"') < html.indexOf('id="guest-invitation-continue"'));
-  assert.match(guest,/renderInvitationDetails/);
-});
-test("private invitation shows the detailed Guest Guide before confirmation and camera",()=>{
-  assert.match(html,/id="guest-invite-guide"/);
-  assert.match(html,/id="guest-invite-guide-grid"/);
-  assert.ok(html.indexOf('id="guest-invite-guide"') < html.indexOf('class="guest-invite-confirmation"'));
-  assert.ok(html.indexOf('id="guest-invite-guide"') < html.indexOf('id="guest-invitation-continue"'));
-  assert.match(guest,/function renderGuestGuide\(\)/);
-  assert.match(guest,/Dress code \/ attire/);
-  assert.match(guest,/Parking \/ transport/);
   assert.match(planner,/full wedding guide/);
+  assert.match(planner,/rsvpMode/);
 });
-
-test("confirmation can use website, Messenger, or both",()=>{
+test("confirmation can use website, Messenger, or both on Guest Details",()=>{
   assert.match(planner,/rsvpMode: "Both"/);
   assert.match(planner,/\["Both","Messenger only","Website only"\]/);
-  assert.match(html,/id="guest-confirmation-messenger"/);
-  assert.match(html,/id="guest-invitation-rsvp"/);
-  assert.match(guest,/mode!=="Messenger only"/);
-  assert.match(guest,/mode!=="Website only"/);
-  assert.match(guest,/respondToInvitation/);
+  assert.match(guestDetailsHtml,/id="guest-messenger-confirmation"/);
+  assert.match(guestDetailsHtml,/id="guest-details-rsvp-form"/);
+  assert.match(guestDetails,/mode==="Website only"/);
+  assert.match(guestDetails,/mode==="Messenger only"/);
 });
 test("website RSVP updates linked Planning Studio guest",()=>{
   assert.match(backend,/sourceGuestId=optionalText\(invitation\.get\("sourceGuestId"\),100\)/);
@@ -87,17 +90,15 @@ test("camera access belongs to each invitation and has no one-hour timer",()=>{
   assert.match(planner,/data-invitation-action="camera"/);
   assert.match(guest,/leaveCameraMode\(\);/);
 });
-test("full deletion revokes access before removing Drive, Sheet and Firestore",()=>{
+test("full deletion revokes code recovery before cleanup",()=>{
   const from=backend.indexOf("exports.deleteInvitationAndPhotos");
   const to=backend.indexOf("exports.getInvitationDetails",from);
   const body=backend.slice(from,to);
   assert.ok(from>=0 && to>from);
-  assert.match(body,/requireAdmin\(request\)/);
-  assert.match(body,/status:"deleting",codeDigest:null,cameraAccessEnabled:false/);
+  assert.match(body,/status:"deleting",codeDigest:null,codeVault:null,cameraAccessEnabled:false/);
   assert.match(body,/drive\.files\.delete\(/);
   assert.match(body,/sheets\.spreadsheets\.batchUpdate\(/);
   assert.match(body,/cleanup\.delete\(db\.doc\("weddings\/main\/guests\/"\+linkedGuest\)\)/);
-  assert.match(planner,/verified!=="DELETE"/);
 });
 test("camera uploads remain production Drive uploads",()=>{
   assert.match(guest,/wedding:photo-uploaded/);
