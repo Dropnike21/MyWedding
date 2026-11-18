@@ -21,7 +21,7 @@ test("public wedding details have no obsolete hard-coded venue or date",()=>{
 
 test("Planning Studio is the source of guest-safe wedding details",()=>{
   assert.match(planner,/formField\("date","Wedding date"/);
-  assert.match(planner,/formField\("ceremony","Ceremony type"/);
+  assert.match(planner,/formField\("ceremony","Ceremony \/ event type"/);
   assert.match(planner,/formField\("venue","Wedding venue"/);
   assert.match(planner,/formField\("city","City \/ municipality"/);
   assert.match(planner,/formField\("rsvpMode","Guest confirmation"/);
