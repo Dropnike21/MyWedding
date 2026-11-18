@@ -1,4 +1,4 @@
-import { plannerFirestore } from "./planner-firestore.js?v=20261108-guest1";
+import { plannerFirestore } from "./planner-firestore.js?v=20261118-plannerreset1";
 import { callWeddingFunction } from "./firebase-services.js?v=20261108-guest1";
 (() => {
 "use strict";
@@ -24,25 +24,25 @@ function seed() {
   return {
     version: VERSION,
     settings: {
-      date: "2027-12-23",
-      budget: 70000,
-      venue: "Estoria",
-      ceremony: "Civil wedding",
+      date: "",
+      budget: 0,
+      venue: "",
+      ceremony: "",
       city: "",
-      guestTarget: 50,
-      notes: "Tentative wedding date and venue. Confirm before issuing final invitations."
+      guestTarget: 0,
+      notes: ""
     },
     budgetCategories: [
-      {id:"b1",name:"Venue + catering",allocated:38000},
-      {id:"b2",name:"Photo / video",allocated:7000},
-      {id:"b3",name:"Attire",allocated:6000},
-      {id:"b4",name:"Hair + makeup",allocated:4000},
-      {id:"b5",name:"Civil ceremony + documents",allocated:3000},
-      {id:"b6",name:"Flowers + decor",allocated:3000},
-      {id:"b7",name:"Cake",allocated:2000},
-      {id:"b8",name:"Invites + stationery",allocated:1000},
-      {id:"b9",name:"Transport",allocated:1000},
-      {id:"b10",name:"Contingency",allocated:5000},
+      {id:"b1",name:"Venue + catering",allocated:0},
+      {id:"b2",name:"Photo / video",allocated:0},
+      {id:"b3",name:"Attire",allocated:0},
+      {id:"b4",name:"Hair + makeup",allocated:0},
+      {id:"b5",name:"Civil ceremony + documents",allocated:0},
+      {id:"b6",name:"Flowers + decor",allocated:0},
+      {id:"b7",name:"Cake",allocated:0},
+      {id:"b8",name:"Invites + stationery",allocated:0},
+      {id:"b9",name:"Transport",allocated:0},
+      {id:"b10",name:"Contingency",allocated:0},
       {id:"b11",name:"Bride attire",allocated:0},
       {id:"b12",name:"Groom attire",allocated:0},
       {id:"b13",name:"Rings",allocated:0},
@@ -54,32 +54,13 @@ function seed() {
       {id:"b19",name:"Miscellaneous",allocated:0}
     ],
     guests: [],
-    vendors: [
-      {id:"v-estoria",name:"Estoria (tentative)",category:"Venue + catering",contact:"",package:"",quote:0,agreed:0,status:"To inquire",reserveBy:"",notes:"Confirm December 23, 2027 availability, capacity, inclusions, taxes, overtime and rain backup.",archived:false}
-    ],
+    vendors: [],
     payments: [],
     expenses: [],
-    tasks: [
-      {id:"t1",title:"Confirm wedding date and ceremony city / municipality",workstream:"Core decisions",owner:"Both",dueDate:"2026-11-15",priority:"Critical",status:"Not started",notes:"Date is tentative until venue and ceremony arrangements are accepted.",archived:false},
-      {id:"t2",title:"Confirm Estoria availability, pricing and inclusions",workstream:"Venue",owner:"Both",dueDate:"2026-11-15",priority:"Critical",status:"Not started",notes:"Ask about capacity, catering, taxes, corkage, overtime and weather backup.",archived:false},
-      {id:"t3",title:"Finalize estimated guest count",workstream:"Guests",owner:"Both",dueDate:"2026-11-20",priority:"High",status:"Not started",notes:"Group/family entries need actual seat estimates.",archived:false},
-      {id:"t4",title:"Verify civil wedding requirements and local registrar",workstream:"Documents",owner:"Both",dueDate:"2026-11-25",priority:"Critical",status:"Not started",notes:"Confirm requirements directly with the appropriate local civil registrar.",archived:false},
-      {id:"t5",title:"Collect written supplier quotations",workstream:"Suppliers",owner:"Both",dueDate:"2026-12-01",priority:"High",status:"Not started",notes:"Record total price, inclusions, deposit, due dates and cancellation terms.",archived:false}
-    ],
-    timeline: [
-      {id:"tl1",time:"08:00",title:"Preparation begins",location:"TBD",owner:"Both",status:"Draft",notes:"Hair, makeup, attire and detail photos.",archived:false},
-      {id:"tl2",time:"11:00",title:"Civil ceremony",location:"TBD",owner:"Both",status:"Draft",notes:"Placeholder until ceremony schedule is confirmed.",archived:false},
-      {id:"tl3",time:"12:30",title:"Reception / lunch",location:"Estoria (tentative)",owner:"Coordinator",status:"Draft",notes:"Timing depends on ceremony location and travel.",archived:false}
-    ],
-    decisions: [
-      {id:"d1",title:"Confirm final wedding date",owner:"Both",dueDate:"2026-11-15",status:"Open",decision:"",notes:"Tentative: December 23, 2027.",archived:false},
-      {id:"d2",title:"Confirm ceremony city / municipality",owner:"Both",dueDate:"2026-11-15",status:"Open",decision:"",notes:"Needed for civil wedding requirements.",archived:false},
-      {id:"d3",title:"Set maximum guest headcount",owner:"Both",dueDate:"2026-11-20",status:"Open",decision:"",notes:"Must fit the ₱70,000 total budget.",archived:false}
-    ],
-    team: [
-      {id:"team1",name:"Angela",role:"Bride / planner",contact:"",status:"Active",notes:"",archived:false},
-      {id:"team2",name:"Joseph",role:"Groom / planner",contact:"",status:"Active",notes:"",archived:false}
-    ]
+    tasks: [],
+    timeline: [],
+    decisions: [],
+    team: []
   };
 }
 
@@ -155,7 +136,9 @@ function dateLabel(v) {
   return Number.isNaN(d.getTime()) ? esc(v) : d.toLocaleDateString("en-PH",{month:"short",day:"numeric",year:"numeric"});
 }
 function daysToWedding() {
+  if (!db.settings.date) return "—";
   const d = new Date(db.settings.date+"T00:00:00+08:00").getTime();
+  if (!Number.isFinite(d)) return "—";
   return Math.max(0,Math.ceil((d-Date.now())/86400000));
 }
 function paymentTotal(status) {
@@ -849,8 +832,39 @@ document.getElementById("planner-import-file").addEventListener("change",async e
   }catch{alert("That file is not a compatible MyWedding planner backup.");}
   e.target.value="";
 });
-document.getElementById("planner-reset").addEventListener("click",()=>{
-  if(!confirm("Reset the local demo planner? This erases the data saved in this browser. Export a backup first if you need it."))return;
+document.getElementById("planner-reset").addEventListener("click",async()=>{
+  if(remoteActive){
+    if(organizerRole!=="owner")return;
+    const verified=prompt(
+      "This permanently clears Planning Studio event details, guests, suppliers, expenses, payments, checklist, timeline, decisions and team records. Budget headings stay but reset to ₱0.\n\nType CLEAR to continue."
+    );
+    if(verified!=="CLEAR")return;
+    const button=document.getElementById("planner-reset");
+    button.disabled=true;
+    const token=window.WeddingUI?.begin(
+      "Clearing Planning Studio…",
+      "Removing the current Firebase planning records.",
+      {blocking:true,delay:100}
+    );
+    setSyncState("RESETTING");
+    try{
+      db=await plannerFirestore.reset(seed());
+      selectedId=null;search="";showArchived=false;
+      switchPlanner("overview");
+      updateToolbar();
+      setSyncState("FIREBASE SYNCED");
+      alert("Planning Studio is clear. You can now enter your wedding details from scratch.");
+    }catch(error){
+      console.error("Planning Studio reset failed",error);
+      setSyncState("RESET ERROR",true);
+      alert("Planning Studio could not be cleared. No successful reset was confirmed.\n\n"+(error?.message||"Unknown reset error"));
+    }finally{
+      button.disabled=organizerRole!=="owner";
+      if(token)window.WeddingUI?.end(token);
+    }
+    return;
+  }
+  if(!confirm("Clear the local planner data in this browser?"))return;
   db=seed();save();selectedId=null;search="";switchPlanner("overview");updateToolbar();
 });
 
@@ -927,6 +941,11 @@ function applyRoleUI(role){
     signout.addEventListener("click",()=>plannerFirestore.signOut());
   }
   signout.hidden=false;
+  const reset=document.getElementById("planner-reset");
+  if(reset){
+    reset.hidden=role!=="owner";
+    reset.disabled=role!=="owner";
+  }
   const toolbar=document.querySelector(".planner-toolbar strong");
   if(toolbar&&organizerProfile){
     toolbar.textContent="Angela & Joseph · "+dateLabel(db.settings.date)+" · "+(organizerProfile.displayName||organizerProfile.email||role);
