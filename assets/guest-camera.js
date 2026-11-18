@@ -23,7 +23,16 @@ const landingAnotherCode=document.getElementById("guest-invitation-enter-code");
 const landingCode=document.getElementById("guest-invitation-code");
 const landingMode=document.getElementById("guest-invitation-mode");
 const landingDate=document.getElementById("guest-invitation-date");
+const landingDateNote=document.getElementById("guest-invitation-date-note");
 const landingStatus=document.getElementById("guest-invitation-status");
+const landingDetailsToggle=document.getElementById("guest-invitation-details-toggle");
+const landingDetails=document.getElementById("guest-invitation-details");
+const landingDetailDate=document.getElementById("guest-detail-date");
+const landingDetailCeremony=document.getElementById("guest-detail-ceremony");
+const landingDetailVenue=document.getElementById("guest-detail-venue");
+const landingDetailCity=document.getElementById("guest-detail-city");
+const landingDetailSeats=document.getElementById("guest-detail-seats");
+const landingMessenger=document.getElementById("guest-confirmation-messenger");
 const landingRsvpForm=document.getElementById("guest-invitation-rsvp");
 const landingSeatCopy=document.getElementById("guest-invitation-seat-copy");
 const landingSeatWrap=document.getElementById("guest-rsvp-seats-wrap");
@@ -45,6 +54,7 @@ let photoUploadQueue = Promise.resolve();
 let guestPollTimer = null;
 let guestPollBusy = false;
 let landingInvitationDetails = null;
+let publishedWeddingDetails = {};
 const cameraRequested = () => location.hash === "#camera" || location.hash.startsWith("#camera/");
 const secureGuestEnabled = guestAccessConfig.enabled;
 
@@ -320,18 +330,46 @@ async function checkRememberedSession() {
 }
 
 function updateLandingDate() {
-  if (!landingDate) return;
-  const current=document.getElementById("wedding-big-day")?.textContent?.trim();
-  landingDate.textContent=current || "December 23, 2027";
-  const configured=document.getElementById("wedding-venue-fact")?.textContent?.trim();
+  const current=document.getElementById("wedding-big-day")?.textContent?.trim() || "Date to be confirmed";
+  const note=document.getElementById("wedding-big-day-note")?.textContent?.trim() || "Ceremony to be confirmed";
+  const configured=document.getElementById("wedding-venue-fact")?.textContent?.trim() || "Venue to be confirmed";
+  if(landingDate)landingDate.textContent=current;
+  if(landingDateNote)landingDateNote.textContent=note;
   const venue=document.getElementById("guest-invitation-venue");
-  if(venue) venue.textContent=configured && configured!=="Venue to be confirmed"
-    ? configured+" · Tentative venue" : "Venue to be confirmed";
+  if(venue)venue.textContent=configured;
 }
+function renderInvitationDetails(details={}) {
+  const seats=Math.max(1,Number(details.invitedSeats||1));
+  landingInvitationDetails={...landingInvitationDetails,...details,invitedSeats:seats};
+  updateLandingDate();
+  if(landingDetailDate)landingDetailDate.textContent=
+    document.getElementById("wedding-big-day")?.textContent?.trim() || "Date to be confirmed";
+  if(landingDetailCeremony)landingDetailCeremony.textContent=
+    String(publishedWeddingDetails.ceremony||"Ceremony to be confirmed");
+  if(landingDetailVenue)landingDetailVenue.textContent=
+    document.getElementById("wedding-venue-fact")?.textContent?.trim() || "Venue to be confirmed";
+  if(landingDetailCity)landingDetailCity.textContent=
+    String(publishedWeddingDetails.city||"Location to be confirmed");
+  if(landingDetailSeats)landingDetailSeats.textContent=seats+" seat"+(seats===1?"":"s");
+  if(landingDetails)landingDetails.hidden=false;
+  landingDetailsToggle?.setAttribute("aria-expanded","true");
+  if(landingDetailsToggle)landingDetailsToggle.textContent="Hide wedding details";
+}
+landingDetailsToggle?.addEventListener("click",()=>{
+  if(!landingDetails)return;
+  landingDetails.hidden=!landingDetails.hidden;
+  landingDetailsToggle.setAttribute("aria-expanded",String(!landingDetails.hidden));
+  landingDetailsToggle.textContent=landingDetails.hidden?"Wedding details":"Hide wedding details";
+});
 function renderInvitationRsvp(details={}) {
   if(!landingRsvpForm || !landingSeatSelect)return;
   const seats=Math.max(1,Number(details.invitedSeats||1));
+  const mode=String(publishedWeddingDetails.rsvpMode||"Both");
+  const websiteAllowed=mode!=="Messenger only";
+  const messengerAllowed=mode!=="Website only";
+  if(landingMessenger)landingMessenger.hidden=!messengerAllowed;
   landingInvitationDetails={
+    ...landingInvitationDetails,
     invitedSeats:seats,
     rsvp:String(details.rsvp||"Pending"),
     confirmedSeats:Math.max(0,Number(details.confirmedSeats||0)),
@@ -357,7 +395,7 @@ function renderInvitationRsvp(details={}) {
         ? "Current RSVP: "+landingSeatSelect.value+" attending."
         : "Current RSVP: "+current+".";
   }
-  landingRsvpForm.hidden=false;
+  landingRsvpForm.hidden=!websiteAllowed;
 }
 
 landingRsvpForm?.addEventListener("change",event=>{
@@ -427,10 +465,17 @@ function showInvitationLanding(code) {
       const recipient=document.getElementById("guest-invitation-recipient");
       if(recipient && response.data?.partyLabel)
         recipient.textContent="For: "+response.data.partyLabel;
+      renderInvitationDetails(response.data||{});
       renderInvitationRsvp(response.data||{});
       const seats=Number(response.data?.invitedSeats||1);
+      const mode=String(publishedWeddingDetails.rsvpMode||"Both");
+      const confirmation=mode==="Messenger only"
+        ?"Confirm your attendance with us in Messenger."
+        : mode==="Website only"
+          ?"Confirm your attendance on this page."
+          :"Confirm on this page or reply to us in Messenger.";
       landingStatus.textContent="Private invitation verified for "+seats+
-        " seat"+(seats===1?"":"s")+". RSVP below, then use the same invitation for the wedding camera.";
+        " seat"+(seats===1?"":"s")+". "+confirmation+" Then you can open the wedding camera.";
     })
     .catch(error=>{
       if(pendingLinkCode===code)landingStatus.textContent=
@@ -476,7 +521,14 @@ landingAnotherCode?.addEventListener("click",()=>{
   show("Enter a different camera code below.");
   input.focus();
 });
-document.addEventListener("wedding:public-details",updateLandingDate);
+document.addEventListener("wedding:public-details",event=>{
+  publishedWeddingDetails=event.detail||{};
+  updateLandingDate();
+  if(landingInvitationDetails){
+    renderInvitationDetails(landingInvitationDetails);
+    renderInvitationRsvp(landingInvitationDetails);
+  }
+});
 
 async function verifyCode(code, { fromLink = false, switching = false } = {}) {
   const report = switching ? modalShow : show;
