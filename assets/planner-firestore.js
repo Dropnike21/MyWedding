@@ -173,13 +173,16 @@ export class PlannerFirestoreStore {
     const date=String(settings?.date || "").trim();
     if (date && !/^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/.test(date))
       throw new Error("Select a valid wedding date before publishing public details.");
+    const rawMode=String(settings?.rsvpMode || "Both");
+    const rsvpMode=["Both","Messenger only","Website only"].includes(rawMode)?rawMode:"Both";
     return {
       date,
       dateTentative:true,
-      ceremony:String(settings?.ceremony || "Civil wedding").trim().slice(0,80),
+      ceremony:String(settings?.ceremony || "").trim().slice(0,80),
       venueName:String(settings?.venue || "").trim().slice(0,120),
       city:String(settings?.city || "").trim().slice(0,120),
       venueTentative:true,
+      rsvpMode,
     };
   }
 
