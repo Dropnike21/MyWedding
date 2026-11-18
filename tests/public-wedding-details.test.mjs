@@ -16,7 +16,7 @@ test("no February 23 public display or stale planner seed",()=>{
     assert.doesNotMatch(content,/2027-02-23|February 23,? 2027|23 February 2027|02 · 23/i,name);
   }
   assert.doesNotMatch(html,/class="topline"/);
-  assert.match(planner,/date: "2027-12-23"/);
+  assert.match(planner,/date: ""/);
   assert.match(html,/id="wedding-big-day"/);
   assert.match(html,/id="wedding-big-day-note"/);
   assert.match(html,/id="wedding-date-seal"/);
