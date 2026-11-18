@@ -1,5 +1,5 @@
-import { guestAccessConfig } from "./guest-config.js?v=20261108-guest1";
-import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261108-guest1";
+import { guestAccessConfig } from "./guest-config.js?v=20261118-plannerreset1";
+import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261118-plannerreset1";
 import {
   GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
@@ -219,6 +219,55 @@ export class PlannerFirestoreStore {
       this.publicDetailsError=error;
       console.warn("Public wedding details are pending publication:",error?.code || error);
     });
+  }
+
+  async reset(seedData) {
+    if (this.role !== "owner" || !this.db || !this.user) {
+      throw new Error("Only a signed-in wedding owner can clear Planning Studio.");
+    }
+
+    const blank = structuredClone(seedData);
+    const snapshots = await Promise.all(
+      COLLECTIONS.map(name => getDocs(collection(this.db,"weddings",WEDDING_ID,name)))
+    );
+    const refs = snapshots.flatMap(snapshot => snapshot.docs.map(item => item.ref));
+
+    // Firestore batches support at most 500 writes. Keep reset batches below
+    // that limit so a large guest list can still be cleared safely.
+    for (let i=0; i<refs.length; i+=400) {
+      const deleteBatch = writeBatch(this.db);
+      for (const ref of refs.slice(i,i+400)) deleteBatch.delete(ref);
+      await deleteBatch.commit();
+    }
+
+    const batch = writeBatch(this.db);
+    batch.set(doc(this.db,"weddings",WEDDING_ID), {
+      settings:sanitize(blank.settings),
+      version:blank.version,
+      updatedAt:serverTimestamp()
+    }, {merge:true});
+
+    // Keep the standard budget headings, but reset every allocation to zero.
+    for (const record of blank.budgetCategories || []) {
+      batch.set(doc(this.db,"weddings",WEDDING_ID,"budgetCategories",record.id), {
+        ...sanitize(record),
+        createdAt:serverTimestamp(),
+        updatedAt:serverTimestamp()
+      });
+    }
+
+    batch.set(doc(collection(this.db,"weddings",WEDDING_ID,"audit")), {
+      actorUid:this.user.uid,
+      role:this.role,
+      action:"reset",
+      sections:["settings",...COLLECTIONS],
+      at:serverTimestamp()
+    });
+    await batch.commit();
+
+    this.shadow = structuredClone(blank);
+    this.publicDetailsError = null;
+    return structuredClone(blank);
   }
 
   canWriteSection(name) {
