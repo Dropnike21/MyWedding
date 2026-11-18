@@ -2,7 +2,7 @@
  * Public-safe wedding details published from Planning Studio > Event Setup.
  * The public site never reads the private weddings/main planner document.
  */
-import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261118-details1";
+import { getWeddingClient, enableAppCheck } from "./firebase-services.js?v=20261119-details1";
 import { getFirestore, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
 
 const FALLBACK = Object.freeze({
