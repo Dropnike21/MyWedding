@@ -13,6 +13,10 @@ const FALLBACK = Object.freeze({
   city: "",
   venueTentative: true,
   rsvpMode: "Both",
+  guestGuide: {
+    attire:"", whatToWear:"", whatToBring:"", preparation:"",
+    arrival:"", venueInstructions:"", transportParking:"", reminders:"", contact:""
+  },
 });
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DATE_PATTERN = /^20[0-9]{2}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
@@ -33,6 +37,19 @@ function normalize(data) {
   if(date && !validDate(date)) return null;
   const mode=["Both","Messenger only","Website only"].includes(data.rsvpMode)
     ? data.rsvpMode : "Both";
+  const sourceGuide=data.guestGuide && typeof data.guestGuide==="object" ? data.guestGuide : {};
+  const guideText=key=>typeof sourceGuide[key]==="string" ? sourceGuide[key].trim().slice(0,1200) : "";
+  const guestGuide={
+    attire:guideText("attire"),
+    whatToWear:guideText("whatToWear"),
+    whatToBring:guideText("whatToBring"),
+    preparation:guideText("preparation"),
+    arrival:guideText("arrival"),
+    venueInstructions:guideText("venueInstructions"),
+    transportParking:guideText("transportParking"),
+    reminders:guideText("reminders"),
+    contact:guideText("contact"),
+  };
   return {
     date,
     dateTentative: data.dateTentative !== false,
@@ -41,6 +58,7 @@ function normalize(data) {
     city: typeof data.city==="string" ? data.city.trim().slice(0,120) : "",
     venueTentative: data.venueTentative !== false,
     rsvpMode: mode,
+    guestGuide,
   };
 }
 
