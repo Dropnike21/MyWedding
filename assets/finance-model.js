@@ -47,7 +47,7 @@ export function paidOf(db,item){
   const opening=item.openingMigrated?0:number(item.paid);
   return opening+active(db.payments).filter(p=>linkedId(db,p)===item.id).reduce((sum,p)=>sum+paidValue(p),0);
 }
-export const balanceOf=(db,item)=>Math.max(0,committedOf(item)-paidOf(db,item));
+export const balanceOf=(db,item)=>["Confirmed","Ordered","Completed"].includes(stageOf(item))?Math.max(0,committedOf(item)-paidOf(db,item)):0;
 export function paymentStatus(db,item){
   const paid=paidOf(db,item), committed=committedOf(item);
   if(paid>committed&&paid>0)return "Overpaid / refund due";
