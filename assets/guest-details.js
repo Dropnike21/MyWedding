@@ -1,6 +1,6 @@
 import { guestAccessConfig } from "./guest-config.js?v=20261119-guestdetails1";
 import { getGuestClient, callGuestFunction } from "./firebase-services.js?v=20261119-guestdetails1";
-import { start as startPublicWedding } from "./public-wedding.js?v=20261119-guestdetails1";
+import { start as startPublicWedding } from "./public-wedding.js?v=20261124-finance-camera1";
 
 const CODE_PATTERN=/^[A-HJ-NP-Z2-9]{8}$/;
 const normalize=value=>String(value||"").toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,8);
@@ -54,6 +54,8 @@ function configureConfirmation(){
   form.hidden=mode==="Messenger only";
 }
 function renderPublic(){
+  const cameraSection=cameraLink?.closest(".guest-details-next");
+  if(cameraSection){cameraSection.hidden=published.guestCameraEnabled !== true;cameraSection.style.display=cameraSection.hidden?"none":"";}
   text("details-date",formatDate(published.date));
   text("details-ceremony",String(published.ceremony||"Ceremony to be confirmed"));
   text("details-venue",String(published.venueName||"Venue to be confirmed"));
