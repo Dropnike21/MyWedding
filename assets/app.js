@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const BUILD = "20261119-invitecopy1";
+  const BUILD = "20261124-finance-camera1";
   const assetBase = new URL("./assets/", location.href);
   const loaderEl = document.getElementById("global-loader");
   const loaderTitle = document.getElementById("global-loader-title");
@@ -2062,6 +2062,12 @@
   setupRipples();
   refreshInteractions();
 
+  function updateCameraNavigation(details) {
+    const enabled=details?.guestCameraEnabled === true;
+    document.querySelectorAll('[data-view="camera"],[data-go="camera"]').forEach(node=>node.hidden=!enabled);
+  }
+  updateCameraNavigation(window.WEDDING_PUBLIC_DETAILS);
+  document.addEventListener("wedding:public-details",event=>updateCameraNavigation(event.detail));
   // Real invitation verification and Drive uploads depend on deployed
   // protected Firebase Cloud Functions and owner-managed camera access.
   // Date, weekday, countdown and venue are read from the public-safe
