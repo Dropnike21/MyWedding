@@ -12,7 +12,8 @@
   <link rel="stylesheet" href="./assets/mobile-layout.css?v=20261108-mobile1" />
   <link rel="stylesheet" href="./assets/camera-portrait.css?v=20261108-guest1" />
   <link rel="stylesheet" href="./assets/guest-invitation.css?v=20261119-invitecopy1" />
-  <script src="./assets/app.js?v=20261119-invitecopy1" defer></script>
+  <script src="./assets/app.js?v=20261124-finance-camera1" defer></script>
+  <style>[hidden][data-view="camera"],[hidden][data-go="camera"],#guest-invitation-continue[hidden],#guest-invitation-enter-code[hidden],.guest-invite-pass[hidden],.camera-gate-heading[hidden],.camera-access-card[hidden],#camera-disabled-note[hidden]{display:none!important}</style>
 </head>
 <body>
   <div class="global-loader" id="global-loader" hidden aria-live="polite" aria-busy="true">
@@ -31,7 +32,7 @@
     <nav aria-label="Main navigation" class="main-nav">
       <button type="button" data-view="home" aria-current="page" aria-label="Home"><span class="nav-full-label">Home</span><span class="nav-mobile-label" aria-hidden="true">Home</span></button>
       <button type="button" data-view="planner" aria-label="Planning Studio"><span class="nav-full-label">Planning Studio</span><span class="nav-mobile-label" aria-hidden="true">Planner</span></button>
-      <button type="button" data-view="camera" aria-label="Guest Camera"><span class="nav-full-label">Guest Camera</span><span class="nav-mobile-label" aria-hidden="true">Camera</span></button>
+      <button type="button" data-view="camera" hidden aria-label="Guest Camera"><span class="nav-full-label">Guest Camera</span><span class="nav-mobile-label" aria-hidden="true">Camera</span></button>
       <button type="button" data-view="system" aria-label="How It Works"><span class="nav-full-label">How It Works</span><span class="nav-mobile-label" aria-hidden="true">Guide</span></button>
     </nav>
     <span class="build-state"><span class="live-dot"></span> PRIVATE WEDDING SITE</span>
@@ -51,7 +52,7 @@
           <p class="hero-subline">One beautiful day.<br />A thousand little moments.</p>
           <p class="hero-intro">A special place to plan the celebration, welcome our guests, and preserve the memories we'll make together.</p>
           <div class="button-row">
-            <button class="button primary" type="button" data-go="camera">Explore the photo experience <span aria-hidden="true">↗</span></button>
+            <button class="button primary" type="button" data-go="camera" hidden>Explore the photo experience <span aria-hidden="true">↗</span></button>
             <button class="button subtle" type="button" data-go="planner">See the planning studio <span aria-hidden="true">→</span></button>
           </div>
           <p class="hero-note">Private guest invitation links, Messenger attendance confirmations and wedding-camera access are managed through Wedding Studio.</p>
@@ -171,7 +172,7 @@
               <option value="guestguide">Guest guide</option>
               <option value="guests">Guests &amp; RSVPs</option>
               <option value="photos">Photo archive</option>
-              <option value="budget">Budget &amp; spending</option>
+              <option value="budget">Budget &amp; Expenses</option>
               <option value="tasks">Checklist</option>
               <option value="timeline">Wedding day</option>
               <option value="decisions">Decisions</option>
@@ -184,7 +185,7 @@
             <button type="button" class="planner-nav" data-planner-view="guestguide"><span>✦</span><b>Guest guide</b><small>Attire, bring, venue notes</small></button>
             <button type="button" class="planner-nav" data-planner-view="guests"><span>♧</span><b>Guests</b><small>Invites & RSVPs</small></button>
             <button type="button" class="planner-nav" data-planner-view="photos"><span>▧</span><b>Photo archive</b><small>Guest camera uploads</small></button>
-            <button type="button" class="planner-nav" data-planner-view="budget"><span>₱</span><b>Budget &amp; spending</b><small>Suppliers, expenses, payments</small></button>
+            <button type="button" class="planner-nav" data-planner-view="budget"><span>₱</span><b>Budget &amp; Expenses</b><small>Plan, commitments, payments</small></button>
             <button type="button" class="planner-nav" data-planner-view="tasks"><span>☑</span><b>Checklist</b><small>Tasks & deadlines</small></button>
             <button type="button" class="planner-nav" data-planner-view="timeline"><span>◷</span><b>Wedding day</b><small>Run of show</small></button>
             <button type="button" class="planner-nav" data-planner-view="decisions"><span>?</span><b>Decisions</b><small>Open choices</small></button>
@@ -214,23 +215,24 @@
             <p class="guest-invite-message" id="guest-invitation-message">Your private invitation is ready. Open the guest details page for attire, what to bring, venue instructions and attendance confirmation.</p>
             <p class="guest-invite-seat-summary" id="guest-invitation-seat-summary">Reserved seats will appear here.</p>
             <a class="button outlined guest-invite-details-link" id="guest-invitation-details-link" target="_blank" rel="noopener noreferrer">View guest details &amp; attendance</a>
-            <div class="guest-invite-pass">
+            <div class="guest-invite-pass" hidden>
               <span>YOUR PRIVATE CAMERA PASS</span>
               <strong id="guest-invitation-code">••••-••••</strong>
               <small>This private code belongs to this invitation and its seat allotment.</small>
             </div>
-            <button type="button" class="button primary guest-invite-continue" id="guest-invitation-continue">Open your wedding camera</button>
-            <button type="button" class="guest-invite-enter-manually" id="guest-invitation-enter-code">Enter a different code</button>
+            <button type="button" class="button primary guest-invite-continue" id="guest-invitation-continue" hidden>Open your wedding camera</button>
+            <button type="button" class="guest-invite-enter-manually" id="guest-invitation-enter-code" hidden>Enter a different code</button>
             <p id="guest-invitation-status" role="status" aria-live="polite"></p>
           </div>
         </section>
-        <div class="section-heading camera-gate-heading">
+        <p id="camera-disabled-note" class="invitation-status" role="status">The wedding camera is currently unavailable. Use your private invitation link to view guest details and confirm attendance.</p>
+        <div class="section-heading camera-gate-heading" hidden>
           <span class="eyebrow">WEDDING CAMERA</span>
           <h1 id="camera-heading">Capture the <em>little moments.</em></h1>
           <p>Your invitation is your camera pass. Open your private invitation link or enter the short code printed on it.</p>
         </div>
 
-        <section class="invitation-access camera-access-card" aria-labelledby="invitation-heading">
+        <section hidden class="invitation-access camera-access-card" aria-labelledby="invitation-heading">
           <div class="camera-gate-mark" aria-hidden="true"><strong>A&amp;J</strong><small>CAMERA PASS</small></div>
           <div class="invitation-copy">
             <span class="eyebrow">YOUR INVITATION IS YOUR KEY</span>
