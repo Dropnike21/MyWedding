@@ -481,6 +481,7 @@ function applyCameraFeature() {
   const note=document.getElementById("camera-disabled-note");
   if(note)note.hidden=enabled || Boolean(pendingLinkCode);
   if(!enabled && !cameraSession.hidden)leaveCameraMode();
+  if(!enabled)closeCodeModal();
 }
 function showInvitationLanding(code) {
   if (!CODE_PATTERN.test(code) || !invitationLanding) return;
@@ -562,6 +563,7 @@ landingAnotherCode?.addEventListener("click",()=>{
 document.addEventListener("wedding:public-details",event=>{
   publishedWeddingDetails=event.detail||{};
   applyCameraFeature();
+  if(publishedWeddingDetails.guestCameraEnabled === true && !pendingLinkCode && cameraSession.hidden)restoreOnThisDevice();
   updateLandingDate();
   if(landingInvitationDetails){
     renderInvitationDetails(landingInvitationDetails);
