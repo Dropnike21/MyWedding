@@ -197,6 +197,7 @@ export class PlannerFirestoreStore {
       venueTentative:true,
       rsvpMode,
       guestGuide,
+      guestCameraEnabled:settings?.guestCameraEnabled === true,
     };
   }
 
