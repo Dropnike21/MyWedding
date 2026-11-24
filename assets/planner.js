@@ -1,6 +1,6 @@
 import { plannerFirestore } from "./planner-firestore.js?v=20261124-finance-camera1";
 import { createFinance } from "./finance-ui.js?v=20261124-finance-camera1";
-import { financeTotals, balanceOf } from "./finance-model.js?v=20261124-finance-camera1";
+import { financeTotals, balanceOf, itemsOf, stageOf } from "./finance-model.js?v=20261124-finance-camera1";
 import { callWeddingFunction } from "./firebase-services.js?v=20261119-guestdetails1";
 (() => {
 "use strict";
@@ -162,18 +162,6 @@ function daysToWedding() {
   if (!Number.isFinite(d)) return "—";
   return Math.max(0,Math.ceil((d-Date.now())/86400000));
 }
-function paymentTotal(status) {
-  return active(db.payments).filter(p => !status || p.status===status).reduce((s,p)=>s+num(p.amount),0);
-}
-function vendorCommitted() {
-  return active(db.vendors).reduce((s,v)=>s+num(v.agreed),0);
-}
-function expenseCommitted() {
-  return active(db.expenses).reduce((sum,item)=>sum+num(item.actualCost || item.expectedCost),0);
-}
-function expensePaidTotal() {
-  return active(db.expenses).reduce((sum,item)=>sum+num(item.paid),0);
-}
 function totalCommitted() {
   return financeTotals(db).committed;
 }
@@ -267,12 +255,11 @@ const schemas = {
 };
 
 function renderOverview() {
-  const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
   const committed=totalCommitted(), paid=totalPaid(), remaining=financeTotals(db).planned-committed;
   const recentTasks=active(db.tasks).filter(t=>t.status!=="Done").sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999")).slice(0,5);
   const decisions=active(db.decisions).filter(d=>d.status!=="Decided").slice(0,4);
-  const essentials=active(db.expenses)
-    .filter(item=>!["Received","Cancelled"].includes(item.status))
+  const essentials=itemsOf(db)
+    .filter(item=>!["Completed","Cancelled"].includes(stageOf(item)))
     .sort((a,b)=>(a.pickupDate||a.dueDate||"9999").localeCompare(b.pickupDate||b.dueDate||"9999"))
     .slice(0,5);
   root.innerHTML =
@@ -291,7 +278,7 @@ function renderOverview() {
       '<section class="planner-card"><div class="planner-card-head"><h3>Open decisions</h3><button data-jump="decisions">Decision log →</button></div>'+
       (decisions.length?'<div class="planner-mini-list">'+decisions.map(d=>'<button data-open-view="decisions" data-open-id="'+esc(d.id)+'"><span>'+esc(d.title)+'</span><small>'+dateLabel(d.dueDate)+'</small>'+statusBadge(d.status)+'</button>').join("")+'</div>':empty("No open decisions."))+'</section>'+
       '<section class="planner-card"><div class="planner-card-head"><h3>Wedding essentials</h3><button data-jump="expenses">Manage expenses →</button></div>'+
-      (essentials.length?'<div class="planner-mini-list">'+essentials.map(item=>'<button data-open-view="expenses" data-open-id="'+esc(item.id)+'"><span>'+esc(item.name)+'</span><small>'+esc(item.category)+' · balance '+money.format(expenseBalance(item))+'</small>'+statusBadge(item.status)+'</button>').join("")+'</div>':empty("Add rings, attire, souvenirs and other wedding essentials."))+'</section>'+
+      (essentials.length?'<div class="planner-mini-list">'+essentials.map(item=>'<button data-open-view="expenses" data-open-id="'+esc(item.id)+'"><span>'+esc(item.name)+'</span><small>'+esc(item.category)+' · balance '+money.format(expenseBalance(item))+'</small>'+statusBadge(stageOf(item))+'</button>').join("")+'</div>':empty("Add rings, attire, souvenirs and other wedding essentials."))+'</section>'+
       '<section class="planner-card planner-budget-card"><div class="planner-card-head"><h3>Budget position</h3><button data-jump="budget">Open budget →</button></div>'+
       '<div class="planner-budget-lines"><div><span>Planned allocations</span><strong>'+money.format(financeTotals(db).planned)+'</strong></div><div><span>Confirmed commitments</span><strong>'+money.format(committed)+'</strong></div><div><span>Outstanding</span><strong>'+money.format(financeTotals(db).outstanding)+'</strong></div><div><span>Paid so far</span><strong>'+money.format(paid)+'</strong></div></div>'+
       '<div class="planner-progress"><i style="width:'+Math.min(100,Math.max(0,committed/Math.max(1,financeTotals(db).planned)*100))+'%"></i></div></section>'+
@@ -314,10 +301,10 @@ function bindJumps(){
 }
 
 function renderSettings() {
-  root.innerHTML=header("Event Setup","These values drive countdowns, capacity planning and budget summaries.")+
+  root.innerHTML=header("Event Setup","These values drive countdowns and capacity planning. Manage category allocations in Budget & Expenses.")+
   '<div class="planner-card planner-settings-card"><form id="planner-settings-form" class="planner-form-grid">'+
   formField("date","Wedding date","date",db.settings.date,true)+
-  formField("budget","Total budget (PHP)","number",db.settings.budget,true)+
+  formField("budget","Civil wedding budget ceiling (PHP)","number",db.settings.budget,true)+
   formField("guestTarget","Target maximum guests","number",db.settings.guestTarget,false)+
   formField("ceremony","Ceremony / event type","text",db.settings.ceremony,true)+
   formField("venue","Wedding venue","text",db.settings.venue,false)+
