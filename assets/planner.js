@@ -1,4 +1,6 @@
-import { plannerFirestore } from "./planner-firestore.js?v=20261119-guestdetails1";
+import { plannerFirestore } from "./planner-firestore.js?v=20261124-finance-camera1";
+import { createFinance } from "./finance-ui.js?v=20261124-finance-camera1";
+import { financeTotals, balanceOf, itemsOf, stageOf } from "./finance-model.js?v=20261124-finance-camera1";
 import { callWeddingFunction } from "./firebase-services.js?v=20261119-guestdetails1";
 (() => {
 "use strict";
@@ -30,6 +32,7 @@ function seed() {
       ceremony: "Civil wedding",
       city: "",
       guestTarget: 0,
+      guestCameraEnabled: false,
       rsvpMode: "Both",
       guestGuide: {
         attire: "",
@@ -108,6 +111,7 @@ let savingsModalOpen = false;
 let remoteActive = false;
 let organizerRole = "local";
 let organizerProfile = null;
+const finance=createFinance({root,getDb:()=>db,getRole:()=>organizerRole,save:()=>save(),refreshToolbar:()=>updateToolbar(),categories});
 
 function setSyncState(label,bad=false) {
   const mode=document.querySelector(".planner-mode");
@@ -158,26 +162,14 @@ function daysToWedding() {
   if (!Number.isFinite(d)) return "—";
   return Math.max(0,Math.ceil((d-Date.now())/86400000));
 }
-function paymentTotal(status) {
-  return active(db.payments).filter(p => !status || p.status===status).reduce((s,p)=>s+num(p.amount),0);
-}
-function vendorCommitted() {
-  return active(db.vendors).reduce((s,v)=>s+num(v.agreed),0);
-}
-function expenseCommitted() {
-  return active(db.expenses).reduce((sum,item)=>sum+num(item.actualCost || item.expectedCost),0);
-}
-function expensePaidTotal() {
-  return active(db.expenses).reduce((sum,item)=>sum+num(item.paid),0);
-}
 function totalCommitted() {
-  return vendorCommitted()+expenseCommitted();
+  return financeTotals(db).committed;
 }
 function totalPaid() {
-  return paymentTotal("Paid")+expensePaidTotal();
+  return financeTotals(db).paid;
 }
 function expenseBalance(item) {
-  return Math.max(0,num(item.actualCost || item.expectedCost)-num(item.paid));
+  return balanceOf(db,item);
 }
 function ensureBudgetCategory(name) {
   if (!name || db.budgetCategories.some(item=>item.name===name)) return;
@@ -202,19 +194,6 @@ function header(title,sub,actions="") {
 }
 function empty(message){return '<div class="planner-empty"><strong>Nothing here yet.</strong><p>'+esc(message)+'</p></div>';}
 
-function financeTabs(view){
-  const current=view==="vendors"?"vendors":view==="expenses"?"expenses":"budget";
-  const items=organizerRole==="coordinator"
-    ? [["vendors","Suppliers"],["expenses","Direct expenses"]]
-    : [["budget","Summary & payments"],["vendors","Suppliers"],["expenses","Direct expenses"]];
-  return '<nav class="planner-finance-tabs" aria-label="Budget and spending sections">'+
-    items.map(([key,label])=>'<button type="button" data-finance-view="'+key+'" class="'+(current===key?"active":"")+'"'+(current===key?' aria-current="page"':'')+'>'+label+'</button>').join("")+
-    '</nav>';
-}
-function bindFinanceTabs(){
-  root.querySelectorAll("[data-finance-view]").forEach(button=>button.addEventListener("click",()=>switchPlanner(button.dataset.financeView)));
-}
-
 const schemas = {
   guests:{
     title:"Guests & RSVPs",singular:"guest",collection:"guests",
@@ -232,44 +211,6 @@ const schemas = {
       ["notes","Notes","textarea",false]
     ],
     columns:[["name","Guest"],["side","Side"],["seats","Seats"],["rsvp","Attendance"],["confirmed","Confirmed"]]
-  },
-  vendors:{
-    title:"Suppliers & Bookings",singular:"supplier",collection:"vendors",
-    subtitle:"Compare quotations, record commitments, and keep booking details together.",
-    fields:[
-      ["name","Supplier / business","text",true],
-      ["category","Budget category","select",true,categories],
-      ["contact","Contact","text",false],
-      ["package","Package / inclusions","textarea",false],
-      ["quote","Quotation (PHP)","number",false],
-      ["agreed","Agreed cost (PHP)","number",false],
-      ["status","Booking status","select",true,["To inquire","Quoted","Considering","Booked","Cancelled"]],
-      ["reserveBy","Reserve / decide by","date",false],
-      ["notes","Notes","textarea",false]
-    ],
-    columns:[["name","Supplier"],["category","Category"],["quote","Quote"],["agreed","Agreed"],["status","Status"]]
-  },
-  expenses:{
-    title:"Direct Expenses",singular:"expense",collection:"expenses",
-    subtitle:"Track one-off purchases and services that are not managed as supplier bookings, such as attire, rings, favors and legal fees.",
-    fields:[
-      ["name","Item / expense","text",true],
-      ["category","Budget category","select",true,categories],
-      ["forWho","For","select",false,["","Angela","Joseph","Both","Guests","Wedding day","Other"]],
-      ["purchaseType","Purchase type","select",false,["","Buy","Rent","Borrow","DIY","Service","Other"]],
-      ["quantity","Quantity","number",false],
-      ["unitCost","Unit cost (PHP)","number",false],
-      ["expectedCost","Expected total (PHP)","number",false],
-      ["actualCost","Actual total (PHP)","number",false],
-      ["paid","Paid so far (PHP)","number",false],
-      ["status","Status","select",true,["Researching","Chosen","Ordered","Partially paid","Paid","Received","Cancelled"]],
-      ["dueDate","Payment / order due","date",false],
-      ["pickupDate","Pickup / delivery","date",false],
-      ["supplier","Store / seller","text",false],
-      ["link","Product / reference link","url",false],
-      ["notes","Notes","textarea",false]
-    ],
-    columns:[["name","Item"],["category","Category"],["forWho","For"],["expectedCost","Expected"],["actualCost","Actual"],["paid","Paid"],["balance","Balance"],["status","Status"]]
   },
   tasks:{
     title:"Wedding Checklist",singular:"task",collection:"tasks",
@@ -314,12 +255,11 @@ const schemas = {
 };
 
 function renderOverview() {
-  const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
-  const committed=totalCommitted(), paid=totalPaid(), remaining=num(db.settings.budget)-committed;
+  const committed=totalCommitted(), paid=totalPaid(), remaining=financeTotals(db).planned-committed;
   const recentTasks=active(db.tasks).filter(t=>t.status!=="Done").sort((a,b)=>(a.dueDate||"9999").localeCompare(b.dueDate||"9999")).slice(0,5);
   const decisions=active(db.decisions).filter(d=>d.status!=="Decided").slice(0,4);
-  const essentials=active(db.expenses)
-    .filter(item=>!["Received","Cancelled"].includes(item.status))
+  const essentials=itemsOf(db)
+    .filter(item=>!["Completed","Cancelled"].includes(stageOf(item)))
     .sort((a,b)=>(a.pickupDate||a.dueDate||"9999").localeCompare(b.pickupDate||b.dueDate||"9999"))
     .slice(0,5);
   root.innerHTML =
@@ -328,8 +268,8 @@ function renderOverview() {
       metric("Days to wedding",daysToWedding(),dateLabel(db.settings.date))+
       metric("Estimated seats",guestSeats(),active(db.guests).length+" guest entries")+
       metric("Confirmed seats",confirmedSeats(),active(db.guests).filter(g=>g.rsvp==="Yes").length+" accepted invites")+
-      metric("Budget remaining",money.format(remaining),"suppliers + wedding expenses")+
-      metric("Amount paid",money.format(paid),"supplier payments + direct expenses")+
+      metric("Budget remaining",money.format(remaining),"category allocations less commitments")+
+      metric("Amount paid",money.format(paid),"net payments across events")+
       metric("Open tasks",openTasks(),overdueTasks()+" overdue")+
     '</div>'+
     '<div class="planner-overview-grid">'+
@@ -338,10 +278,10 @@ function renderOverview() {
       '<section class="planner-card"><div class="planner-card-head"><h3>Open decisions</h3><button data-jump="decisions">Decision log →</button></div>'+
       (decisions.length?'<div class="planner-mini-list">'+decisions.map(d=>'<button data-open-view="decisions" data-open-id="'+esc(d.id)+'"><span>'+esc(d.title)+'</span><small>'+dateLabel(d.dueDate)+'</small>'+statusBadge(d.status)+'</button>').join("")+'</div>':empty("No open decisions."))+'</section>'+
       '<section class="planner-card"><div class="planner-card-head"><h3>Wedding essentials</h3><button data-jump="expenses">Manage expenses →</button></div>'+
-      (essentials.length?'<div class="planner-mini-list">'+essentials.map(item=>'<button data-open-view="expenses" data-open-id="'+esc(item.id)+'"><span>'+esc(item.name)+'</span><small>'+esc(item.category)+' · balance '+money.format(expenseBalance(item))+'</small>'+statusBadge(item.status)+'</button>').join("")+'</div>':empty("Add rings, attire, souvenirs and other wedding essentials."))+'</section>'+
+      (essentials.length?'<div class="planner-mini-list">'+essentials.map(item=>'<button data-open-view="expenses" data-open-id="'+esc(item.id)+'"><span>'+esc(item.name)+'</span><small>'+esc(item.category)+' · balance '+money.format(expenseBalance(item))+'</small>'+statusBadge(stageOf(item))+'</button>').join("")+'</div>':empty("Add rings, attire, souvenirs and other wedding essentials."))+'</section>'+
       '<section class="planner-card planner-budget-card"><div class="planner-card-head"><h3>Budget position</h3><button data-jump="budget">Open budget →</button></div>'+
-      '<div class="planner-budget-lines"><div><span>Total budget</span><strong>'+money.format(db.settings.budget)+'</strong></div><div><span>Suppliers</span><strong>'+money.format(supplierCommitted)+'</strong></div><div><span>Wedding expenses</span><strong>'+money.format(personalCommitted)+'</strong></div><div><span>Paid so far</span><strong>'+money.format(paid)+'</strong></div></div>'+
-      '<div class="planner-progress"><i style="width:'+Math.min(100,Math.max(0,committed/Math.max(1,num(db.settings.budget))*100))+'%"></i></div></section>'+
+      '<div class="planner-budget-lines"><div><span>Planned allocations</span><strong>'+money.format(financeTotals(db).planned)+'</strong></div><div><span>Confirmed commitments</span><strong>'+money.format(committed)+'</strong></div><div><span>Outstanding</span><strong>'+money.format(financeTotals(db).outstanding)+'</strong></div><div><span>Paid so far</span><strong>'+money.format(paid)+'</strong></div></div>'+
+      '<div class="planner-progress"><i style="width:'+Math.min(100,Math.max(0,committed/Math.max(1,financeTotals(db).planned)*100))+'%"></i></div></section>'+
       '<section class="planner-card"><div class="planner-card-head"><h3>Wedding setup</h3><button data-jump="settings">Edit setup →</button></div><dl class="planner-definition"><div><dt>Date</dt><dd>'+dateLabel(db.settings.date)+'</dd></div><div><dt>Ceremony</dt><dd>'+esc(db.settings.ceremony||"—")+'</dd></div><div><dt>Venue</dt><dd>'+esc(db.settings.venue||"—")+'</dd></div><div><dt>Budget</dt><dd>'+money.format(db.settings.budget)+'</dd></div></dl></section>'+
     '</div>';
   bindJumps();
@@ -361,17 +301,32 @@ function bindJumps(){
 }
 
 function renderSettings() {
-  root.innerHTML=header("Event Setup","These values drive countdowns, capacity planning and budget summaries.")+
+  root.innerHTML=header("Event Setup","These values drive countdowns and capacity planning. Manage category allocations in Budget & Expenses.")+
   '<div class="planner-card planner-settings-card"><form id="planner-settings-form" class="planner-form-grid">'+
   formField("date","Wedding date","date",db.settings.date,true)+
-  formField("budget","Total budget (PHP)","number",db.settings.budget,true)+
+  formField("budget","Civil wedding budget ceiling (PHP)","number",db.settings.budget,true)+
   formField("guestTarget","Target maximum guests","number",db.settings.guestTarget,false)+
   formField("ceremony","Ceremony / event type","text",db.settings.ceremony,true)+
   formField("venue","Wedding venue","text",db.settings.venue,false)+
   formField("city","City / municipality","text",db.settings.city,false)+
   formField("rsvpMode","Guest confirmation","select",db.settings.rsvpMode||"Both",true,["Both","Messenger only","Website only"])+
   '<div class="planner-field planner-field-wide"><label for="f-notes">Planning notes</label><textarea id="f-notes" name="notes" rows="4">'+esc(db.settings.notes||"")+'</textarea></div>'+
-  '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">Save event setup</button><span id="planner-settings-msg"></span></div></form></div>';
+  '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">Save event setup</button><span id="planner-settings-msg"></span></div></form></div>'+
+  '<section class="planner-card planner-settings-card"><div class="planner-card-head"><h3>Website Features</h3></div><p>Guest Camera is disabled during the civil wedding. Enable it for the garden wedding when ready. Invitations, RSVP and existing photos are preserved.</p><form id="camera-feature-form"><label><input type="checkbox" id="camera-feature-enabled" '+(db.settings.guestCameraEnabled===true?"checked":"")+'/> Enable Guest Camera</label> <button type="submit" class="button primary planner-compact">Save camera setting</button><p id="camera-feature-status" role="status"></p></form></section>';
+  root.querySelector("#camera-feature-form").addEventListener("submit",async e=>{
+    e.preventDefault();
+    if(organizerRole!=="owner"&&organizerRole!=="local")return;
+    const button=e.currentTarget.querySelector("button"), status=root.querySelector("#camera-feature-status"), enabled=root.querySelector("#camera-feature-enabled").checked;
+    button.disabled=true;status.textContent="Saving camera setting…";
+    db.settings.guestCameraEnabled=enabled;
+    try{
+      if(remoteActive){await plannerFirestore.queue(db);await plannerFirestore.publishPublicDetails(db.settings);}
+      else save();
+      status.textContent=enabled?"Camera feature enabled. Invitation-specific access still applies.":"Camera feature disabled. Invitations and existing photos are unchanged.";
+      if(remoteActive)setSyncState("FIREBASE SYNCED");
+    }catch(error){status.textContent="Camera setting could not be fully published. Retry and verify the deployed Firebase rules and functions.";setSyncState("SYNC ERROR",true);}
+    finally{button.disabled=false;}
+  });
   root.querySelector("#planner-settings-form").addEventListener("submit",e=>{
     e.preventDefault();const fd=new FormData(e.currentTarget);
     db.settings={...db.settings,date:fd.get("date"),budget:num(fd.get("budget")),guestTarget:num(fd.get("guestTarget")),ceremony:String(fd.get("ceremony")||""),venue:String(fd.get("venue")||""),city:String(fd.get("city")||""),rsvpMode:String(fd.get("rsvpMode")||"Both"),notes:String(fd.get("notes")||"")};save();
@@ -456,7 +411,6 @@ function cellValue(field,val,record=null){
 
 function renderEntity(view) {
   const schema=schemas[view], allRecords=db[schema.collection]||[];
-  const financeSection=view==="vendors"||view==="expenses";
   const records=showArchived ? allRecords : active(allRecords);
   const selected=allRecords.find(r=>r.id===selectedId)||null;
   const filtered=records.filter(r=>JSON.stringify(r).toLowerCase().includes(search.toLowerCase()));
@@ -467,7 +421,6 @@ function renderEntity(view) {
       "<button class='button outlined planner-compact' id='planner-archived-toggle'>"+(showArchived?"Hide archived":"Show archived")+"</button>"+
       "<button class='button primary planner-compact' id='planner-new'>+ New "+esc(schema.singular)+"</button>"+
       (view==="guests"?"<button class='button outlined planner-compact' id='planner-invitation-manage'>Invitations &amp; photo cleanup</button>":""))+
-    (financeSection?financeTabs(view):"")+
     '<section class="planner-list-card planner-list-card-full"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search '+esc(schema.title.toLowerCase())+'" value="'+esc(search)+'" /><span>'+filtered.length+' active</span></div>'+
       (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr>'+schema.columns.map(c=>'<th>'+esc(c[1])+'</th>').join("")+'</tr></thead><tbody>'+
         filtered.map(r=>'<tr data-record="'+esc(r.id)+'">'+schema.columns.map(c=>'<td>'+cellValue(c[0],r[c[0]],r)+'</td>').join("")+'</tr>').join("")+
@@ -580,182 +533,6 @@ function renderEntity(view) {
   if(selected?.archived){
     root.querySelectorAll("#planner-entity-form input,#planner-entity-form select,#planner-entity-form textarea,#planner-entity-form button").forEach(x=>x.disabled=true);
   }
-  if(financeSection)bindFinanceTabs();
-}
-function renderBudget() {
-  const vendorOptions=active(db.vendors);
-  const filtered=active(db.payments).filter(p=>JSON.stringify(p).toLowerCase().includes(search.toLowerCase()));
-  const selected=active(db.payments).find(p=>p.id===selectedId)||null;
-  const payment=selected||{vendorId:"",description:"",amount:0,dueDate:"",status:"Planned",paidDate:"",method:"",notes:"",archived:false};
-  const expenseOptions=active(db.expenses);
-  const allocated=db.budgetCategories.reduce((s,c)=>s+num(c.allocated),0);
-  const supplierCommitted=vendorCommitted(), personalCommitted=expenseCommitted();
-  const committed=totalCommitted(), paid=totalPaid();
-  const gardenGoal=Math.max(0,num(db.settings.gardenSavingsTarget));
-  const gardenSaved=Math.max(0,num(db.settings.gardenSavingsSaved));
-  const gardenRemaining=Math.max(0,gardenGoal-gardenSaved);
-  const gardenProgress=gardenGoal?Math.min(100,Math.round(gardenSaved/gardenGoal*100)):0;
-
-  root.innerHTML=header(
-      "Budget & Spending",
-      "One financial hub for category budgets, supplier commitments, direct expenses and payments.",
-      "<button class='button primary planner-compact' id='planner-new-payment'>+ Record payment</button>"
-    )+
-    financeTabs("budget")+
-    '<div class="planner-metrics compact">'+metric("Civil wedding budget",money.format(db.settings.budget),"Current wedding plan")+metric("Allocated",money.format(allocated),(allocated===num(db.settings.budget)?"Balanced":"Difference "+money.format(db.settings.budget-allocated)))+metric("Committed",money.format(committed),"Suppliers + direct expenses")+metric("Paid",money.format(paid),"Current wedding spending")+'</div>'+
-    '<section class="planner-card planner-savings-card"><div class="planner-card-head"><div><span class="eyebrow">FUTURE PLAN</span><h3>Garden Wedding Fund</h3></div><button type="button" id="garden-savings-edit">Update savings</button></div>'+
-      '<p class="planner-muted">Kept separate from the civil-wedding budget so saving for the future garden celebration does not count as current wedding spending.</p>'+
-      '<div class="planner-savings-values"><div><span>Saved</span><strong>'+money.format(gardenSaved)+'</strong></div><div><span>Goal</span><strong>'+(gardenGoal?money.format(gardenGoal):"Set a goal")+'</strong></div><div><span>Still needed</span><strong>'+money.format(gardenRemaining)+'</strong></div></div>'+
-      '<div class="planner-progress planner-savings-progress"><i style="width:'+gardenProgress+'%"></i></div>'+
-      (db.settings.gardenSavingsNotes?'<p class="planner-savings-note">'+esc(db.settings.gardenSavingsNotes)+'</p>':"")+
-    '</section>'+
-    '<div class="planner-budget-layout"><section class="planner-card"><div class="planner-card-head"><h3>Category allocation</h3><span>Editable</span></div><div class="planner-allocation-list">'+
-      db.budgetCategories.map(c=>'<label><span>'+esc(c.name)+'</span><input type="number" min="0" step="500" value="'+num(c.allocated)+'" data-budget-id="'+esc(c.id)+'" /></label>').join("")+
-      '</div><div class="planner-allocation-total"><span>Allocation total</span><strong>'+money.format(allocated)+'</strong></div></section>'+
-      '<section class="planner-card"><div class="planner-card-head"><h3>Commitments</h3><span>'+money.format(committed)+'</span></div>'+
-        '<div class="planner-budget-lines"><div><span>Suppliers</span><strong>'+money.format(supplierCommitted)+'</strong></div><div><span>Direct expenses</span><strong>'+money.format(personalCommitted)+'</strong></div></div>'+
-        '<div class="planner-card-head planner-subhead"><h3>Direct expenses</h3><button data-jump="expenses">Manage expenses →</button></div><div class="planner-mini-list">'+
-        (expenseOptions.length?expenseOptions.slice(0,6).map(x=>'<button data-open-view="expenses" data-open-id="'+esc(x.id)+'"><span>'+esc(x.name)+'</span><small>'+esc(x.category)+'</small><strong>'+money.format(x.actualCost||x.expectedCost)+'</strong></button>').join(""):'<p>No direct wedding expenses yet.</p>')+
-      '</div></section></div>'+
-    '<section class="planner-list-card planner-list-card-full planner-payments-list"><div class="planner-list-tools"><input type="search" id="planner-search" placeholder="Search payments" value="'+esc(search)+'" /><span>'+filtered.length+' transactions</span></div>'+
-      (filtered.length?'<div class="planner-table-wrap"><table class="planner-table"><thead><tr><th>Payment</th><th>Supplier</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead><tbody>'+
-      filtered.map(x=>{const v=vendorOptions.find(v=>v.id===x.vendorId);return '<tr data-payment="'+esc(x.id)+'"><td>'+esc(x.description)+'</td><td>'+esc(v?.name||"—")+'</td><td>'+money.format(x.amount)+'</td><td>'+dateLabel(x.dueDate)+'</td><td>'+statusBadge(x.status)+'</td></tr>'}).join("")+'</tbody></table></div>':empty("Use + Record payment when you are ready to add a deposit or balance."))+
-    '</section>'+
-    '<dialog class="planner-record-modal" id="garden-savings-modal" aria-labelledby="garden-savings-modal-title">'+
-      '<section class="planner-editor-card planner-modal-card">'+
-        '<div class="planner-editor-head planner-modal-head"><div><span class="eyebrow">FUTURE GARDEN WEDDING</span><h3 id="garden-savings-modal-title">Savings goal</h3></div><button type="button" class="planner-modal-close" id="garden-savings-close" aria-label="Close">×</button></div>'+
-        '<form id="garden-savings-form" class="planner-form-grid">'+
-          formField("gardenSavingsTarget","Savings goal (PHP)","number",gardenGoal,false)+
-          formField("gardenSavingsSaved","Saved so far (PHP)","number",gardenSaved,false)+
-          formField("gardenSavingsNotes","Notes","textarea",db.settings.gardenSavingsNotes||"",false)+
-          '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">Save garden fund</button><button class="button subtle" id="garden-savings-cancel" type="button">Cancel</button></div>'+
-        '</form>'+
-      '</section>'+
-    '</dialog>'+
-    '<dialog class="planner-record-modal" id="planner-payment-modal" aria-labelledby="planner-payment-modal-title">'+
-      '<section class="planner-editor-card planner-modal-card">'+
-        '<div class="planner-editor-head planner-modal-head"><div><span class="eyebrow">'+(selected?'EDIT PAYMENT':'NEW PAYMENT')+'</span><h3 id="planner-payment-modal-title">'+(selected?esc(selected.description):"Record payment")+'</h3></div>'+
-          '<div class="planner-modal-head-actions">'+
-            (selected?'<button type="button" class="planner-link-danger" id="planner-archive">Archive</button>':'')+
-            '<button type="button" class="planner-modal-close" id="planner-modal-close" aria-label="Close">×</button>'+
-          '</div>'+
-        '</div>'+
-        '<form id="planner-payment-form" class="planner-form-grid">'+
-          formField("vendorId","Supplier","select",payment.vendorId,true,[...vendorOptions.map(v=>v.id)])+
-          formField("description","Description","text",payment.description,true)+formField("amount","Amount (PHP)","number",payment.amount,true)+
-          formField("dueDate","Due date","date",payment.dueDate,false)+formField("status","Status","select",payment.status,true,["Planned","Due","Paid","Cancelled"])+
-          formField("paidDate","Paid date","date",payment.paidDate,false)+formField("method","Method","select",payment.method,false,["","Cash","Bank transfer","GCash","Maya","Card","Other"])+
-          formField("notes","Notes","textarea",payment.notes,false)+
-          '<div class="planner-form-actions planner-field-wide"><button class="button primary" type="submit">'+(selected?"Save payment":"Add payment")+'</button><button class="button subtle" id="planner-cancel" type="button">Cancel</button></div>'+
-        '</form>'+
-      '</section>'+
-    '</dialog>';
-
-  const savingsModal=root.querySelector("#garden-savings-modal");
-  const closeSavings=()=>{
-    savingsModalOpen=false;
-    if(savingsModal?.open)savingsModal.close();
-    renderBudget();
-  };
-  root.querySelector("#garden-savings-edit")?.addEventListener("click",()=>{
-    savingsModalOpen=true;
-    recordModalOpen=false;
-    selectedId=null;
-    renderBudget();
-  });
-  if(savingsModal && savingsModalOpen){
-    savingsModal.showModal();
-    savingsModal.addEventListener("cancel",e=>{e.preventDefault();closeSavings()});
-    savingsModal.addEventListener("click",e=>{if(e.target===savingsModal)closeSavings()});
-    root.querySelector("#garden-savings-close")?.addEventListener("click",closeSavings);
-    root.querySelector("#garden-savings-cancel")?.addEventListener("click",closeSavings);
-  }
-  root.querySelector("#garden-savings-form")?.addEventListener("submit",e=>{
-    e.preventDefault();
-    const fd=new FormData(e.currentTarget);
-    db.settings.gardenSavingsTarget=Math.max(0,num(fd.get("gardenSavingsTarget")));
-    db.settings.gardenSavingsSaved=Math.max(0,num(fd.get("gardenSavingsSaved")));
-    db.settings.gardenSavingsNotes=String(fd.get("gardenSavingsNotes")||"").trim();
-    savingsModalOpen=false;
-    save();
-    renderBudget();
-    updateToolbar();
-  });
-
-  const modal=root.querySelector("#planner-payment-modal");
-  const closeModal=()=>{
-    recordModalOpen=false;
-    selectedId=null;
-    if(modal?.open)modal.close();
-    renderBudget();
-  };
-
-  const select=root.querySelector("#f-vendorId");
-  if(select){[...select.options].forEach(opt=>{const v=vendorOptions.find(v=>v.id===opt.value);if(v)opt.textContent=v.name})}
-
-  root.querySelector("#planner-new-payment")?.addEventListener("click",()=>{
-    selectedId=null;
-    recordModalOpen=true;
-    renderBudget();
-  });
-  root.querySelectorAll("[data-budget-id]").forEach(input=>input.addEventListener("change",()=>{
-    const cat=db.budgetCategories.find(c=>c.id===input.dataset.budgetId);
-    if(cat)cat.allocated=Math.max(0,num(input.value));
-    save();
-    renderBudget();
-  }));
-  root.querySelector("#planner-search").addEventListener("input",e=>{
-    search=e.target.value;
-    renderBudget();
-    const box=root.querySelector("#planner-search");
-    if(box){box.focus();box.setSelectionRange(box.value.length,box.value.length)}
-  });
-  root.querySelectorAll("[data-payment]").forEach(row=>row.addEventListener("click",()=>{
-    selectedId=row.dataset.payment;
-    recordModalOpen=true;
-    renderBudget();
-  }));
-
-  if(modal && recordModalOpen){
-    modal.showModal();
-    modal.addEventListener("cancel",e=>{e.preventDefault();closeModal()});
-    modal.addEventListener("click",e=>{if(e.target===modal)closeModal()});
-    root.querySelector("#planner-modal-close")?.addEventListener("click",closeModal);
-    root.querySelector("#planner-cancel")?.addEventListener("click",closeModal);
-  }
-
-  root.querySelector("#planner-payment-form")?.addEventListener("submit",e=>{
-    e.preventDefault();
-    if(!e.currentTarget.reportValidity())return;
-    const fd=new FormData(e.currentTarget);
-    const rec=selected||{id:uid("pay"),archived:false};
-    rec.vendorId=String(fd.get("vendorId"));
-    rec.description=String(fd.get("description")).trim();
-    rec.amount=Math.max(0,num(fd.get("amount")));
-    rec.dueDate=String(fd.get("dueDate")||"");
-    rec.status=String(fd.get("status"));
-    rec.paidDate=String(fd.get("paidDate")||"");
-    rec.method=String(fd.get("method")||"");
-    rec.notes=String(fd.get("notes")||"").trim();
-    if(!selected)db.payments.push(rec);
-    recordModalOpen=false;
-    selectedId=null;
-    save();
-    renderBudget();
-    updateToolbar();
-  });
-  const archive=root.querySelector("#planner-archive");
-  if(archive)archive.addEventListener("click",()=>{
-    if(!confirm("Archive this payment record?"))return;
-    selected.archived=true;
-    recordModalOpen=false;
-    selectedId=null;
-    save();
-    renderBudget();
-    updateToolbar();
-  });
-  bindFinanceTabs();
-  bindJumps();
 }
 // Firebase callable failures are often generic in a mobile browser.
 function invitationServiceError(error, service = "invitation service") {
@@ -1130,13 +907,13 @@ function renderCurrent() {
   if(currentView==="overview")renderOverview();
   else if(currentView==="settings")renderSettings();
   else if(currentView==="guestguide")renderGuestGuide();
-  else if(currentView==="budget")renderBudget();
+  else if(["budget","vendors","expenses"].includes(currentView))finance.open(currentView,selectedId);
   else if(currentView==="photos")renderPhotoArchive();
   else renderEntity(currentView);
 }
 function switchPlanner(view,clear=true){
-  if(!["overview","settings","guestguide","budget","photos",...Object.keys(schemas)].includes(view))view="overview";
-  if(view==="budget" && organizerRole==="coordinator")view="vendors";
+  if(!["overview","settings","guestguide","budget","photos","vendors","expenses",...Object.keys(schemas)].includes(view))view="overview";
+  if(view==="vendors")view="expenses";
   currentView=view;if(clear){selectedId=null;search="";showArchived=false;recordModalOpen=false;savingsModalOpen=false}
   const navView=(view==="vendors"||view==="expenses")?"budget":view;
   document.querySelectorAll("[data-planner-view]").forEach(button=>{
@@ -1157,7 +934,7 @@ document.getElementById("planner-mobile-section")?.addEventListener("change",eve
 function updateToolbar(){
   const strong=document.querySelector(".planner-toolbar strong");
   if(strong)strong.textContent="Angela & Joseph · "+dateLabel(db.settings.date);
-  if(remoteActive) setSyncState("FIREBASE SYNCED");
+  // Sync state is changed only when Firebase confirms the write.
 }
 
 document.getElementById("planner-export").addEventListener("click",()=>{

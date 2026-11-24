@@ -13,6 +13,7 @@ const FALLBACK = Object.freeze({
   city: "",
   venueTentative: true,
   rsvpMode: "Both",
+  guestCameraEnabled:false,
   guestGuide: {
     attire:"", whatToWear:"", whatToBring:"", preparation:"",
     arrival:"", venueInstructions:"", transportParking:"", reminders:"", contact:""
@@ -58,6 +59,7 @@ function normalize(data) {
     city: typeof data.city==="string" ? data.city.trim().slice(0,120) : "",
     venueTentative: data.venueTentative !== false,
     rsvpMode: mode,
+    guestCameraEnabled:data.guestCameraEnabled === true,
     guestGuide,
   };
 }

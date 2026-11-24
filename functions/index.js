@@ -179,6 +179,9 @@ async function recordAttempt(request) {
 // Owners can explicitly enable a particular invitation without changing
 // the wedding-day schedule. This never opens another invitation's camera.
 async function cameraWindow(manualEnabled) {
+  const [plan,publicDetails]=await Promise.all([db.doc("weddings/main").get(),db.doc("publicWeddingDetails/current").get()]);
+  if (plan.get("settings.guestCameraEnabled") !== true || publicDetails.get("guestCameraEnabled") !== true)
+    return {cameraOpen:false,openAt:null,closeAt:null};
   if (manualEnabled) return {cameraOpen:true,openAt:null,closeAt:null};
   const schedule=await db.doc("weddingSettings/camera").get();
   const start=schedule.get("openAt"),end=schedule.get("closeAt");
@@ -922,6 +925,9 @@ exports.finalizeGuestPhotoUpload = onCall(driveConfiguration(), async request =>
 
       if (!pendingState.exists || pendingState.get("status") !== "uploading")
         throw new HttpsError("failed-precondition","This upload was cancelled or expired.");
+      const [plan,publicDetails]=await Promise.all([tx.get(db.doc("weddings/main")),tx.get(db.doc("publicWeddingDetails/current"))]);
+      if(plan.get("settings.guestCameraEnabled") !== true || publicDetails.get("guestCameraEnabled") !== true)
+        throw new HttpsError("failed-precondition","The wedding camera is disabled.");
       const invitationRef = db.collection("invitationRegistry").doc(pending.invitationId);
       const invitation = await tx.get(invitationRef);
       if (

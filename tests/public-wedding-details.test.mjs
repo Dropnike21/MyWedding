@@ -45,7 +45,7 @@ test("public Firestore rules allow only guest-safe Event Setup fields",()=>{
   assert.match(rules,/allow get: if true;/);
   assert.match(rules,/allow list: if false;/);
   assert.match(rules,/allow create, update: if isOwner\(\)/);
-  for(const field of ["date","dateTentative","ceremony","venueName","city","venueTentative","rsvpMode","guestGuide","updatedAt"])
+  for(const field of ["date","dateTentative","ceremony","venueName","city","venueTentative","rsvpMode","guestGuide","guestCameraEnabled","updatedAt"])
     assert.match(rules,new RegExp('"'+field+'"'));
   assert.match(rules,/request\.resource\.data\.date == ""/);
   assert.match(rules,/request\.resource\.data\.rsvpMode in \["Both", "Messenger only", "Website only"\]/);
@@ -70,7 +70,7 @@ test("venue map is driven by published Planning Studio values",()=>{
 });
 
 test("current dynamic detail cache version is used",()=>{
-  assert.match(app,/const BUILD = "20261119-invitecopy1"/);
-  assert.match(html,/assets\/app\.js\?v=20261119-invitecopy1/);
-  assert.match(planner,/planner-firestore\.js\?v=20261119-guestdetails1/);
+  assert.match(app,/const BUILD = "20261124-finance-camera1"/);
+  assert.match(html,/assets\/app\.js\?v=20261124-finance-camera1/);
+  assert.match(planner,/planner-firestore\.js\?v=20261124-finance-camera1/);
 });

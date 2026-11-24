@@ -65,7 +65,7 @@ const secureGuestEnabled = guestAccessConfig.enabled;
 function driveUploadsActive() {
   return Boolean(
     secureGuestEnabled && guestAccessConfig.driveUploadsEnabled &&
-    cameraAccess?.cameraOpen === true
+    publishedWeddingDetails.guestCameraEnabled === true && cameraAccess?.cameraOpen === true
   );
 }
 
@@ -475,9 +475,18 @@ landingRsvpForm?.addEventListener("submit",async event=>{
   }
 });
 
+function applyCameraFeature() {
+  const enabled=publishedWeddingDetails.guestCameraEnabled === true;
+  [landingContinue,landingAnotherCode,document.querySelector(".guest-invite-pass"),document.querySelector(".camera-gate-heading"),document.querySelector(".camera-access-card")].forEach(node=>{if(node)node.hidden=!enabled;});
+  const note=document.getElementById("camera-disabled-note");
+  if(note)note.hidden=enabled || Boolean(pendingLinkCode);
+  if(!enabled && !cameraSession.hidden)leaveCameraMode();
+  if(!enabled)closeCodeModal();
+}
 function showInvitationLanding(code) {
   if (!CODE_PATTERN.test(code) || !invitationLanding) return;
   pendingLinkCode=code;
+  applyCameraFeature();
   input.value=formatted(code);
   landingCode.textContent=formatted(code);
   if(landingDetailsLink)landingDetailsLink.href="./guest-details.html#"+code;
@@ -504,7 +513,7 @@ function showInvitationLanding(code) {
       const seats=Number(response.data?.invitedSeats||1);
       if(landingSeatSummary)landingSeatSummary.textContent=
         seats+" reserved seat"+(seats===1?"":"s")+" for this invitation.";
-      landingStatus.textContent="Invitation verified. View the guest details page first, then return here whenever you're ready to use the wedding camera.";
+      landingStatus.textContent="Invitation verified. View guest details and confirm attendance.";
     })
     .catch(error=>{
       if(pendingLinkCode===code)landingStatus.textContent=
@@ -518,6 +527,7 @@ function hideInvitationLanding() {
   landingInvitationDetails=null;
   gate.classList.remove("has-invitation");
   pendingLinkCode=null;
+  applyCameraFeature();
 }
 function absorbInvitationUrl() {
   const fragment=window.location.hash;
@@ -552,6 +562,8 @@ landingAnotherCode?.addEventListener("click",()=>{
 });
 document.addEventListener("wedding:public-details",event=>{
   publishedWeddingDetails=event.detail||{};
+  applyCameraFeature();
+  if(publishedWeddingDetails.guestCameraEnabled === true && !pendingLinkCode && cameraSession.hidden)restoreOnThisDevice();
   updateLandingDate();
   if(landingInvitationDetails){
     renderInvitationDetails(landingInvitationDetails);
@@ -562,6 +574,7 @@ document.addEventListener("wedding:public-details",event=>{
 async function verifyCode(code, { fromLink = false, switching = false } = {}) {
   const report = switching ? modalShow : show;
   const focusTarget = switching ? switchInput : input;
+  if(publishedWeddingDetails.guestCameraEnabled !== true){report("The wedding camera is currently disabled.","error");return false;}
 
   if (!CODE_PATTERN.test(code)) {
     report("Please enter all eight characters from the invitation.", "error");
@@ -585,7 +598,7 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
 
   try {
     const verified = await redeem(code);
-    if (!verified.cameraOpen) {
+    if (!verified.cameraOpen || publishedWeddingDetails.guestCameraEnabled !== true) {
       const open = verified.openAt ? new Date(verified.openAt) : null;
       const when = open && !Number.isNaN(open.getTime())
         ? open.toLocaleString([], { dateStyle: "medium", timeStyle: "short" })
@@ -623,7 +636,7 @@ async function verifyCode(code, { fromLink = false, switching = false } = {}) {
 }
 
 async function restoreOnThisDevice() {
-  if (!cameraRequested() || sessionRestoring || pendingLinkCode) return;
+  if (!cameraRequested() || sessionRestoring || pendingLinkCode || publishedWeddingDetails.guestCameraEnabled !== true) return;
   sessionRestoring = true;
 
   show("Checking whether this phone already has wedding camera access…");
@@ -639,7 +652,7 @@ async function restoreOnThisDevice() {
       return;
     }
 
-    if (session.cameraOpen) {
+    if (session.cameraOpen && publishedWeddingDetails.guestCameraEnabled === true) {
       enterCameraMode(session);
     } else {
       const open = session.openAt ? new Date(session.openAt) : null;
@@ -736,9 +749,10 @@ async function initializeGuestCameraAccess() {
   }
 
   if (pendingLinkCode) {
-    landingStatus.textContent="Your invitation is ready. Tap Open your wedding camera to continue.";
+    landingStatus.textContent="Your invitation is ready. View guest details and attendance.";
   }
 }
 
 leaveCameraMode();
+applyCameraFeature();
 initializeGuestCameraAccess();
